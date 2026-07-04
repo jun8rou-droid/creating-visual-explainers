@@ -132,6 +132,7 @@ export async function analyzeDrawing(fileOrName, options) {
     analyzeSource: payload.source || 'api',
     demoMode: Boolean(payload.demoMode),
     visionEnabled: payload.visionEnabled,
+    visionError: payload.visionError || null,
   };
 }
 

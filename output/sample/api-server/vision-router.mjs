@@ -79,9 +79,18 @@ export function getVisionStatus() {
   if (!provider) {
     return { enabled: false };
   }
+  const key = provider === 'google'
+    ? (process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY || '')
+    : (process.env.ANTHROPIC_API_KEY || '');
+  const keyHint = key
+    ? (provider === 'google'
+      ? (key.startsWith('AIza') ? 'AIza…' : '形式要確認（AIza で始まる AI Studio キー）')
+      : 'sk-…')
+    : null;
   return {
     enabled: true,
     provider,
     model: getVisionModelId(provider),
+    keyHint,
   };
 }

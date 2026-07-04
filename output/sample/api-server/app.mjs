@@ -261,6 +261,7 @@ app.post(API_PATH_ANALYZE, upload.single('drawing'), async (req, res) => {
     let response;
     let analyzeSource = 'demo';
     let visionModel = null;
+    let visionError = null;
 
     if (VISION_ENABLED && req.file && req.file.buffer?.length) {
       try {
@@ -270,7 +271,8 @@ app.post(API_PATH_ANALYZE, upload.single('drawing'), async (req, res) => {
         visionModel = visionResult.model;
         console.log('[analyze] vision ok:', fileName, '(' + visionResult.provider + ')');
       } catch (visionErr) {
-        console.error('[analyze] vision failed, fallback demo:', visionErr.message);
+        visionError = visionErr.message || String(visionErr);
+        console.error('[analyze] vision failed, fallback demo:', visionError);
         response = buildDemoAnalyzeResponse(fileName);
         analyzeSource = 'demo-fallback';
       }
@@ -305,6 +307,7 @@ app.post(API_PATH_ANALYZE, upload.single('drawing'), async (req, res) => {
       source: analyzeSource,
       visionEnabled: VISION_ENABLED,
       demoMode: !analyzeSource.startsWith('vision-'),
+      visionError,
     };
 
     if (!isDbEnabled() && cacheKey) analyzeCache.set(cacheKey, payload);

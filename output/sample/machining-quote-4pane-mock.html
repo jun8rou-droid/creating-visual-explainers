@@ -3552,8 +3552,10 @@
           $('status-bar').textContent =
             'AI 解析完了（' + via + demoWarning + '）· 黄色の欄と工程提案を確認してください';
           var statusText = $('drawing-status-text');
-          if (statusText && demoWarning) {
-            statusText.textContent = 'デモデータが入りました。本番解析には API キー設定が必要です。';
+          if (statusText && result.visionError) {
+            statusText.textContent = 'Gemini エラー: ' + result.visionError;
+          } else if (statusText && demoWarning) {
+            statusText.textContent = 'デモデータが入りました。API キーを確認してください。';
           }
           var chatBox = $('ai-chat-messages');
           if (chatBox) chatBox.innerHTML = '';
