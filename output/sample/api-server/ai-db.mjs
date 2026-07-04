@@ -64,12 +64,25 @@ export async function insertAiFeedback(payload) {
 }
 
 /**
+ * @param {{ suggestion_json?: { model?: string }, model_version?: string, api_model?: string | null }} row
+ */
+export function isDemoSuggestionRow(row) {
+  if (!row) return true;
+  const jsonModel = row.suggestion_json?.model;
+  const version = row.model_version || jsonModel || '';
+  if (version === 'api-demo-v1' || jsonModel === 'api-demo-v1') return true;
+  if (row.api_model) return false;
+  if (typeof version === 'string' && /^(gemini:|claude:)/.test(version)) return false;
+  return true;
+}
+
+/**
  * @param {string} hash
  */
 export async function findSuggestionByDrawingHash(hash) {
   if (!hash) return null;
   const res = await query(
-    `SELECT id, quote_id, suggestion_json, model_version, created_at
+    `SELECT id, quote_id, suggestion_json, model_version, api_model, created_at
      FROM ai_suggestions
      WHERE drawing_file_hash = $1
      ORDER BY created_at DESC

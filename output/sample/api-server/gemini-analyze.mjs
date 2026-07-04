@@ -22,6 +22,9 @@ export async function analyzeDrawingWithGemini(file, options) {
   }
 
   const mediaType = detectDrawingMediaType(file);
+  if (!mediaType) {
+    throw new Error('Vision 未対応のファイル形式、または空ファイルです');
+  }
   const data = bufferToBase64(mediaType, file.buffer);
 
   const modelId = options.model || process.env.GOOGLE_MODEL || process.env.GEMINI_MODEL || 'gemini-2.0-flash';

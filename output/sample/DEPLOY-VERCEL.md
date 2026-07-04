@@ -70,16 +70,20 @@ DATABASE_URL="postgresql://..." npm run migrate
 
 ---
 
-## 5. （任意）図面 AI 解析
+## 5. 図面 AI 解析（Vision）
 
-Vision を使う場合のみ、Vercel の Environment Variables に追加:
+**いま本番は API キー未設定のためデモモードです**（図面の中身は読まず固定サンプルを返します）。
 
-| 変数 | 内容 |
-|------|------|
-| `ANTHROPIC_API_KEY` | Claude 用 |
-| または `GOOGLE_API_KEY` | Gemini 用（`VISION_PROVIDER=google`） |
+1. [Google AI Studio](https://aistudio.google.com/apikey) で API キーを作成（`AIza...`）
+2. Vercel → **Settings → Environment Variables → Add**
+   - Name: `GOOGLE_API_KEY`
+   - Value: コピーしたキー
+   - Environment: Production / Preview にチェック
+3. （任意）`VISION_PROVIDER=google` · `GOOGLE_MODEL=gemini-2.5-flash`
+4. **Redeploy**
+5. `/api/health` で `"vision": { "enabled": true }` を確認
 
-未設定でも **デモ応答** で動きます。
+Claude を使う場合は `ANTHROPIC_API_KEY` を設定（`VISION_PROVIDER=anthropic`）。
 
 ---
 

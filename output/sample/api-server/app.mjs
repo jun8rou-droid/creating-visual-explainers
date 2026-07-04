@@ -17,7 +17,7 @@ import {
   createSuggestionRecord,
   validateAnalyzeResponse,
 } from '../js/drawing-analyze/shared.mjs';
-import { findSuggestionByDrawingHash, insertAiFeedback, insertAiSuggestion } from './ai-db.mjs';
+import { findSuggestionByDrawingHash, insertAiFeedback, insertAiSuggestion, isDemoSuggestionRow } from './ai-db.mjs';
 import { isDbEnabled, pingDb } from './db.mjs';
 import {
   confirmQuoteRevision,
@@ -226,6 +226,7 @@ app.post(API_PATH_ANALYZE, upload.single('drawing'), async (req, res) => {
       ? req.file.originalname
       : (req.body && req.body.fileName) || 'drawing.pdf';
     const quoteRef = req.body && req.body.quote_id;
+    const forceReanalyze = req.query.force === '1' || req.body?.force === '1';
     const hash = req.file ? drawingFileHash(req.file) : null;
     const cacheKey = req.file ? fileCacheKey(req.file) : fileName;
 
@@ -233,9 +234,11 @@ app.post(API_PATH_ANALYZE, upload.single('drawing'), async (req, res) => {
     if (isDbEnabled()) {
       quoteId = await resolveOrCreateQuoteId(quoteRef);
 
-      if (hash) {
+      if (hash && !forceReanalyze) {
         const cachedDb = await findSuggestionByDrawingHash(hash);
-        if (cachedDb && cachedDb.suggestion_json) {
+        const useCache = cachedDb?.suggestion_json
+          && !(VISION_ENABLED && isDemoSuggestionRow(cachedDb));
+        if (useCache) {
           const response = cachedDb.suggestion_json;
           return res.json({
             response,
@@ -246,6 +249,8 @@ app.post(API_PATH_ANALYZE, upload.single('drawing'), async (req, res) => {
             ),
             cached: true,
             source: 'db',
+            visionEnabled: VISION_ENABLED,
+            demoMode: isDemoSuggestionRow(cachedDb),
           });
         }
       }
@@ -298,6 +303,8 @@ app.post(API_PATH_ANALYZE, upload.single('drawing'), async (req, res) => {
       suggestion,
       cached: false,
       source: analyzeSource,
+      visionEnabled: VISION_ENABLED,
+      demoMode: !analyzeSource.startsWith('vision-'),
     };
 
     if (!isDbEnabled() && cacheKey) analyzeCache.set(cacheKey, payload);

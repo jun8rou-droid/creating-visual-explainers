@@ -73,6 +73,7 @@ async function parseJsonOrThrow(res) {
  * @property {string} [quoteId]
  * @property {Array<{id: string, rows: unknown[]}>} [presetCatalog]
  * @property {AbortSignal} [signal]
+ * @property {boolean} [forceReanalyze] — true なら DB キャッシュを無視して再解析
  * @property {boolean} [forceLocal] — true なら fetch せずローカル demo のみ
  */
 
@@ -106,6 +107,7 @@ export async function analyzeDrawing(fileOrName, options) {
     form.append('drawing', fileOrName, fileOrName.name || 'drawing.pdf');
   }
   if (options.quoteId) form.append('quote_id', options.quoteId);
+  if (options.forceReanalyze) form.append('force', '1');
 
   const res = await fetch(joinUrl(apiBase, API_PATH_ANALYZE), {
     method: 'POST',
@@ -128,6 +130,8 @@ export async function analyzeDrawing(fileOrName, options) {
     suggestionRecord: suggestionRecord,
     source: 'api',
     analyzeSource: payload.source || 'api',
+    demoMode: Boolean(payload.demoMode),
+    visionEnabled: payload.visionEnabled,
   };
 }
 

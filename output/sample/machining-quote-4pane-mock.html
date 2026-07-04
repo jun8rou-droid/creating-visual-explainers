@@ -728,6 +728,13 @@
             <p id="drawing-drop-hint" class="text-xs text-indigo-800/80 mb-2 leading-relaxed">
               PDF / PNG / JPEG を、下の枠にドロップ。または「ファイルを選ぶ」をクリック。
             </p>
+            <div id="vision-off-banner" class="hidden mb-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-950 leading-relaxed">
+              <strong class="font-semibold">いまはデモモードです。</strong>
+              図面の中身は読んでおらず、固定のサンプル値が入ります。
+              本番で AI 解析を使うには Vercel の Environment Variables に
+              <code class="font-mono text-[11px]">GOOGLE_API_KEY</code>（Gemini）または
+              <code class="font-mono text-[11px]">ANTHROPIC_API_KEY</code>（Claude）を追加して再デプロイしてください。
+            </div>
             <div class="flex flex-col sm:flex-row gap-2 items-stretch">
               <div id="drawing-drop-zone" class="drawing-drop-zone compact sm:min-w-[12rem] sm:flex-1" tabindex="0" aria-label="図面をドロップ">
                 <p class="text-xs text-indigo-900 font-semibold">ここに図面ドロップ</p>
@@ -1446,6 +1453,7 @@
       var DRAWING_MAX_BYTES = 20 * 1024 * 1024;
       var OCR_FIELD_KEYS = ['drawing', 'material', 'dia', 'length', 'product'];
       var ocrPending = { drawing: false, material: false, dia: false, length: false, product: false };
+      var apiVisionStatus = null;
       var pickActiveField = 'drawing';
       /** AI-API デモ状態 */
       var aiAnalyzeInFlight = false;
@@ -3424,6 +3432,42 @@
         renderAll();
       }
 
+      function updateVisionOffBanner() {
+        var banner = $('vision-off-banner');
+        if (!banner) return;
+        var off = !apiVisionStatus || !apiVisionStatus.enabled;
+        banner.classList.toggle('hidden', !off);
+      }
+
+      function fetchApiVisionStatus() {
+        return fetch('/api/health')
+          .then(function (res) { return res.ok ? res.json() : null; })
+          .catch(function () { return null; })
+          .then(function (data) {
+            apiVisionStatus = data && data.vision ? data.vision : { enabled: false };
+            updateVisionOffBanner();
+            return apiVisionStatus;
+          });
+      }
+
+      function formatAnalyzeSourceLabel(result) {
+        var viaLabel = {
+          vision: 'Vision API',
+          'vision-anthropic': 'Claude Vision',
+          'vision-google': 'Gemini Vision',
+          'demo-fallback': 'デモ（Vision失敗）',
+          demo: 'デモ（APIキー未設定）',
+          local: 'ローカルデモ',
+          db: 'キャッシュ',
+          api: 'API',
+        };
+        var src = result.analyzeSource || result.source || 'api';
+        if (result.demoMode || src === 'demo' || src === 'demo-fallback') {
+          return viaLabel[src] || 'デモ';
+        }
+        return viaLabel[src] || 'API';
+      }
+
       function updateAiUi() {
         var panel = $('ai-quote-suggestion');
         var btnAnalyze = $('btn-ai-analyze');
@@ -3464,7 +3508,21 @@
         updateOcrFieldStyles();
       }
 
-      function requestDrawingApiAnalysis(fileOrName) {
+      function runDrawingAnalyze() {
+        if (isConfirmedRevView() || aiAnalyzeInFlight) return;
+        var fileInput = $('drawing-file-input');
+        var meta = getCurrentDrawingMeta();
+        if (fileInput && fileInput.files && fileInput.files[0]) {
+          requestDrawingApiAnalysis(fileInput.files[0], { forceReanalyze: true });
+        } else if (meta && meta.rawFile) {
+          requestDrawingApiAnalysis(meta.rawFile, { forceReanalyze: true });
+        } else if (meta) {
+          requestDrawingApiAnalysis(meta.fileName || 'drawing.pdf', { forceReanalyze: true });
+        }
+      }
+
+      function requestDrawingApiAnalysis(fileOrName, analyzeOpts) {
+        analyzeOpts = analyzeOpts || {};
         if (isConfirmedRevView() || aiAnalyzeInFlight) return;
         aiAnalyzeInFlight = true;
         pendingAiProcessSuggestion = null;
@@ -3478,6 +3536,7 @@
           return api.analyzeDrawing(fileOrName, {
             quoteId: getQuoteIdForApi(),
             presetCatalog: PROCESS_PRESETS,
+            forceReanalyze: analyzeOpts.forceReanalyze,
           });
         }).then(function (result) {
           if (sessionLearnModule) {
@@ -3486,18 +3545,16 @@
           lastAiSuggestionRecord = result.suggestionRecord;
           applyDrawingAnalyzeResponse(result.response);
           aiAnalyzeInFlight = false;
-          var viaLabel = {
-            vision: 'Vision API',
-            'vision-anthropic': 'Claude Vision',
-            'vision-google': 'Gemini Vision',
-            'demo-fallback': 'API（Vision失敗→デモ）',
-            demo: 'デモ',
-            local: 'ローカル',
-            api: 'API',
-          };
-          var via = viaLabel[result.analyzeSource] || viaLabel[result.source] || 'API';
+          var via = formatAnalyzeSourceLabel(result);
+          var demoWarning = (result.demoMode || result.analyzeSource === 'demo' || result.analyzeSource === 'demo-fallback')
+            ? ' — 図面は未読取（デモ値）'
+            : '';
           $('status-bar').textContent =
-            'AI 解析完了（' + via + '）· 黄色の欄と工程提案を確認してください';
+            'AI 解析完了（' + via + demoWarning + '）· 黄色の欄と工程提案を確認してください';
+          var statusText = $('drawing-status-text');
+          if (statusText && demoWarning) {
+            statusText.textContent = 'デモデータが入りました。本番解析には API キー設定が必要です。';
+          }
           var chatBox = $('ai-chat-messages');
           if (chatBox) chatBox.innerHTML = '';
           if (sessionLearnModule) {
@@ -3556,17 +3613,6 @@
         $('status-bar').textContent =
           'AI 工程提案を却下しました' + formatDiffSummary(diff);
         updateAiUi();
-      }
-
-      function runDrawingAnalyze() {
-        var meta = getCurrentDrawingMeta();
-        if (!meta || isConfirmedRevView()) return;
-        var fileInput = $('drawing-file-input');
-        if (fileInput && fileInput.files && fileInput.files[0]) {
-          requestDrawingApiAnalysis(fileInput.files[0]);
-        } else {
-          requestDrawingApiAnalysis(meta.fileName || 'drawing.pdf');
-        }
       }
 
       function isImageFile(file) {
@@ -5054,6 +5100,7 @@
         }
         wireDrawingIngestApi();
         refreshQuoteRevisionMeta();
+        fetchApiVisionStatus();
       }
 
       window.addEventListener('beforeunload', function () {
