@@ -10,6 +10,12 @@
       "permanent": false
     }
   ],
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/index"
+    }
+  ],
   "functions": {
     "api/index.mjs": {
       "maxDuration": 60,

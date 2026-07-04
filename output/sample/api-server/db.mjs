@@ -9,8 +9,13 @@ const { Pool } = pg;
 /** @type {import('pg').Pool | null} */
 let pool = null;
 
+/** Neon 連携は POSTGRES_URL のみ設定されることがある */
+export function getDatabaseUrl() {
+  return process.env.DATABASE_URL || process.env.POSTGRES_URL || '';
+}
+
 export function isDbEnabled() {
-  return Boolean(process.env.DATABASE_URL);
+  return Boolean(getDatabaseUrl());
 }
 
 function poolSslOption(connectionString) {
@@ -24,7 +29,7 @@ function poolSslOption(connectionString) {
 export function getPool() {
   if (!isDbEnabled()) return null;
   if (!pool) {
-    const connectionString = process.env.DATABASE_URL;
+    const connectionString = getDatabaseUrl();
     pool = new Pool({
       connectionString,
       ssl: poolSslOption(connectionString),

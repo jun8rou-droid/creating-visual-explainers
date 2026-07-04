@@ -10,8 +10,14 @@ import { fileURLToPath } from 'url';
 import { closeDb, isDbEnabled, query } from './db.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-dotenv.config({ path: path.join(__dirname, '.env') });
-dotenv.config({ path: path.join(__dirname, '../.env') });
+if (!process.env.DATABASE_URL && !process.env.POSTGRES_URL) {
+  dotenv.config({ path: path.join(__dirname, '.env') });
+  dotenv.config({ path: path.join(__dirname, '../.env') });
+  dotenv.config({ path: path.join(__dirname, '../.env.neon.local') });
+}
+if (!process.env.DATABASE_URL && process.env.POSTGRES_URL) {
+  process.env.DATABASE_URL = process.env.POSTGRES_URL;
+}
 
 const MIGRATIONS_DIR = path.resolve(__dirname, '../migrations');
 
