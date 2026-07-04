@@ -1,0 +1,1960 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>週次売上ダッシュボード</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Noto Sans JP"', 'sans-serif'],
+            display: ['"Plus Jakarta Sans"', '"Noto Sans JP"', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              50: '#f5f3ff', 100: '#ede9fe', 200: '#ddd6fe',
+              500: '#8b5cf6', 600: '#7c3aed', 700: '#6d28d9',
+            },
+          },
+          boxShadow: {
+            card: '0 0 0 1px rgba(51, 65, 85, 0.55), 0 4px 28px rgba(0, 0, 0, 0.45), 0 0 48px rgba(34, 211, 238, 0.04)',
+            'card-hover': '0 0 0 1px rgba(167, 139, 250, 0.25), 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 60px rgba(34, 211, 238, 0.06)',
+            sidebar: '4px 0 32px rgba(0, 0, 0, 0.45)',
+          },
+        },
+      },
+    };
+  </script>
+  <style>
+    html {
+      color-scheme: dark;
+    }
+    .mesh-bg {
+      background-color: #020617;
+      background-image:
+        radial-gradient(ellipse 85% 55% at 85% -15%, rgba(139, 92, 246, 0.14), transparent 52%),
+        radial-gradient(ellipse 70% 45% at 0% 105%, rgba(34, 211, 238, 0.09), transparent 48%);
+    }
+    .kpi-num { font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+    /* 印刷時はサイドバー・検索・AI質問・前後ナビを隠し、白地で出す */
+    @media print {
+      html, body { color-scheme: light; background: #fff !important; color: #0f172a !important; }
+      .mesh-bg { background: #fff !important; }
+      aside, header .actions-bar, #ask-section, #search-popover,
+      #btn-prev-week, #btn-next-week, #btn-prev-month, #btn-next-month,
+      #profile-drawer { display: none !important; }
+      header, main, section, article, .shadow-card, .shadow-sidebar { box-shadow: none !important; background: #fff !important; color: #0f172a !important; border-color: #cbd5e1 !important; }
+      h1, h2, h3, p, td, th, span, div, code, label, button, a, summary {
+        color: inherit !important;
+      }
+      #weekly-summary-section { background: #f8fafc !important; }
+      .text-slate-50, .text-slate-100, .text-slate-200, .text-slate-300, .text-slate-400 { color: #0f172a !important; }
+      .text-slate-500, .text-slate-600 { color: #475569 !important; }
+      svg text { fill: #0f172a !important; }
+      .border-slate-600\/80, .border-slate-700\/70, .border-slate-700\/80 { border-color: #cbd5e1 !important; }
+      details[open] { page-break-inside: avoid; }
+      section { page-break-inside: avoid; }
+    }
+  </style>
+</head>
+<body class="min-h-screen mesh-bg text-slate-300 antialiased text-[15px]">
+  <div id="app-error" class="hidden max-w-lg mx-auto mt-16 rounded-2xl border border-amber-500/40 bg-amber-950/50 p-6 text-amber-100 text-sm shadow-lg shadow-amber-900/20"></div>
+
+  <div id="app-main" class="hidden flex min-h-screen flex-col md:flex-row">
+    <aside class="hidden md:flex w-[260px] shrink-0 flex-col border-r border-slate-700/80 bg-slate-950/90 backdrop-blur-md shadow-sidebar">
+      <div class="p-6 pb-4">
+        <div class="flex items-center gap-2.5">
+          <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-cyan-500 text-white shadow-lg shadow-cyan-500/20 ring-1 ring-white/10">✦</span>
+          <div>
+            <p class="font-display text-sm font-bold tracking-tight text-slate-100">売上レポート</p>
+            <p class="text-[11px] font-medium text-slate-500">週次ダッシュボード</p>
+          </div>
+        </div>
+      </div>
+      <nav class="flex-1 space-y-0.5 px-3 text-sm" aria-label="メイン">
+        <span class="flex items-center gap-3 rounded-xl border-l-[3px] border-cyan-400 bg-slate-800/80 py-2.5 pl-[13px] pr-3.5 font-semibold text-cyan-100 shadow-md shadow-cyan-500/10 ring-1 ring-cyan-400/25">ダッシュボード</span>
+        <span class="block px-3.5 py-2 text-slate-500">レポート履歴 <span class="text-[10px]">（予定）</span></span>
+      </nav>
+      <div class="p-4 mt-auto text-[11px] text-slate-500 leading-relaxed">
+        <code class="block truncate rounded border border-slate-700 bg-slate-900 px-2 py-1 font-mono text-[10px] text-slate-400" id="db-path" title="環境変数 SALES_REPORT_DB で変更">—</code>
+      </div>
+    </aside>
+
+    <div class="flex min-w-0 flex-1 flex-col">
+      <header class="border-b border-slate-700/80 bg-slate-950/80 px-5 py-5 backdrop-blur-sm sm:px-8 sm:py-6">
+        <div class="flex flex-wrap items-start justify-between gap-4">
+          <div class="min-w-0 flex-1">
+            <div class="flex flex-wrap items-center gap-2">
+              <div class="inline-flex gap-0.5 rounded-lg bg-slate-900/90 p-1 ring-1 ring-slate-600/90 shadow-inner shadow-black/30" role="group" aria-label="表示単位">
+                <button
+                  type="button"
+                  id="btn-view-week"
+                  class="rounded-md px-3 py-1.5 text-xs font-semibold text-slate-400 transition hover:text-slate-200"
+                >
+                  週次
+                </button>
+                <button
+                  type="button"
+                  id="btn-view-month"
+                  class="rounded-md px-3 py-1.5 text-xs font-semibold text-slate-400 transition hover:text-slate-200"
+                  title=""
+                >
+                  月次
+                </button>
+              </div>
+            </div>
+            <p
+              id="month-toggle-hint"
+              class="hidden mt-1 max-w-xl text-[11px] leading-snug text-amber-300/90"
+            ></p>
+            <p id="header-subtitle" class="mt-2 text-sm font-medium text-slate-500">週次サマリー</p>
+            <h1 id="header-title" class="mt-1 font-display text-2xl font-bold tracking-tight text-slate-50">今週の売上レポート</h1>
+            <p class="mt-2 text-sm text-slate-400">集計期間: <span id="period-ja" class="text-slate-300">—</span></p>
+            <div id="week-select-wrap" class="mt-3 flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                id="btn-prev-week"
+                class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-600 bg-slate-800 text-slate-300 ring-1 ring-slate-700/80 transition hover:border-cyan-500/50 hover:text-cyan-200 disabled:cursor-not-allowed disabled:opacity-40"
+                aria-label="前週"
+                title="前の週"
+              >&larr;</button>
+              <label for="week-select" class="text-xs font-semibold text-slate-500">表示週</label>
+              <select id="week-select" class="rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-sm font-semibold text-slate-100 shadow-sm ring-1 ring-slate-700/80 focus:border-cyan-500/50 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"></select>
+              <button
+                type="button"
+                id="btn-next-week"
+                class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-600 bg-slate-800 text-slate-300 ring-1 ring-slate-700/80 transition hover:border-cyan-500/50 hover:text-cyan-200 disabled:cursor-not-allowed disabled:opacity-40"
+                aria-label="次週"
+                title="次の週"
+              >&rarr;</button>
+              <span class="text-xs text-slate-500 font-mono" id="week-key-label"></span>
+            </div>
+            <div id="month-select-wrap" class="mt-3 hidden flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                id="btn-prev-month"
+                class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-600 bg-slate-800 text-slate-300 ring-1 ring-slate-700/80 transition hover:border-cyan-500/50 hover:text-cyan-200 disabled:cursor-not-allowed disabled:opacity-40"
+                aria-label="前月"
+                title="前の月"
+              >&larr;</button>
+              <label for="month-select" class="text-xs font-semibold text-slate-500">表示月</label>
+              <select id="month-select" class="rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-sm font-semibold text-slate-100 shadow-sm ring-1 ring-slate-700/80 focus:border-cyan-500/50 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"></select>
+              <button
+                type="button"
+                id="btn-next-month"
+                class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-600 bg-slate-800 text-slate-300 ring-1 ring-slate-700/80 transition hover:border-cyan-500/50 hover:text-cyan-200 disabled:cursor-not-allowed disabled:opacity-40"
+                aria-label="次月"
+                title="次の月"
+              >&rarr;</button>
+              <span class="text-xs text-slate-500 font-mono" id="month-key-label"></span>
+            </div>
+          </div>
+          <div class="actions-bar flex flex-col items-end gap-2">
+            <div class="flex items-center gap-2">
+              <div class="relative">
+                <input
+                  id="search-input"
+                  type="search"
+                  placeholder="得意先・品目を検索"
+                  class="w-52 rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-xs text-slate-100 ring-1 ring-slate-700/80 placeholder:text-slate-500 focus:border-cyan-500/50 focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
+                  autocomplete="off"
+                />
+                <div
+                  id="search-popover"
+                  class="absolute right-0 top-full z-30 mt-1 hidden max-h-96 w-80 overflow-auto rounded-lg border border-slate-600 bg-slate-900/95 p-2 shadow-2xl ring-1 ring-slate-600/60 backdrop-blur"
+                ></div>
+              </div>
+              <button
+                type="button"
+                id="btn-print"
+                class="inline-flex items-center gap-1.5 rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-xs font-semibold text-slate-200 ring-1 ring-slate-700/80 transition hover:border-cyan-500/50 hover:text-cyan-200"
+                title="印刷 / PDF保存"
+                aria-label="印刷"
+              >🖨 印刷</button>
+            </div>
+            <div class="text-right text-xs text-slate-500">
+              <p>取り込み</p>
+              <p id="import-time" class="font-medium text-slate-300">—</p>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <main class="flex-1 space-y-6 px-5 py-6 sm:px-8 sm:space-y-8">
+        <!-- ① 最上段: Claude の今週のひとこと（運用で一番見たい情報） -->
+        <section
+          id="weekly-summary-section"
+          class="relative overflow-hidden rounded-2xl border border-cyan-500/20 bg-gradient-to-br from-slate-900/95 via-slate-900/90 to-slate-950/95 p-6 shadow-card sm:p-7"
+          aria-labelledby="weekly-summary-heading"
+        >
+          <div class="pointer-events-none absolute -right-20 -top-20 h-56 w-56 rounded-full bg-violet-500/10 blur-3xl" aria-hidden="true"></div>
+          <div class="pointer-events-none absolute -left-20 -bottom-20 h-56 w-56 rounded-full bg-cyan-500/10 blur-3xl" aria-hidden="true"></div>
+          <div class="relative flex flex-wrap items-baseline justify-between gap-2">
+            <div class="flex items-center gap-2">
+              <span class="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500/30 to-cyan-500/30 text-cyan-200 ring-1 ring-cyan-400/30 text-sm">✦</span>
+              <h2 id="weekly-summary-heading" class="font-display text-lg font-bold text-slate-50">
+                今週のひとこと
+              </h2>
+            </div>
+            <p id="weekly-summary-meta" class="text-xs text-slate-500"></p>
+          </div>
+          <p id="weekly-summary-empty" class="relative mt-4 hidden text-sm leading-relaxed text-slate-400">
+            まだ保存された文案がありません。ターミナルで
+            <code class="rounded border border-slate-600 bg-slate-950 px-1 py-0.5 font-mono text-xs text-slate-300">python -m sales_report_automation.simple_ingest ...</code>
+            を<strong class="text-slate-200">--dry-run なし</strong>で実行すると、Claude の週次サマリーがここに表示されます。
+          </p>
+          <div
+            id="weekly-summary-body"
+            class="relative mt-4 hidden whitespace-pre-wrap text-base leading-relaxed text-slate-100"
+          ></div>
+        </section>
+
+        <!-- ② 単価欠け警告（件数 > 0 のときのみ visible） -->
+        <section
+          id="missing-rows-section"
+          class="hidden rounded-2xl border border-amber-500/40 bg-amber-950/30 p-5 shadow-card sm:p-6"
+          aria-labelledby="missing-rows-heading"
+        >
+          <div class="flex flex-wrap items-start justify-between gap-3">
+            <div class="flex items-start gap-3">
+              <span class="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-500/20 text-amber-200 ring-1 ring-amber-400/40">!</span>
+              <div>
+                <h2 id="missing-rows-heading" class="font-display text-base font-bold text-amber-100">
+                  要対応: 単価が空の行が <span id="missing-count-num">0</span> 件
+                </h2>
+                <p class="mt-1 text-xs text-amber-200/80" id="missing-rows-help">
+                  推奨は「同顧客×同品目過去 → 同先×材質過去 → 同先×材質peer → 同品目peer → 金額÷数量逆算」の優先順で算出。
+                </p>
+              </div>
+            </div>
+            <p id="missing-csv-wrap" class="hidden">
+              <a
+                id="missing-csv-link"
+                class="inline-flex items-center gap-1.5 rounded-lg border border-amber-400/60 bg-amber-500/10 px-3 py-2 text-xs font-bold text-amber-100 transition hover:bg-amber-500/20"
+                href="#"
+                download
+                ><span>⬇</span> CSVでダウンロード</a
+              >
+            </p>
+          </div>
+          <div id="missing-rows-table" class="mt-4 overflow-x-auto"></div>
+          <p id="missing-rows-more" class="hidden mt-2 text-xs text-amber-200/70"></p>
+        </section>
+
+        <!-- ③ KPI カード -->
+        <section class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="主要指標">
+          <article class="rounded-2xl border border-slate-600/80 bg-slate-900/90 p-5 shadow-card">
+            <p id="kpi-total-label" class="text-xs font-semibold uppercase tracking-wider text-slate-500">週次売上（計）</p>
+            <p class="kpi-num mt-2 font-display text-2xl font-bold text-slate-50" id="kpi-total">—</p>
+            <div class="mt-2 space-y-1 text-sm" id="kpi-total-compare" aria-label="前週比・前年同週比"></div>
+          </article>
+          <article class="rounded-2xl border border-slate-600/80 bg-slate-900/90 p-5 shadow-card">
+            <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">明細行数</p>
+            <p class="kpi-num mt-2 font-display text-2xl font-bold text-slate-50" id="kpi-lines">—</p>
+            <div class="mt-2 space-y-1 text-sm" id="kpi-lines-compare" aria-label="前週比・前年同週比"></div>
+          </article>
+          <article class="rounded-2xl border border-slate-600/80 bg-slate-900/90 p-5 shadow-card">
+            <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">平均単価<span class="font-normal text-slate-500">（数量加重）</span></p>
+            <p class="kpi-num mt-2 font-display text-2xl font-bold text-slate-50" id="kpi-avg-unit">—</p>
+            <p class="mt-1 text-xs text-slate-500">数量が空の行のみの週は「—」</p>
+          </article>
+          <article class="rounded-2xl border border-slate-600/80 bg-slate-900/90 p-5 shadow-card">
+            <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">ユニーク得意先</p>
+            <p class="kpi-num mt-2 font-display text-2xl font-bold text-slate-50" id="kpi-customers">—</p>
+            <p id="kpi-customers-note" class="mt-1 text-xs text-slate-500">当週 CSV 内の顧客コード種類数</p>
+          </article>
+        </section>
+
+        <!-- ⑨ YTD（年初来累計）カード -->
+        <section
+          id="ytd-section"
+          class="hidden rounded-2xl border border-slate-600/80 bg-slate-900/90 p-5 shadow-card sm:p-6"
+          aria-labelledby="ytd-heading"
+        >
+          <div class="flex flex-wrap items-baseline justify-between gap-3">
+            <div>
+              <h2 id="ytd-heading" class="font-display text-base font-bold text-slate-100">
+                <span id="ytd-year-label">—</span> 年初来（YTD）
+              </h2>
+              <p id="ytd-meta" class="mt-1 text-xs text-slate-500"></p>
+            </div>
+            <div class="text-right">
+              <p class="kpi-num font-display text-2xl font-bold text-slate-50" id="ytd-amount">—</p>
+              <div class="mt-1 text-sm" id="ytd-yoy"></div>
+            </div>
+          </div>
+          <div class="mt-4">
+            <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">過去5年の年合計</p>
+            <div id="ytd-bars" class="mt-2 flex items-end gap-3"></div>
+          </div>
+        </section>
+
+        <div class="grid gap-6 lg:grid-cols-5">
+          <section class="lg:col-span-3 rounded-2xl border border-slate-600/80 bg-slate-900/90 p-5 shadow-card sm:p-6">
+            <h2 id="chart-heading" class="font-display text-base font-bold text-slate-100">日別の売上（出荷日）</h2>
+            <p id="chart-subnote" class="mt-1 text-xs text-slate-500"></p>
+            <div id="chart-wrap" class="mt-4 min-h-[200px]"></div>
+            <details id="daily-details" class="mt-4 hidden rounded-xl border border-slate-600/90 bg-slate-950/80 px-4 py-3 open:shadow-md open:shadow-cyan-500/5">
+              <summary id="daily-details-summary" class="cursor-pointer select-none text-sm font-semibold text-cyan-300 hover:text-cyan-200">日別を表で見る</summary>
+              <div id="daily-table-container" class="mt-3 overflow-x-auto" role="region" aria-label="日別売上の表"></div>
+            </details>
+          </section>
+          <section class="lg:col-span-2 rounded-2xl border border-slate-600/80 bg-slate-900/90 p-5 shadow-card sm:p-6">
+            <h2 class="font-display text-base font-bold text-slate-100">チャネル構成</h2>
+            <div id="channel-content" class="mt-4">
+              <p
+                id="channel-fallback"
+                class="text-sm leading-relaxed text-slate-400"
+              >
+                読み込み中…
+              </p>
+              <div
+                id="channel-viz"
+                class="hidden flex flex-col items-center gap-5 sm:flex-row sm:items-start sm:justify-center"
+              >
+                <div id="channel-pie" class="shrink-0"></div>
+                <ul
+                  id="channel-legend"
+                  class="min-w-0 w-full max-w-sm space-y-2 text-sm sm:w-auto"
+                  aria-label="チャネル別の内訳"
+                ></ul>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <!-- ⑧ ヒートマップカレンダー（月次のみ） -->
+        <section
+          id="heatmap-section"
+          class="hidden rounded-2xl border border-slate-600/80 bg-slate-900/90 p-5 shadow-card sm:p-6"
+          aria-labelledby="heatmap-heading"
+        >
+          <h2 id="heatmap-heading" class="font-display text-base font-bold text-slate-100">日次ヒートマップ</h2>
+          <p class="mt-1 text-xs text-slate-500">色が濃いほど売上が大きい日。空欄は出荷データなし。</p>
+          <div id="heatmap-wrap" class="mt-4 overflow-x-auto"></div>
+        </section>
+
+        <div class="grid gap-6 lg:grid-cols-2">
+          <section
+            class="rounded-2xl border border-slate-600/80 bg-slate-900/90 p-5 shadow-card sm:p-6"
+            aria-labelledby="top-cust-heading"
+          >
+            <h2 id="top-cust-heading" class="font-display text-base font-bold text-slate-100">得意先 Top 10</h2>
+            <p class="mt-1 text-xs text-slate-500">当週の取り込み明細から、売上計の多い順です。クリックで詳細。</p>
+            <div id="top-customers-wrap" class="mt-4 overflow-x-auto"></div>
+          </section>
+          <section
+            class="rounded-2xl border border-slate-600/80 bg-slate-900/90 p-5 shadow-card sm:p-6"
+            aria-labelledby="top-prod-heading"
+          >
+            <h2 id="top-prod-heading" class="font-display text-base font-bold text-slate-100">品目 Top 10</h2>
+            <p class="mt-1 text-xs text-slate-500">マッピング後の品目キー単位。クリックで詳細。</p>
+            <div id="top-products-wrap" class="mt-4 overflow-x-auto"></div>
+          </section>
+        </div>
+
+        <!-- ⑦ 取引マトリックス Top5×Top5 -->
+        <section
+          id="matrix-section"
+          class="hidden rounded-2xl border border-slate-600/80 bg-slate-900/90 p-5 shadow-card sm:p-6"
+          aria-labelledby="matrix-heading"
+        >
+          <h2 id="matrix-heading" class="font-display text-base font-bold text-slate-100">取引マトリックス（Top5顧客 × Top5品目）</h2>
+          <p class="mt-1 text-xs text-slate-500">セルは金額。空白セルはその顧客×品目で当期間の売上なし。</p>
+          <div id="matrix-wrap" class="mt-4 overflow-x-auto"></div>
+        </section>
+
+        <!-- ⑱ AI質問BOX -->
+        <section
+          id="ask-section"
+          class="rounded-2xl border border-violet-500/25 bg-gradient-to-br from-slate-900/90 to-slate-950/90 p-5 shadow-card sm:p-6"
+          aria-labelledby="ask-heading"
+        >
+          <div class="flex items-center gap-2">
+            <span class="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500/30 to-cyan-500/30 text-cyan-200 ring-1 ring-cyan-400/30 text-sm">？</span>
+            <h2 id="ask-heading" class="font-display text-base font-bold text-slate-100">この期間について Claude に聞く</h2>
+          </div>
+          <p class="mt-1 text-xs text-slate-500">
+            例: 「Top得意先で前週比が大きく落ちたのはどこ？」「チャネル別で月次売上が伸びたのは？」<br>
+            <span class="text-slate-400">対象期間を切り替えれば、全期間や複数月にわたる質問もできます。</span>
+          </p>
+          <!-- 対象期間セレクター -->
+          <div class="mt-3 flex flex-wrap items-center gap-2">
+            <label for="ask-period" class="text-xs font-semibold text-slate-400">対象期間</label>
+            <select
+              id="ask-period"
+              class="rounded-lg border border-slate-600 bg-slate-800 px-2.5 py-1.5 text-xs font-semibold text-slate-100 ring-1 ring-slate-700/80 focus:border-violet-500/50 focus:outline-none focus:ring-2 focus:ring-violet-500/30"
+            >
+              <option value="current">現在表示中</option>
+              <option value="all">全期間</option>
+              <option value="months">月の範囲指定...</option>
+            </select>
+            <div id="ask-month-range" class="hidden flex flex-wrap items-center gap-1.5">
+              <input
+                id="ask-month-from"
+                type="month"
+                class="rounded-lg border border-slate-600 bg-slate-800 px-2 py-1.5 text-xs text-slate-100 ring-1 ring-slate-700/80 focus:border-violet-500/50 focus:outline-none focus:ring-2 focus:ring-violet-500/30"
+              />
+              <span class="text-xs text-slate-500">〜</span>
+              <input
+                id="ask-month-to"
+                type="month"
+                class="rounded-lg border border-slate-600 bg-slate-800 px-2 py-1.5 text-xs text-slate-100 ring-1 ring-slate-700/80 focus:border-violet-500/50 focus:outline-none focus:ring-2 focus:ring-violet-500/30"
+              />
+            </div>
+          </div>
+          <form id="ask-form" class="mt-2 flex flex-col gap-2 sm:flex-row">
+            <input
+              id="ask-input"
+              type="text"
+              maxlength="600"
+              placeholder="質問を入力して Enter（Shift+Enterで送信）"
+              class="flex-1 rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-100 ring-1 ring-slate-700/80 placeholder:text-slate-500 focus:border-violet-500/50 focus:outline-none focus:ring-2 focus:ring-violet-500/30"
+            />
+            <button
+              type="submit"
+              id="ask-submit"
+              class="inline-flex items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-cyan-500 px-4 py-2 text-sm font-bold text-white shadow-lg shadow-cyan-500/20 transition hover:from-violet-400 hover:to-cyan-400 disabled:cursor-not-allowed disabled:opacity-60"
+            >聞く</button>
+          </form>
+          <div id="ask-output" class="mt-3 hidden whitespace-pre-wrap rounded-lg border border-slate-600/70 bg-slate-950/80 p-4 text-sm leading-relaxed text-slate-200"></div>
+        </section>
+
+        <!-- 詳細ドロワー（顧客/品目クリックで開く） -->
+        <div
+          id="profile-drawer"
+          class="fixed inset-y-0 right-0 z-40 hidden w-full max-w-md transform overflow-auto border-l border-slate-700 bg-slate-950 p-5 shadow-2xl shadow-black/60 transition-transform"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="profile-heading"
+        >
+          <div class="flex items-baseline justify-between gap-2">
+            <h2 id="profile-heading" class="font-display text-lg font-bold text-slate-50">プロファイル</h2>
+            <button id="profile-close" class="text-slate-400 hover:text-slate-100 text-xl leading-none" aria-label="閉じる">×</button>
+          </div>
+          <div id="profile-body" class="mt-4 text-sm text-slate-200"></div>
+        </div>
+
+        <footer class="border-t border-slate-700/60 pt-6 text-xs text-slate-500">
+          <p id="footer-source" class="break-all">—</p>
+        </footer>
+      </main>
+    </div>
+  </div>
+
+  <script>
+(function () {
+  const yen = (n) => new Intl.NumberFormat('ja-JP', { style: 'currency', currency: 'JPY', maximumFractionDigits: 0 }).format(n);
+
+  /** 現在のページのディレクトリを基準にした /api と同等の URL（サブパス配信でも動く） */
+  const API_ROOT = new URL('api/', new URL('.', location.href));
+
+  /** @param {string} path 例: weeks / month_summary?month=2026-04 */
+  function apiUrl(path) {
+    return new URL(path, API_ROOT).href;
+  }
+
+  /** セレクトをプログラムで埋めるときの change 連鎖を防ぐ */
+  let suppressSelectNav = false;
+  /** 直近の load で得たキー（初回 load 前のボタン用） */
+  let lastWeekKeys = [];
+  let lastMonthKeys = [];
+
+  /** 単価候補（小数あり） */
+  function fmtUnit(n) {
+    if (n == null || Number.isNaN(n)) return '—';
+    return new Intl.NumberFormat('ja-JP', { maximumFractionDigits: 4 }).format(n);
+  }
+
+  function esc(s) {
+    return String(s ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function renderDailyTable(daily) {
+    const det = document.getElementById('daily-details');
+    const c = document.getElementById('daily-table-container');
+    if (!daily || !daily.length) {
+      det.classList.add('hidden');
+      c.innerHTML = '';
+      return;
+    }
+    det.classList.remove('hidden');
+    const rows = daily
+      .map((d) => {
+        const lc =
+          d.line_count != null && !Number.isNaN(d.line_count)
+            ? Number(d.line_count).toLocaleString('ja-JP')
+            : '—';
+        return (
+          '<tr class="border-b border-slate-700/70 last:border-0">' +
+          '<th scope="row" class="py-2 pr-4 text-left font-mono text-xs font-normal text-slate-300">' +
+          esc(d.ship_date) +
+          '</th>' +
+          '<td class="py-2 pr-4 text-right tabular-nums text-slate-400">' +
+          lc +
+          '</td>' +
+          '<td class="py-2 text-right tabular-nums font-medium text-slate-50">' +
+          yen(d.amount) +
+          '</td></tr>'
+        );
+      })
+      .join('');
+    c.innerHTML =
+      '<table class="w-full min-w-[280px] text-sm">' +
+      '<caption class="sr-only">日別の売上金額と、その日の明細件数</caption>' +
+      '<thead><tr class="border-b border-slate-600 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">' +
+      '<th class="pb-2 pr-4 font-medium">出荷日</th>' +
+      '<th class="pb-2 pr-4 text-right font-medium">明細件数</th>' +
+      '<th class="pb-2 text-right font-medium">売上計</th>' +
+      '</tr></thead><tbody>' +
+      rows +
+      '</tbody></table>';
+  }
+
+  /**
+   * @param {any[]} preview
+   * @param {number} totalMissing
+   */
+  /** @param {{ body?: string, created_at?: string } | null | undefined} ws */
+  function renderWeeklySummary(ws) {
+    const empty = document.getElementById('weekly-summary-empty');
+    const meta = document.getElementById('weekly-summary-meta');
+    const body = document.getElementById('weekly-summary-body');
+    const bodyText = ws && ws.body != null && String(ws.body).trim() !== '' ? String(ws.body) : '';
+    if (!bodyText) {
+      empty.classList.remove('hidden');
+      body.classList.add('hidden');
+      body.textContent = '';
+      meta.textContent = '';
+      return;
+    }
+    empty.classList.add('hidden');
+    body.classList.remove('hidden');
+    body.textContent = bodyText;
+    const ca = ws.created_at || '';
+    meta.textContent = ca
+      ? '保存: ' + ca.replace('T', ' ').slice(0, 19) + ' UTC'
+      : '';
+  }
+
+  /**
+   * @param {any[]} preview
+   * @param {number} totalMissing
+   * @param {'week'|'month'} view
+   * @param {string} csvQuery
+   */
+  function renderMissingPreview(preview, totalMissing, view, csvQuery) {
+    const sec = document.getElementById('missing-rows-section');
+    const wrap = document.getElementById('missing-rows-table');
+    const more = document.getElementById('missing-rows-more');
+    const csvWrap = document.getElementById('missing-csv-wrap');
+    const csvLink = document.getElementById('missing-csv-link');
+    const countNum = document.getElementById('missing-count-num');
+    if (!preview || !preview.length) {
+      sec.classList.add('hidden');
+      wrap.innerHTML = '';
+      more.classList.add('hidden');
+      csvWrap.classList.add('hidden');
+      return;
+    }
+    sec.classList.remove('hidden');
+    if (countNum) countNum.textContent = String(totalMissing || preview.length);
+    // 重複多めの場合の注記（occurrencesが2以上の行があるとき）
+    const dupCount = preview.reduce((s, r) => s + (r.occurrences && r.occurrences > 1 ? 1 : 0), 0);
+    const helpEl = document.getElementById('missing-rows-help');
+    if (helpEl) {
+      const baseHelp = '推奨は「同顧客×同品目過去 → 同先×材質過去 → 同先×材質peer → 同品目peer → 金額÷数量逆算」の優先順で算出。';
+      if (dupCount > 0) {
+        helpEl.innerHTML = baseHelp + '<br><span class="text-amber-300 font-semibold">×N の行は同一CSVの再取り込み由来で複数カウントされています（実体は1行）。</span>';
+      } else {
+        helpEl.textContent = baseHelp;
+      }
+    }
+    if (csvQuery) {
+      csvWrap.classList.remove('hidden');
+      csvLink.setAttribute('href', apiUrl('missing_unit_prices.csv?' + csvQuery));
+    } else {
+      csvWrap.classList.add('hidden');
+    }
+    const peerProdLabel = view === 'month' ? '同品目・同月' : '同品目・同週';
+    const peerMatLabel = view === 'month' ? '同先×材質・同月' : '同先×材質・同週';
+    const periodWord = view === 'month' ? '同一暦月' : '同一週';
+    const body = preview
+      .map((r) => {
+        const csvLine = r.row_index != null ? r.row_index + 2 : '—';
+        const q =
+          r.quantity != null && !Number.isNaN(r.quantity)
+            ? esc(String(r.quantity))
+            : '—';
+        const matRaw = r.material_key != null && String(r.material_key).trim() !== '' ? String(r.material_key) : '';
+        const matTitle = esc(matRaw);
+        const matCell = matRaw
+          ? '<span class="line-clamp-2 break-all" title="' + matTitle + '">' + esc(matRaw) + '</span>'
+          : '<span class="text-slate-400">—</span>';
+        let histCell = '—';
+        if (r.suggested_unit_price != null && !Number.isNaN(r.suggested_unit_price)) {
+          histCell =
+            fmtUnit(r.suggested_unit_price) +
+            (r.suggested_from_ship_date
+              ? '<br><span class="text-slate-500 text-[11px]">基準出荷日 ' +
+                esc(r.suggested_from_ship_date) +
+                '</span>'
+              : '');
+        }
+        let hcmCell = '—';
+        const hcm = r.same_customer_material_hist_unit_price;
+        if (hcm != null && !Number.isNaN(hcm)) {
+          hcmCell =
+            fmtUnit(hcm) +
+            (r.same_customer_material_hist_ship_date
+              ? '<br><span class="text-slate-500 text-[11px]">基準出荷日 ' +
+                esc(r.same_customer_material_hist_ship_date) +
+                '</span>'
+              : '');
+        }
+        const peerMatCell =
+          r.peer_avg_customer_material_unit_price != null &&
+          !Number.isNaN(r.peer_avg_customer_material_unit_price)
+            ? fmtUnit(r.peer_avg_customer_material_unit_price)
+            : '—';
+        const peerProdCell =
+          r.peer_avg_unit_price != null && !Number.isNaN(r.peer_avg_unit_price)
+            ? fmtUnit(r.peer_avg_unit_price)
+            : '—';
+        const implCell =
+          r.implied_unit_price != null && !Number.isNaN(r.implied_unit_price)
+            ? fmtUnit(r.implied_unit_price)
+            : '—';
+        const recCell =
+          r.recommended_unit_price != null && !Number.isNaN(r.recommended_unit_price)
+            ? '<span class="font-semibold text-cyan-300">' + fmtUnit(r.recommended_unit_price) + '</span>'
+            : '—';
+        const title = esc(r.product_code || '');
+        return (
+          '<tr class="border-b border-slate-700/70 align-top last:border-0">' +
+          '<td class="py-2 pr-2 font-mono text-xs text-slate-500">' +
+          esc(String(csvLine)) +
+          '</td>' +
+          '<td class="py-2 pr-2 font-mono text-xs text-slate-300">' +
+          esc(r.customer_code) +
+          (r.occurrences && r.occurrences > 1
+            ? '<span class="ml-1 inline-flex items-center rounded bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-bold text-amber-200 ring-1 ring-amber-400/30" title="同一行が ' + r.occurrences + ' 回（再取り込み等で重複）">×' + r.occurrences + '</span>'
+            : '') +
+          '</td>' +
+          '<td class="max-w-[200px] py-2 pr-2 text-xs text-slate-200">' +
+          '<span class="line-clamp-2 break-all" title="' +
+          title +
+          '">' +
+          esc(r.product_code) +
+          '</span></td>' +
+          '<td class="max-w-[100px] py-2 pr-2 text-xs text-slate-400">' +
+          matCell +
+          '</td>' +
+          '<td class="py-2 pr-2 text-right tabular-nums text-xs text-slate-300">' +
+          q +
+          '</td>' +
+          '<td class="py-2 pr-2 text-right tabular-nums text-sm font-medium text-slate-50">' +
+          yen(r.amount) +
+          '</td>' +
+          '<td class="py-2 pr-2 font-mono text-xs text-slate-500">' +
+          esc(r.ship_date) +
+          '</td>' +
+          '<td class="py-2 pr-2 text-right text-xs tabular-nums">' +
+          histCell +
+          '</td>' +
+          '<td class="py-2 pr-2 text-right text-xs tabular-nums">' +
+          hcmCell +
+          '</td>' +
+          '<td class="py-2 pr-2 text-right text-xs tabular-nums">' +
+          peerMatCell +
+          '</td>' +
+          '<td class="py-2 pr-2 text-right text-xs tabular-nums">' +
+          peerProdCell +
+          '</td>' +
+          '<td class="py-2 pr-2 text-right text-xs tabular-nums">' +
+          implCell +
+          '</td>' +
+          '<td class="py-2 text-right text-xs tabular-nums">' +
+          recCell +
+          '</td></tr>'
+        );
+      })
+      .join('');
+    wrap.innerHTML =
+      '<table class="w-full min-w-[1180px] text-sm">' +
+      '<caption class="sr-only">単価が空の明細のうち先頭数件。CSV 行目はヘッダ1行を想定した目安です。</caption>' +
+      '<thead><tr class="border-b border-slate-600 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">' +
+      '<th class="pb-2 pr-2 font-medium">CSV行目<span class="block font-normal normal-case text-slate-500">（目安）</span></th>' +
+      '<th class="pb-2 pr-2 font-medium">得意先</th>' +
+      '<th class="pb-2 pr-2 font-medium">品目</th>' +
+      '<th class="pb-2 pr-2 font-medium">材質</th>' +
+      '<th class="pb-2 pr-2 text-right font-medium">数量</th>' +
+      '<th class="pb-2 pr-2 text-right font-medium">金額</th>' +
+      '<th class="pb-2 pr-2 font-medium">出荷日</th>' +
+      '<th class="pb-2 pr-2 text-right font-medium">過去<span class="block font-normal normal-case text-slate-500">（品目）</span></th>' +
+      '<th class="pb-2 pr-2 text-right font-medium">同先×材質<span class="block font-normal normal-case text-slate-500">（過去）</span></th>' +
+      '<th class="pb-2 pr-2 text-right font-medium">' +
+      esc(peerMatLabel) +
+      '</th>' +
+      '<th class="pb-2 pr-2 text-right font-medium">' +
+      esc(peerProdLabel) +
+      '</th>' +
+      '<th class="pb-2 pr-2 text-right font-medium">金額÷数量</th>' +
+      '<th class="pb-2 text-right font-medium">推奨</th>' +
+      '</tr></thead><tbody>' +
+      body +
+      '</tbody></table>';
+    if (totalMissing > preview.length) {
+      more.classList.remove('hidden');
+      more.textContent =
+        periodWord +
+        'で単価が空の行は全 ' +
+        totalMissing +
+        ' 件です。ここでは先頭 ' +
+        preview.length +
+        ' 件のみ表示しています。';
+    } else {
+      more.classList.add('hidden');
+    }
+  }
+
+  const CHANNEL_PIE_COLORS = [
+    '#22d3ee',
+    '#a78bfa',
+    '#38bdf8',
+    '#818cf8',
+    '#2dd4bf',
+    '#c084fc',
+    '#67e8f9',
+    '#e879f9',
+    '#5eead4',
+    '#94a3b8',
+  ];
+
+  /** @param {any} cb */
+  function renderChannelBreakdown(cb) {
+    const fb = document.getElementById('channel-fallback');
+    const viz = document.getElementById('channel-viz');
+    const pie = document.getElementById('channel-pie');
+    const leg = document.getElementById('channel-legend');
+    const items = (cb && cb.buckets) || [];
+    const ok = cb && cb.has_distinct_channels && items.length > 0;
+    if (!ok) {
+      fb.classList.remove('hidden');
+      viz.classList.add('hidden');
+      pie.innerHTML = '';
+      leg.innerHTML = '';
+      fb.textContent =
+        'チャネルがすべて空か、英語 CSV に channel 列がありません。マッピング JSON の columns に ' +
+        '"channel": "CSVのヘッダ名" を追加して再取り込みすると、売上構成の円グラフが表示されます。';
+      return;
+    }
+    fb.classList.add('hidden');
+    viz.classList.remove('hidden');
+    const total = items.reduce((s, x) => s + x.amount, 0);
+    const cx = 60,
+      cy = 60,
+      r = 48;
+    let svgInner = '';
+    if (total <= 0) {
+      svgInner = '';
+    } else if (items.length === 1) {
+      svgInner =
+        '<circle cx="' +
+        cx +
+        '" cy="' +
+        cy +
+        '" r="' +
+        r +
+        '" fill="' +
+        CHANNEL_PIE_COLORS[0] +
+        '" />';
+    } else {
+      let ang = -Math.PI / 2;
+      svgInner = items
+        .map((it, i) => {
+          const frac = it.amount / total;
+          const a0 = ang;
+          const a1 = ang + frac * 2 * Math.PI;
+          ang = a1;
+          const x0 = cx + r * Math.cos(a0),
+            y0 = cy + r * Math.sin(a0);
+          const x1 = cx + r * Math.cos(a1),
+            y1 = cy + r * Math.sin(a1);
+          const large = frac > 0.5 ? 1 : 0;
+          const d =
+            'M ' +
+            cx +
+            ' ' +
+            cy +
+            ' L ' +
+            x0.toFixed(2) +
+            ' ' +
+            y0.toFixed(2) +
+            ' A ' +
+            r +
+            ' ' +
+            r +
+            ' 0 ' +
+            large +
+            ' 1 ' +
+            x1.toFixed(2) +
+            ' ' +
+            y1.toFixed(2) +
+            ' Z';
+          return (
+            '<path d="' +
+            d +
+            '" fill="' +
+            CHANNEL_PIE_COLORS[i % CHANNEL_PIE_COLORS.length] +
+            '" stroke="#0f172a" stroke-width="1.5"/>'
+          );
+        })
+        .join('');
+    }
+    pie.innerHTML =
+      '<svg viewBox="0 0 120 120" class="mx-auto h-32 w-32 sm:mx-0" role="img" aria-label="チャネル別売上の割合">' +
+      svgInner +
+      '</svg>';
+    leg.innerHTML = items
+      .map((it, i) => {
+        const c = CHANNEL_PIE_COLORS[i % CHANNEL_PIE_COLORS.length];
+        return (
+          '<li class="flex flex-wrap items-baseline gap-x-2 gap-y-1 border-b border-slate-700/70 py-1.5 last:border-0">' +
+          '<span class="inline-block h-2.5 w-2.5 shrink-0 rounded-full" style="background:' +
+          c +
+          '"></span>' +
+          '<span class="min-w-0 flex-1 break-all font-medium text-slate-200">' +
+          esc(it.channel) +
+          '</span>' +
+          '<span class="tabular-nums text-slate-500">' +
+          esc(String(it.pct)) +
+          '%</span>' +
+          '<span class="tabular-nums font-semibold text-slate-50">' +
+          yen(it.amount) +
+          '</span></li>'
+        );
+      })
+      .join('');
+  }
+
+  /**
+   * 過去N期間の数字をミニチャート（SVGスパークライン）にする。
+   * @param {number[]} values - 古い順
+   * @param {number} maxAcrossRows - スケール基準値（行間で揃えるため）
+   */
+  function sparkline(values, maxAcrossRows) {
+    if (!values || !values.length) return '';
+    const W = 92, H = 26, pad = 2;
+    const max = maxAcrossRows > 0 ? maxAcrossRows : Math.max(...values, 1);
+    const n = values.length;
+    const innerW = W - pad * 2;
+    const innerH = H - pad * 2;
+    const last = values[n - 1] || 0;
+    const prev = n >= 2 ? values[n - 2] || 0 : 0;
+    const pts = values.map((v, i) => {
+      const x = pad + (n === 1 ? innerW / 2 : (innerW * i) / (n - 1));
+      const y = pad + innerH * (1 - Math.min(1, Math.max(0, v / max)));
+      return { x, y };
+    });
+    const pathD = pts.map((p, i) => (i ? 'L' : 'M') + p.x.toFixed(1) + ' ' + p.y.toFixed(1)).join(' ');
+    // 直近のトレンド色を決定
+    let stroke = '#64748b'; // slate-500
+    if (last > prev * 1.15) stroke = '#34d399'; // 上昇
+    else if (last < prev * 0.85) stroke = '#fb7185'; // 下降
+    const lastP = pts[n - 1];
+    return (
+      `<svg viewBox="0 0 ${W} ${H}" class="block" width="${W}" height="${H}" aria-hidden="true">` +
+      `<path d="${pathD}" fill="none" stroke="${stroke}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.85"/>` +
+      `<circle cx="${lastP.x.toFixed(1)}" cy="${lastP.y.toFixed(1)}" r="2" fill="${stroke}"/>` +
+      `</svg>`
+    );
+  }
+
+  /** ⑨ YTD カードのレンダラ */
+  function renderYtd(ytd) {
+    const sec = document.getElementById('ytd-section');
+    if (!ytd || !ytd.year) {
+      sec.classList.add('hidden');
+      return;
+    }
+    sec.classList.remove('hidden');
+    document.getElementById('ytd-year-label').textContent = ytd.year;
+    document.getElementById('ytd-amount').textContent = yen(ytd.ytd_amount || 0);
+    const meta = document.getElementById('ytd-meta');
+    meta.textContent =
+      '基準: ' + (ytd.reference_date || '—') +
+      '（' + (ytd.ytd_line_count || 0).toLocaleString('ja-JP') + ' 件） / 前年同期: ' +
+      yen(ytd.prev_ytd_amount || 0);
+    const yoy = document.getElementById('ytd-yoy');
+    if (ytd.yoy_pct == null) {
+      yoy.innerHTML = '<span class="text-slate-500">前年同期比: 算出不可</span>';
+    } else {
+      yoy.innerHTML = '前年同期比 ' + pctSpan(ytd.yoy_pct);
+    }
+    const bars = document.getElementById('ytd-bars');
+    const hist = ytd.annual_history || [];
+    if (!hist.length) {
+      bars.innerHTML = '<span class="text-xs text-slate-500">年次データがありません</span>';
+      return;
+    }
+    const max = Math.max(...hist.map((h) => h.amount), 1);
+    bars.innerHTML = hist
+      .map((h) => {
+        const ratio = (h.amount / max) * 100;
+        const isCurrent = String(h.year) === String(ytd.year);
+        const barCls = isCurrent
+          ? 'w-full rounded-t bg-gradient-to-t from-violet-500 to-cyan-400'
+          : 'w-full rounded-t bg-slate-700';
+        return (
+          '<div class="flex flex-col items-center gap-1" style="min-width: 56px">' +
+          '<div class="flex h-24 w-full items-end">' +
+          '<div class="' + barCls + '" style="height: ' + Math.max(2, ratio) + '%"></div>' +
+          '</div>' +
+          '<p class="text-[11px] tabular-nums ' + (isCurrent ? 'text-cyan-300 font-bold' : 'text-slate-400') + '">' + esc(h.year) + '</p>' +
+          '<p class="text-[10px] tabular-nums text-slate-500">' + yen(h.amount) + '</p>' +
+          '</div>'
+        );
+      })
+      .join('');
+  }
+
+  /** ⑦ 取引マトリックス */
+  function renderMatrix(m) {
+    const sec = document.getElementById('matrix-section');
+    const wrap = document.getElementById('matrix-wrap');
+    if (!m || !m.customers || !m.customers.length || !m.products || !m.products.length) {
+      sec.classList.add('hidden');
+      wrap.innerHTML = '';
+      return;
+    }
+    sec.classList.remove('hidden');
+    const flat = m.cells.flat();
+    const max = Math.max(...flat, 1);
+    const heat = (v) => {
+      if (!v || v <= 0) return 'bg-slate-950/40';
+      const t = Math.min(1, v / max);
+      // 6段階で色分け（cyan系）
+      if (t > 0.85) return 'bg-cyan-500/70 text-slate-950';
+      if (t > 0.6) return 'bg-cyan-500/50 text-slate-50';
+      if (t > 0.35) return 'bg-cyan-500/30 text-slate-100';
+      if (t > 0.15) return 'bg-cyan-500/15 text-slate-200';
+      if (t > 0.0) return 'bg-cyan-500/8 text-slate-300';
+      return 'bg-slate-950/40';
+    };
+    const head =
+      '<thead><tr class="text-xs font-semibold text-slate-500">' +
+      '<th class="p-2 text-left">顧客＼品目</th>' +
+      m.products
+        .map((p) => '<th class="p-2 max-w-[150px] text-left text-[11px] font-medium text-slate-400"><span class="line-clamp-2 break-all" title="' + esc(p) + '">' + esc(p) + '</span></th>')
+        .join('') +
+      '</tr></thead>';
+    const body = m.customers
+      .map((c, ci) => {
+        const cells = m.cells[ci]
+          .map((v) => {
+            const cls = heat(v);
+            const txt = v > 0 ? yen(v) : '<span class="text-slate-600">—</span>';
+            return '<td class="p-2 text-right tabular-nums text-xs ' + cls + '">' + txt + '</td>';
+          })
+          .join('');
+        return '<tr class="border-t border-slate-700/70"><th class="p-2 text-left font-mono text-xs text-slate-200">' + esc(c) + '</th>' + cells + '</tr>';
+      })
+      .join('');
+    wrap.innerHTML = '<table class="w-full min-w-[480px] text-sm border border-slate-700/70">' + head + '<tbody>' + body + '</tbody></table>';
+  }
+
+  /** ⑧ 月次ヒートマップカレンダー */
+  function renderHeatmap(daily, monthKey) {
+    const sec = document.getElementById('heatmap-section');
+    const wrap = document.getElementById('heatmap-wrap');
+    if (!daily || !daily.length || !monthKey) {
+      sec.classList.add('hidden');
+      wrap.innerHTML = '';
+      return;
+    }
+    sec.classList.remove('hidden');
+    // monthKey: "YYYY-MM"
+    const [yy, mm] = monthKey.split('-').map(Number);
+    if (!yy || !mm) {
+      sec.classList.add('hidden');
+      return;
+    }
+    // 当月の日数
+    const lastDay = new Date(yy, mm, 0).getDate();
+    // amount マップ
+    const byDate = {};
+    daily.forEach((d) => {
+      byDate[d.ship_date] = { amount: d.amount, line_count: d.line_count };
+    });
+    const amounts = daily.map((d) => d.amount);
+    const max = Math.max(...amounts, 1);
+    const heatColor = (v) => {
+      if (!v) return '';
+      const t = Math.min(1, v / max);
+      if (t > 0.85) return 'background:#0e7490;color:#f1f5f9';
+      if (t > 0.6) return 'background:#0891b2;color:#f1f5f9';
+      if (t > 0.35) return 'background:#06b6d4;color:#0f172a';
+      if (t > 0.15) return 'background:#67e8f9;color:#0f172a';
+      if (t > 0) return 'background:#cffafe;color:#0f172a';
+      return '';
+    };
+    // 1日の曜日（日=0、月=1...）
+    const firstWd = new Date(yy, mm - 1, 1).getDay();
+    const cells = [];
+    // 月曜始まりにする（月=0, 火=1, ..., 日=6）
+    const lead = (firstWd + 6) % 7;
+    for (let i = 0; i < lead; i++) cells.push(null);
+    for (let d = 1; d <= lastDay; d++) {
+      const ds = `${yy}-${String(mm).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      cells.push({ day: d, ds, ...(byDate[ds] || {}) });
+    }
+    while (cells.length % 7 !== 0) cells.push(null);
+
+    const head =
+      '<div class="grid grid-cols-7 gap-1 text-[10px] font-semibold text-slate-500">' +
+      ['月', '火', '水', '木', '金', '土', '日']
+        .map((w, i) => '<div class="px-1 text-center ' + (i >= 5 ? 'text-rose-400/70' : '') + '">' + w + '</div>')
+        .join('') +
+      '</div>';
+    const body =
+      '<div class="mt-1 grid grid-cols-7 gap-1">' +
+      cells
+        .map((c) => {
+          if (!c) return '<div class="aspect-square rounded-md bg-slate-950/30"></div>';
+          const style = heatColor(c.amount);
+          const tip = c.amount ? c.ds + ': ' + yen(c.amount) + ' (' + c.line_count + '件)' : c.ds + ': データなし';
+          return (
+            '<div class="aspect-square rounded-md flex flex-col items-end justify-between p-1 text-[10px] tabular-nums ' +
+            (c.amount ? '' : 'bg-slate-950/30 text-slate-600') +
+            '" style="' + style + '" title="' + esc(tip) + '">' +
+            '<span class="font-semibold">' + c.day + '</span>' +
+            (c.amount
+              ? '<span class="text-[9px] leading-none">' + Math.round(c.amount / 1000) + 'k</span>'
+              : '') +
+            '</div>'
+          );
+        })
+        .join('') +
+      '</div>';
+    wrap.innerHTML = head + body;
+  }
+
+  /** @param {any[]} rows */
+  function renderTopCustomers(rows) {
+    const wrap = document.getElementById('top-customers-wrap');
+    if (!rows || !rows.length) {
+      wrap.innerHTML = '<p class="text-sm text-slate-400">明細がありません。</p>';
+      return;
+    }
+    // スパークラインのスケールを行間で揃える
+    const maxHist = Math.max(
+      1,
+      ...rows.flatMap((r) => (r.history || []).map((v) => v || 0)),
+    );
+    const body = rows
+      .map(
+        (r) =>
+          '<tr class="cursor-pointer border-b border-slate-700/70 last:border-0 transition hover:bg-slate-800/40" data-customer="' +
+          esc(r.customer_code) +
+          '" tabindex="0" role="button" aria-label="' + esc(r.customer_code) + ' の詳細">' +
+          '<td class="py-2 pr-2 font-mono text-xs text-slate-500">' +
+          r.rank +
+          '</td>' +
+          '<td class="py-2 pr-2 font-mono text-sm text-slate-200">' +
+          esc(r.customer_code) +
+          '</td>' +
+          '<td class="py-2 pr-2 text-right tabular-nums font-semibold text-slate-50">' +
+          yen(r.total_amount) +
+          '</td>' +
+          '<td class="py-2 pr-2 text-right tabular-nums text-xs text-slate-500">' +
+          r.line_count +
+          ' 件</td>' +
+          '<td class="py-2 align-middle">' +
+          (r.history && r.history.length ? sparkline(r.history, maxHist) : '') +
+          '</td></tr>',
+      )
+      .join('');
+    wrap.innerHTML =
+      '<table class="w-full min-w-[340px] text-sm">' +
+      '<caption class="sr-only">売上の多い得意先上位10件と直近8期間の推移</caption>' +
+      '<thead><tr class="border-b border-slate-600 text-left text-xs font-semibold text-slate-500">' +
+      '<th class="pb-2 pr-2">#</th><th class="pb-2 pr-2">得意先コード</th><th class="pb-2 pr-2 text-right">売上計</th><th class="pb-2 pr-2 text-right">明細</th><th class="pb-2 text-right">直近8期</th>' +
+      '</tr></thead><tbody>' +
+      body +
+      '</tbody></table>';
+    wrap.querySelectorAll('tr[data-customer]').forEach((tr) => {
+      tr.addEventListener('click', () => openProfile({ customer: tr.dataset.customer }));
+      tr.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openProfile({ customer: tr.dataset.customer }); }
+      });
+    });
+  }
+
+  /** @param {any[]} rows */
+  function renderTopProducts(rows) {
+    const wrap = document.getElementById('top-products-wrap');
+    if (!rows || !rows.length) {
+      wrap.innerHTML = '<p class="text-sm text-slate-400">明細がありません。</p>';
+      return;
+    }
+    const maxHist = Math.max(
+      1,
+      ...rows.flatMap((r) => (r.history || []).map((v) => v || 0)),
+    );
+    const body = rows
+      .map((r) => {
+        const pc = esc(r.product_code || '');
+        return (
+          '<tr class="cursor-pointer border-b border-slate-700/70 last:border-0 transition hover:bg-slate-800/40" data-product="' +
+          pc +
+          '" tabindex="0" role="button" aria-label="品目詳細">' +
+          '<td class="py-2 pr-2 font-mono text-xs text-slate-500">' +
+          r.rank +
+          '</td>' +
+          '<td class="max-w-[240px] py-2 pr-2 text-xs text-slate-200">' +
+          '<span class="line-clamp-2 break-all" title="' +
+          pc +
+          '">' +
+          pc +
+          '</span></td>' +
+          '<td class="py-2 pr-2 text-right tabular-nums font-semibold text-slate-50">' +
+          yen(r.total_amount) +
+          '</td>' +
+          '<td class="py-2 pr-2 text-right tabular-nums text-xs text-slate-500">' +
+          r.line_count +
+          ' 件</td>' +
+          '<td class="py-2 align-middle">' +
+          (r.history && r.history.length ? sparkline(r.history, maxHist) : '') +
+          '</td></tr>'
+        );
+      })
+      .join('');
+    wrap.innerHTML =
+      '<table class="w-full min-w-[360px] text-sm">' +
+      '<caption class="sr-only">売上の多い品目キー上位10件と直近8期間の推移</caption>' +
+      '<thead><tr class="border-b border-slate-600 text-left text-xs font-semibold text-slate-500">' +
+      '<th class="pb-2 pr-2">#</th><th class="pb-2 pr-2">品目</th><th class="pb-2 pr-2 text-right">売上計</th><th class="pb-2 pr-2 text-right">明細</th><th class="pb-2 text-right">直近8期</th>' +
+      '</tr></thead><tbody>' +
+      body +
+      '</tbody></table>';
+    wrap.querySelectorAll('tr[data-product]').forEach((tr) => {
+      tr.addEventListener('click', () => openProfile({ product: tr.dataset.product }));
+      tr.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openProfile({ product: tr.dataset.product }); }
+      });
+    });
+  }
+
+  /**
+   * 前週/前月比などの%値を、矢印アイコン+閾値に応じた色で表示。
+   * 大きな上昇/下降は太字+背景pillにして視線を集める。
+   * @param {number|null|undefined} p
+   */
+  function pctSpan(p) {
+    if (p == null || Number.isNaN(p)) return '';
+    const sign = p > 0 ? '+' : '';
+    const arrow = p > 0 ? '▲' : p < 0 ? '▼' : '＝';
+    let cls;
+    if (p >= 30) cls = 'inline-flex items-center gap-1 rounded-md bg-emerald-500/15 px-1.5 py-0.5 font-bold text-emerald-300 ring-1 ring-emerald-500/30';
+    else if (p > 5) cls = 'inline-flex items-center gap-1 font-semibold text-emerald-400';
+    else if (p > -5) cls = 'inline-flex items-center gap-1 font-medium text-slate-400';
+    else if (p > -30) cls = 'inline-flex items-center gap-1 font-semibold text-amber-400';
+    else cls = 'inline-flex items-center gap-1 rounded-md bg-rose-500/15 px-1.5 py-0.5 font-bold text-rose-300 ring-1 ring-rose-500/30';
+    return `<span class="${cls}"><span class="text-[10px] leading-none">${arrow}</span>${sign}${p}%</span>`;
+  }
+
+  /**
+   * @param {'amount'|'lines'} kind
+   * @param {any} wow
+   * @param {any} yoy
+   * @param {any} [labels]
+   */
+  function renderCompareHtml(kind, wow, yoy, labels) {
+    const L = Object.assign(
+      {
+        wow: '前週比',
+        yoy: '前年同週比',
+        prevEmpty: '前週データなし',
+        prevZeroAmt: '前週売上計が0',
+        prevZeroLines: '前週明細が0件',
+        yoyZeroAmt: '前年売上計が0',
+        yoyZeroLines: '前年明細が0件',
+        yoyMissingOpen: '前年同週（',
+        yoyMissingClose: '）の取り込みなし',
+      },
+      labels || {},
+    );
+    const isAmount = kind === 'amount';
+    const pct = isAmount ? wow.total_amount_pct : wow.line_count_pct;
+    const prevZero = isAmount ? wow.prev_amount_zero : wow.prev_lines_zero;
+    const prevZeroLabel = isAmount ? L.prevZeroAmt : L.prevZeroLines;
+    let row1 = '';
+    if (pct != null && !Number.isNaN(pct)) {
+      row1 =
+        '<p class="flex flex-wrap items-baseline gap-x-1.5 gap-y-0">' +
+        pctSpan(pct) +
+        '<span class="text-slate-300 font-medium">' +
+        L.wow +
+        '</span>' +
+        '<span class="text-slate-500 text-xs font-mono">' +
+        (wow.prev_week_key || '') +
+        '</span></p>';
+    } else if (wow.prev_has_import && prevZero) {
+      row1 = '<p class="text-slate-400">' + L.wow + ' 算出不可（' + prevZeroLabel + '）</p>';
+    } else {
+      row1 = '<p class="text-slate-500">' + L.prevEmpty + '</p>';
+    }
+
+    let row2 = '';
+    if (yoy && yoy.prev_year_week_key) {
+      const yp = isAmount ? yoy.total_amount_pct : yoy.line_count_pct;
+      const yoyZero = isAmount ? yoy.amount_zero : yoy.lines_zero;
+      const yoyZeroLabel = isAmount ? L.yoyZeroAmt : L.yoyZeroLines;
+      if (yp != null && !Number.isNaN(yp)) {
+        row2 =
+          '<p class="flex flex-wrap items-baseline gap-x-1.5 gap-y-0 text-xs">' +
+          pctSpan(yp) +
+          '<span class="text-slate-300 font-medium">' +
+          L.yoy +
+          '</span>' +
+          '<span class="text-slate-500 font-mono">' +
+          yoy.prev_year_week_key +
+          '</span></p>';
+      } else if (yoy.has_import && yoyZero) {
+        row2 = '<p class="text-xs text-slate-400">' + L.yoy + ' 算出不可（' + yoyZeroLabel + '）</p>';
+      } else {
+        row2 =
+          '<p class="text-xs text-slate-500">' +
+          L.yoyMissingOpen +
+          '<span class="font-mono">' +
+          yoy.prev_year_week_key +
+          '</span>' +
+          L.yoyMissingClose +
+          '</p>';
+      }
+    }
+    return row1 + row2;
+  }
+
+  /** @param {any} data */
+  function compareLabelsFromView(data) {
+    if (data && data.view_mode === 'month') {
+      return {
+        wow: '前月比',
+        yoy: '前年同月比',
+        prevEmpty: '前月データなし',
+        prevZeroAmt: '前月売上計が0',
+        prevZeroLines: '前月明細が0件',
+        yoyZeroAmt: '前年同月売上計が0',
+        yoyZeroLines: '前年同月明細が0件',
+        yoyMissingOpen: '前年同月（',
+        yoyMissingClose: '）の明細なし',
+      };
+    }
+    return {};
+  }
+
+  /**
+   * 折れ線+面グラフ。points は各点が { label, amount } を持っていれば描ける。
+   * @param {{label: string, amount: number, line_count?: number}[]} points
+   * @param {string} ariaLabel
+   */
+  function renderChart(points, ariaLabel) {
+    const wrap = document.getElementById('chart-wrap');
+    if (!points || !points.length) {
+      wrap.innerHTML = '<p class="text-sm text-slate-400">表示できるデータがありません</p>';
+      return;
+    }
+    const amounts = points.map((d) => d.amount);
+    const maxA = Math.max(...amounts, 1);
+    const n = points.length;
+    const padL = 44, padR = 16, padT = 24, padB = 36;
+    const W = 520, H = 220;
+    const innerW = W - padL - padR;
+    const innerH = H - padT - padB;
+    const pts = points.map((d, i) => {
+      const x = padL + (n === 1 ? innerW / 2 : (innerW * i) / (n - 1));
+      const y = padT + innerH * (1 - d.amount / maxA);
+      return { x, y, ...d };
+    });
+    const pathD = pts.map((p, i) => (i ? 'L' : 'M') + p.x.toFixed(1) + ' ' + p.y.toFixed(1)).join(' ');
+    const areaD = pathD + ' L' + pts[pts.length - 1].x.toFixed(1) + ' ' + (padT + innerH) + ' L' + pts[0].x.toFixed(1) + ' ' + (padT + innerH) + ' Z';
+    // ラベルは点数が多いときに間引く（最大6個程度）
+    const labelInterval = Math.max(1, Math.ceil(n / 6));
+    const labels = pts
+      .map((p, i) => {
+        if (i !== 0 && i !== n - 1 && i % labelInterval !== 0) return '';
+        const short = esc(p.label || '');
+        return `<text x="${p.x}" y="${H - 8}" text-anchor="middle" fill="#94a3b8" font-size="11">${short}</text>`;
+      })
+      .join('');
+    wrap.innerHTML = `
+      <svg viewBox="0 0 ${W} ${H}" class="w-full h-auto text-slate-600" role="img" aria-label="${esc(ariaLabel || '時系列の売上')}">
+        <defs>
+          <linearGradient id="gfill" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#22d3ee" stop-opacity="0.22"/>
+            <stop offset="55%" stop-color="#a78bfa" stop-opacity="0.08"/>
+            <stop offset="100%" stop-color="#22d3ee" stop-opacity="0"/>
+          </linearGradient>
+        </defs>
+        ${[0, 0.33, 0.66, 1].map((t) => {
+          const y = padT + innerH * (1 - t);
+          return `<line x1="${padL}" y1="${y}" x2="${W - padR}" y2="${y}" stroke="currentColor" stroke-opacity="0.35"/>`;
+        }).join('')}
+        <path d="${areaD}" fill="url(#gfill)"/>
+        <path d="${pathD}" fill="none" stroke="#22d3ee" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        ${pts.map((p) => `<circle cx="${p.x}" cy="${p.y}" r="4" fill="#0f172a" stroke="#22d3ee" stroke-width="2"><title>${esc(p.label || '')}: ${yen(p.amount)}</title></circle>`).join('')}
+        ${labels}
+      </svg>`;
+  }
+
+  function setViewToggle(view) {
+    const bw = document.getElementById('btn-view-week');
+    const bm = document.getElementById('btn-view-month');
+    const on =
+      'rounded-md px-3 py-1.5 text-xs font-semibold bg-slate-700 text-slate-50 shadow-md shadow-cyan-500/15 ring-1 ring-cyan-400/35 transition';
+    const off =
+      'rounded-md px-3 py-1.5 text-xs font-semibold text-slate-400 transition hover:text-slate-200';
+    if (view === 'month') {
+      bm.className = on;
+      bw.className = off;
+    } else {
+      bw.className = on;
+      bm.className = off;
+    }
+  }
+
+  /** @param {any} data @param {'week'|'month'} view */
+  function fillFromData(data, view) {
+    document.getElementById('app-error').classList.add('hidden');
+    document.getElementById('app-main').classList.remove('hidden');
+    document.getElementById('period-ja').textContent = data.period_ja || '—';
+    document.getElementById('week-key-label').textContent = data.week_key || '';
+    document.getElementById('kpi-total').textContent = yen(data.metrics.total_amount);
+    document.getElementById('kpi-lines').textContent = data.metrics.line_count.toLocaleString('ja-JP');
+    const uavg = data.metrics.avg_unit_price_weighted;
+    document.getElementById('kpi-avg-unit').textContent = uavg != null ? yen(uavg) : '—';
+    document.getElementById('kpi-customers').textContent = data.metrics.distinct_customers.toLocaleString('ja-JP');
+
+    const cmp = compareLabelsFromView(data);
+    const wow = data.week_over_week || {};
+    const yoy = data.year_over_year || {};
+    document.getElementById('kpi-total-compare').innerHTML = renderCompareHtml('amount', wow, yoy, cmp);
+    document.getElementById('kpi-lines-compare').innerHTML = renderCompareHtml('lines', wow, yoy, cmp);
+
+    const wsum = document.getElementById('weekly-summary-section');
+    if (view === 'month') {
+      document.getElementById('header-subtitle').textContent = '月次まとめ';
+      document.getElementById('header-title').textContent = '売上レポート（月次）';
+      document.getElementById('kpi-total-label').textContent = '月次売上（計）';
+      document.getElementById('week-select-wrap').classList.add('hidden');
+      document.getElementById('month-select-wrap').classList.remove('hidden');
+      document.getElementById('month-key-label').textContent = data.month_key || data.week_key || '';
+      document.getElementById('kpi-customers-note').textContent = '当月の全明細に基づく顧客コード種類数';
+      wsum.classList.add('hidden');
+      const impm = data.import && data.import.created_at ? String(data.import.created_at) : '';
+      document.getElementById('import-time').textContent = impm
+        ? impm.replace('T', ' ').slice(0, 19) + ' UTC'
+        : '—（月次は複数週を横断した集計）';
+    } else {
+      document.getElementById('header-subtitle').textContent = '週次サマリー';
+      document.getElementById('header-title').textContent = '今週の売上レポート';
+      document.getElementById('kpi-total-label').textContent = '週次売上（計）';
+      document.getElementById('week-select-wrap').classList.remove('hidden');
+      document.getElementById('month-select-wrap').classList.add('hidden');
+      document.getElementById('kpi-customers-note').textContent = '当週 CSV 内の顧客コード種類数';
+      wsum.classList.remove('hidden');
+      renderWeeklySummary(data.weekly_summary);
+      const imp = (data.import && data.import.created_at) || '';
+      document.getElementById('import-time').textContent = imp
+        ? imp.replace('T', ' ').slice(0, 19) + ' UTC'
+        : '—';
+    }
+
+    document.getElementById('footer-source').textContent = 'ソース: ' + ((data.import && data.import.source_path) || '');
+
+    // ── チャート: 週次=日別 / 月次=週別 ──
+    const chartHead = document.getElementById('chart-heading');
+    const chartNote = document.getElementById('chart-subnote');
+    if (view === 'month') {
+      const weeks = (data.weekly_in_month || []).map((w) => ({
+        label: (w.week_key || '').replace(/^\d{4}-/, ''), // "2024-W49" → "W49"
+        amount: w.amount,
+        line_count: w.line_count,
+        week_key: w.week_key,
+        min_ship_date: w.min_ship_date,
+        max_ship_date: w.max_ship_date,
+      }));
+      chartHead.textContent = '週別の売上（運用週ごと・月内のみ）';
+      chartNote.textContent = '運用週は JST 月曜 8:00 起算。月またぎ週は当月分のみが計上されます。';
+      renderChart(weeks, '週別売上');
+    } else {
+      const days = (data.daily || []).map((d) => ({
+        label: (d.ship_date || '').slice(5).replace('-', '/'),
+        amount: d.amount,
+        line_count: d.line_count,
+        ship_date: d.ship_date,
+      }));
+      chartHead.textContent = '日別の売上（出荷日）';
+      chartNote.textContent = '';
+      renderChart(days, '日別売上');
+    }
+    renderDailyTable(data.daily || []);
+    const missCount = (data.metrics && data.metrics.missing_unit_price_rows) || 0;
+    let csvQ = '';
+    if (missCount > 0) {
+      if (view === 'month' && data.month_key) {
+        csvQ = 'month=' + encodeURIComponent(String(data.month_key));
+      } else if (view === 'week' && data.week_key) {
+        csvQ = 'week=' + encodeURIComponent(String(data.week_key));
+      }
+    }
+    renderMissingPreview(
+      data.missing_unit_price_preview || [],
+      missCount,
+      view,
+      csvQ,
+    );
+
+    renderChannelBreakdown(data.channel_breakdown || {});
+    renderTopCustomers(data.top_customers || []);
+    renderTopProducts(data.top_products || []);
+    renderYtd(data.ytd || null);
+    renderMatrix(data.transaction_matrix || null);
+    if (view === 'month') {
+      renderHeatmap(data.daily || [], data.month_key || '');
+    } else {
+      document.getElementById('heatmap-section').classList.add('hidden');
+    }
+    // 質問BOXの結果を期間切り替え時にクリア
+    const askOut = document.getElementById('ask-output');
+    if (askOut) {
+      askOut.classList.add('hidden');
+      askOut.textContent = '';
+    }
+    // 現在のpayloadを後で /api/ask に送れるよう保存
+    window.__currentPayload = data;
+    window.__currentView = view;
+  }
+
+  const weekSelectEl = document.getElementById('week-select');
+  const monthSelectEl = document.getElementById('month-select');
+  const btnViewWeekEl = document.getElementById('btn-view-week');
+  const btnViewMonthEl = document.getElementById('btn-view-month');
+  const btnPrevWeekEl = document.getElementById('btn-prev-week');
+  const btnNextWeekEl = document.getElementById('btn-next-week');
+  const btnPrevMonthEl = document.getElementById('btn-prev-month');
+  const btnNextMonthEl = document.getElementById('btn-next-month');
+
+  /**
+   * セレクトの選択肢から前/次のキーを取り、前後ボタンの可否を更新する。
+   * 注: lastWeekKeys / lastMonthKeys は最新→古い順で並ぶ（API側の並び）。
+   * @param {HTMLSelectElement} sel
+   * @param {HTMLButtonElement} btnPrev
+   * @param {HTMLButtonElement} btnNext
+   */
+  function refreshPrevNext(sel, btnPrev, btnNext) {
+    const opts = [...sel.options].map((o) => o.value).filter(Boolean);
+    if (!opts.length) {
+      btnPrev.disabled = true;
+      btnNext.disabled = true;
+      return;
+    }
+    const idx = opts.indexOf(sel.value);
+    // selのoptionは新しい順なので、indexが大きい方が古い ＝ 「前」は idx+1、「次」は idx-1
+    btnPrev.disabled = idx < 0 || idx >= opts.length - 1;
+    btnNext.disabled = idx <= 0;
+  }
+
+  function navigateRelative(sel, delta) {
+    const opts = [...sel.options].map((o) => o.value).filter(Boolean);
+    if (!opts.length) return null;
+    const idx = opts.indexOf(sel.value);
+    if (idx < 0) return null;
+    const target = idx + delta;
+    if (target < 0 || target >= opts.length) return null;
+    return opts[target];
+  }
+
+  /** @param {(sp: URLSearchParams) => void} mutator */
+  function pushQuery(mutator) {
+    const u = new URL(location.href);
+    mutator(u.searchParams);
+    history.pushState(null, '', u.pathname + u.search + u.hash);
+  }
+
+  async function load() {
+    const weeksRes = await fetch(apiUrl('weeks'));
+    const weeksData = await weeksRes.json();
+    const monthsRes = await fetch(apiUrl('months'));
+    const monthsData = await monthsRes.json();
+    document.getElementById('db-path').textContent =
+      weeksData.db_path || monthsData.db_path || '';
+
+    const wks = weeksData.week_keys || [];
+    const mks = monthsData.month_keys || [];
+    lastWeekKeys = wks;
+    lastMonthKeys = mks;
+    if (!wks.length && !mks.length) {
+      document.getElementById('app-error').classList.remove('hidden');
+      document.getElementById('app-error').textContent =
+        '取り込み済みのデータがありません。ターミナルで sales-report-automation を開き、README のとおり CLI で取り込みを実行してから再読み込みしてください。';
+      return;
+    }
+
+    const qs = new URLSearchParams(location.search);
+    let view = qs.get('view') === 'month' ? 'month' : 'week';
+    if (view === 'week' && !wks.length && mks.length) view = 'month';
+    if (view === 'month' && !mks.length && wks.length) view = 'week';
+
+    const hintEl = document.getElementById('month-toggle-hint');
+    const btnMonth = document.getElementById('btn-view-month');
+    if (!mks.length) {
+      btnMonth.disabled = true;
+      btnMonth.classList.add('cursor-not-allowed', 'opacity-45');
+      btnMonth.setAttribute('aria-disabled', 'true');
+      btnMonth.title =
+        '月次用の暦月を出荷日から作れません（出荷日が空、または認識できない形式の明細のみの可能性があります）';
+      if (wks.length) {
+        hintEl.classList.remove('hidden');
+        hintEl.textContent =
+          '月次は明細の出荷日から暦月（YYYY-MM）を列挙します。週次だけ取り込まれているのにここが空のときは、出荷日の表記（例: 2026/04/01 も可）をご確認ください。';
+      } else {
+        hintEl.classList.add('hidden');
+        hintEl.textContent = '';
+      }
+    } else {
+      btnMonth.disabled = false;
+      btnMonth.classList.remove('cursor-not-allowed', 'opacity-45');
+      btnMonth.removeAttribute('aria-disabled');
+      btnMonth.title = '';
+      hintEl.classList.add('hidden');
+      hintEl.textContent = '';
+    }
+
+    const sel = weekSelectEl;
+    const msel = monthSelectEl;
+    suppressSelectNav = true;
+    try {
+      sel.innerHTML = '';
+      wks.forEach((w) => {
+        const o = document.createElement('option');
+        o.value = w;
+        o.textContent = w;
+        sel.appendChild(o);
+      });
+      let week = qs.get('week');
+      if (week && wks.includes(week)) sel.value = week;
+      else if (wks.length) sel.value = wks[0];
+
+      msel.innerHTML = '';
+      mks.forEach((m) => {
+        const o = document.createElement('option');
+        o.value = m;
+        o.textContent = m;
+        msel.appendChild(o);
+      });
+      let month = qs.get('month');
+      if (month && mks.includes(month)) msel.value = month;
+      else if (mks.length) msel.value = mks[0];
+      msel.disabled = !mks.length;
+    } finally {
+      suppressSelectNav = false;
+    }
+    refreshPrevNext(weekSelectEl, btnPrevWeekEl, btnNextWeekEl);
+    refreshPrevNext(monthSelectEl, btnPrevMonthEl, btnNextMonthEl);
+
+    const week = sel.value || '';
+    const month = msel.value || '';
+    const monthKey = month || (mks.length ? mks[0] : '');
+    const weekKey = week || (wks.length ? wks[0] : '');
+
+    let data;
+    let v;
+    if (view === 'month' && monthKey) {
+      v = 'month';
+      const sumRes = await fetch(apiUrl('month_summary?month=' + encodeURIComponent(monthKey)));
+      if (!sumRes.ok) {
+        const msg = await sumRes.text();
+        document.getElementById('app-error').classList.remove('hidden');
+        document.getElementById('app-error').textContent =
+          '読み込み失敗: ' + sumRes.status + ' ' + msg;
+        return;
+      }
+      data = await sumRes.json();
+    } else if (view === 'week' && weekKey) {
+      v = 'week';
+      const sumRes = await fetch(apiUrl('summary?week=' + encodeURIComponent(weekKey)));
+      if (!sumRes.ok) {
+        const msg = await sumRes.text();
+        document.getElementById('app-error').classList.remove('hidden');
+        document.getElementById('app-error').textContent =
+          '読み込み失敗: ' + sumRes.status + ' ' + msg;
+        return;
+      }
+      data = await sumRes.json();
+    } else if (monthKey) {
+      v = 'month';
+      const sumRes = await fetch(apiUrl('month_summary?month=' + encodeURIComponent(monthKey)));
+      if (!sumRes.ok) {
+        const msg = await sumRes.text();
+        document.getElementById('app-error').classList.remove('hidden');
+        document.getElementById('app-error').textContent =
+          '読み込み失敗: ' + sumRes.status + ' ' + msg;
+        return;
+      }
+      data = await sumRes.json();
+    } else if (weekKey) {
+      v = 'week';
+      const sumRes = await fetch(apiUrl('summary?week=' + encodeURIComponent(weekKey)));
+      if (!sumRes.ok) {
+        const msg = await sumRes.text();
+        document.getElementById('app-error').classList.remove('hidden');
+        document.getElementById('app-error').textContent =
+          '読み込み失敗: ' + sumRes.status + ' ' + msg;
+        return;
+      }
+      data = await sumRes.json();
+    } else {
+      document.getElementById('app-error').classList.remove('hidden');
+      document.getElementById('app-error').textContent =
+        '表示できる週または月がありません。';
+      return;
+    }
+
+    setViewToggle(v);
+    fillFromData(data, v);
+  }
+
+  async function loadSafe() {
+    try {
+      await load();
+    } catch (e) {
+      document.getElementById('app-error').classList.remove('hidden');
+      document.getElementById('app-error').textContent = String(e);
+    }
+  }
+
+  weekSelectEl.addEventListener('change', () => {
+    if (suppressSelectNav) return;
+    pushQuery((sp) => {
+      sp.set('view', 'week');
+      if (weekSelectEl.value) sp.set('week', weekSelectEl.value);
+      else sp.delete('week');
+      sp.delete('month');
+    });
+    refreshPrevNext(weekSelectEl, btnPrevWeekEl, btnNextWeekEl);
+    void loadSafe();
+  });
+
+  monthSelectEl.addEventListener('change', () => {
+    if (suppressSelectNav) return;
+    pushQuery((sp) => {
+      sp.set('view', 'month');
+      if (monthSelectEl.value) sp.set('month', monthSelectEl.value);
+      else sp.delete('month');
+      sp.delete('week');
+    });
+    refreshPrevNext(monthSelectEl, btnPrevMonthEl, btnNextMonthEl);
+    void loadSafe();
+  });
+
+  btnPrevWeekEl.addEventListener('click', () => {
+    const v = navigateRelative(weekSelectEl, +1); // 古い方へ
+    if (!v) return;
+    weekSelectEl.value = v;
+    weekSelectEl.dispatchEvent(new Event('change'));
+  });
+  btnNextWeekEl.addEventListener('click', () => {
+    const v = navigateRelative(weekSelectEl, -1); // 新しい方へ
+    if (!v) return;
+    weekSelectEl.value = v;
+    weekSelectEl.dispatchEvent(new Event('change'));
+  });
+  btnPrevMonthEl.addEventListener('click', () => {
+    const v = navigateRelative(monthSelectEl, +1);
+    if (!v) return;
+    monthSelectEl.value = v;
+    monthSelectEl.dispatchEvent(new Event('change'));
+  });
+  btnNextMonthEl.addEventListener('click', () => {
+    const v = navigateRelative(monthSelectEl, -1);
+    if (!v) return;
+    monthSelectEl.value = v;
+    monthSelectEl.dispatchEvent(new Event('change'));
+  });
+
+  btnViewWeekEl.addEventListener('click', () => {
+    const wks =
+      lastWeekKeys.length > 0
+        ? lastWeekKeys
+        : [...weekSelectEl.options].map((o) => o.value).filter(Boolean);
+    if (!wks.length) return;
+    pushQuery((sp) => {
+      sp.set('view', 'week');
+      sp.set('week', weekSelectEl.value || wks[0]);
+      sp.delete('month');
+    });
+    void loadSafe();
+  });
+
+  btnViewMonthEl.addEventListener('click', () => {
+    if (btnViewMonthEl.disabled) return;
+    const mks =
+      lastMonthKeys.length > 0
+        ? lastMonthKeys
+        : [...monthSelectEl.options].map((o) => o.value).filter(Boolean);
+    if (!mks.length) return;
+    pushQuery((sp) => {
+      sp.set('view', 'month');
+      sp.set('month', monthSelectEl.value || mks[0]);
+      sp.delete('week');
+    });
+    void loadSafe();
+  });
+
+  window.addEventListener('popstate', () => {
+    void loadSafe();
+  });
+
+  // ── ⑯ 検索ポップオーバー ──
+  const searchInputEl = document.getElementById('search-input');
+  const searchPopoverEl = document.getElementById('search-popover');
+  let searchTimer = null;
+  async function runSearch(q) {
+    if (!q) {
+      searchPopoverEl.classList.add('hidden');
+      searchPopoverEl.innerHTML = '';
+      return;
+    }
+    try {
+      const res = await fetch(apiUrl('search?q=' + encodeURIComponent(q)));
+      if (!res.ok) {
+        searchPopoverEl.classList.remove('hidden');
+        searchPopoverEl.innerHTML = '<p class="p-2 text-xs text-rose-300">検索エラー</p>';
+        return;
+      }
+      const data = await res.json();
+      const cs = data.customers || [];
+      const ps = data.products || [];
+      if (!cs.length && !ps.length) {
+        searchPopoverEl.classList.remove('hidden');
+        searchPopoverEl.innerHTML = '<p class="p-2 text-xs text-slate-400">該当なし</p>';
+        return;
+      }
+      const sec = (label, items, kind) =>
+        items.length
+          ? '<div class="mb-2 last:mb-0">' +
+            '<p class="px-2 py-1 text-[11px] font-semibold uppercase tracking-wider text-slate-500">' + label + '</p>' +
+            items
+              .map(
+                (it) =>
+                  '<button type="button" class="block w-full rounded px-2 py-1.5 text-left text-xs text-slate-200 hover:bg-slate-700/50" data-kind="' + kind + '" data-code="' + esc(kind === 'customer' ? it.customer_code : it.product_code) + '">' +
+                  '<span class="font-mono">' + esc(kind === 'customer' ? it.customer_code : (it.product_code || '').slice(0, 60)) + '</span>' +
+                  '<span class="ml-2 tabular-nums text-slate-500">' + yen(it.total_amount) + ' / ' + it.line_count + '件</span>' +
+                  '</button>',
+              )
+              .join('') +
+            '</div>'
+          : '';
+      searchPopoverEl.classList.remove('hidden');
+      searchPopoverEl.innerHTML = sec('得意先', cs, 'customer') + sec('品目', ps, 'product');
+      searchPopoverEl.querySelectorAll('button[data-kind]').forEach((b) => {
+        b.addEventListener('click', () => {
+          const kind = b.dataset.kind;
+          const code = b.dataset.code;
+          searchPopoverEl.classList.add('hidden');
+          searchInputEl.value = '';
+          openProfile(kind === 'customer' ? { customer: code } : { product: code });
+        });
+      });
+    } catch (e) {
+      searchPopoverEl.classList.remove('hidden');
+      searchPopoverEl.innerHTML = '<p class="p-2 text-xs text-rose-300">' + esc(String(e)) + '</p>';
+    }
+  }
+  searchInputEl.addEventListener('input', () => {
+    if (searchTimer) clearTimeout(searchTimer);
+    const q = searchInputEl.value.trim();
+    searchTimer = setTimeout(() => runSearch(q), 220);
+  });
+  document.addEventListener('click', (e) => {
+    if (!searchPopoverEl.contains(e.target) && e.target !== searchInputEl) {
+      searchPopoverEl.classList.add('hidden');
+    }
+  });
+
+  // ── プロファイルドロワー ──
+  const drawerEl = document.getElementById('profile-drawer');
+  const drawerBodyEl = document.getElementById('profile-body');
+  const drawerCloseEl = document.getElementById('profile-close');
+  const drawerHeadingEl = document.getElementById('profile-heading');
+
+  async function openProfile({ customer, product }) {
+    drawerEl.classList.remove('hidden');
+    drawerHeadingEl.textContent = customer ? '得意先: ' + customer : '品目（先頭60文字）';
+    drawerBodyEl.innerHTML = '<p class="text-slate-400">読み込み中…</p>';
+    const url = customer
+      ? apiUrl('profile?customer=' + encodeURIComponent(customer))
+      : apiUrl('profile?product=' + encodeURIComponent(product));
+    try {
+      const res = await fetch(url);
+      if (!res.ok) {
+        drawerBodyEl.innerHTML = '<p class="text-rose-300">読み込み失敗</p>';
+        return;
+      }
+      const p = await res.json();
+      const histMax = Math.max(1, ...(p.weekly_history || []).map((h) => h.amount));
+      const histRows = (p.weekly_history || [])
+        .map((h) => {
+          const ratio = (h.amount / histMax) * 100;
+          return (
+            '<div class="flex items-center gap-2 text-xs">' +
+            '<span class="w-20 font-mono text-slate-400">' + esc(h.week_key) + '</span>' +
+            '<div class="flex-1 h-2 rounded bg-slate-800 overflow-hidden">' +
+            '<div class="h-full bg-cyan-500" style="width:' + Math.max(1, ratio) + '%"></div>' +
+            '</div>' +
+            '<span class="w-24 text-right tabular-nums text-slate-300">' + yen(h.amount) + '</span>' +
+            '</div>'
+          );
+        })
+        .join('');
+      const relRows = (p.top_related || [])
+        .map((r) =>
+          '<tr class="border-b border-slate-800 last:border-0">' +
+          '<td class="py-1 pr-2 text-xs text-slate-200"><span class="line-clamp-1 break-all">' + esc(r.code) + '</span></td>' +
+          '<td class="py-1 pr-2 text-right tabular-nums text-xs">' + yen(r.total_amount) + '</td>' +
+          '<td class="py-1 text-right tabular-nums text-[10px] text-slate-500">' + r.line_count + '件</td></tr>',
+        )
+        .join('');
+      drawerBodyEl.innerHTML =
+        '<div class="space-y-4">' +
+        '<div><p class="font-mono text-xs text-slate-400 break-all">' + esc(p.code) + '</p>' +
+        '<p class="mt-1 text-2xl font-display font-bold text-slate-50 tabular-nums">' + yen(p.total_amount) + '</p>' +
+        '<p class="text-xs text-slate-500">全期間 ' + p.line_count + ' 件 / ' + esc(p.first_ship_date || '—') + ' 〜 ' + esc(p.last_ship_date || '—') + '</p></div>' +
+        (histRows ? '<div><p class="text-xs font-semibold uppercase text-slate-500 mb-2">直近12週の推移（最新インポート基準）</p>' + histRows + '</div>' : '') +
+        (relRows ? '<div><p class="text-xs font-semibold uppercase text-slate-500 mb-2">' + (p.kind === 'customer' ? '主要品目 Top10' : '主要顧客 Top10') + '</p><table class="w-full">' + relRows + '</table></div>' : '') +
+        '</div>';
+    } catch (e) {
+      drawerBodyEl.innerHTML = '<p class="text-rose-300">' + esc(String(e)) + '</p>';
+    }
+  }
+  drawerCloseEl.addEventListener('click', () => drawerEl.classList.add('hidden'));
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !drawerEl.classList.contains('hidden')) {
+      drawerEl.classList.add('hidden');
+    }
+  });
+
+  // ── ⑱ AI 質問BOX ──
+  const askFormEl = document.getElementById('ask-form');
+  const askInputEl = document.getElementById('ask-input');
+  const askSubmitEl = document.getElementById('ask-submit');
+  const askOutputEl = document.getElementById('ask-output');
+  const askPeriodEl = document.getElementById('ask-period');
+  const askMonthRangeEl = document.getElementById('ask-month-range');
+  const askMonthFromEl = document.getElementById('ask-month-from');
+  const askMonthToEl = document.getElementById('ask-month-to');
+
+  // 「月の範囲指定」を選んだときだけ月入力を表示
+  askPeriodEl.addEventListener('change', () => {
+    if (askPeriodEl.value === 'months') {
+      askMonthRangeEl.classList.remove('hidden');
+      // 初期値: 現在表示中の月キーを参考に設定
+      if (!askMonthFromEl.value || !askMonthToEl.value) {
+        const cur = window.__currentPayload || {};
+        const guessMonth = cur.month_key || (cur.week_key ? cur.week_key.slice(0, 4) + '-' + String(new Date().getMonth() + 1).padStart(2, '0') : '');
+        if (guessMonth && /^\d{4}-\d{2}$/.test(guessMonth)) {
+          askMonthFromEl.value = guessMonth;
+          askMonthToEl.value = guessMonth;
+        }
+      }
+    } else {
+      askMonthRangeEl.classList.add('hidden');
+    }
+  });
+
+  askFormEl.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const q = askInputEl.value.trim();
+    if (!q) return;
+    const period = askPeriodEl.value || 'current';
+    const monthFrom = askMonthFromEl.value || null;
+    const monthTo = askMonthToEl.value || null;
+    if (period === 'months' && (!monthFrom || !monthTo)) {
+      askOutputEl.classList.remove('hidden');
+      askOutputEl.textContent = 'エラー: 月の範囲（開始・終了）を両方指定してください。';
+      return;
+    }
+    askSubmitEl.disabled = true;
+    askSubmitEl.textContent = '考え中…';
+    askOutputEl.classList.remove('hidden');
+    const periodLabel = period === 'all'
+      ? '全期間'
+      : period === 'months'
+        ? monthFrom + '〜' + monthTo
+        : '現在表示中';
+    askOutputEl.textContent = 'Claude に問い合わせ中…（対象: ' + periodLabel + '）';
+    try {
+      const body = {
+        question: q,
+        period: period,
+      };
+      if (period === 'current') {
+        body.context = window.__currentPayload || {};
+      } else if (period === 'months') {
+        body.month_from = monthFrom;
+        body.month_to = monthTo;
+      }
+      const res = await fetch(apiUrl('ask'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const msg = await res.text();
+        askOutputEl.textContent = 'エラー: ' + res.status + ' ' + msg;
+        return;
+      }
+      const data = await res.json();
+      askOutputEl.textContent = data.answer || '（回答が空でした）';
+    } catch (err) {
+      askOutputEl.textContent = 'ネットワークエラー: ' + String(err);
+    } finally {
+      askSubmitEl.disabled = false;
+      askSubmitEl.textContent = '聞く';
+    }
+  });
+
+  // ── ㉑ 印刷 ──
+  document.getElementById('btn-print').addEventListener('click', () => {
+    window.print();
+  });
+
+  void loadSafe();
+})();
+  </script>
+</body>
+</html>

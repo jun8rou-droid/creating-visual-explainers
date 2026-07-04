@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="color-scheme" content="light">
+  <title>これからの進め方（新卒向け）— 週次売上レポート自動化</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Noto Sans JP"', 'sans-serif'],
+            display: ['"Plus Jakarta Sans"', '"Noto Sans JP"', 'sans-serif'],
+          },
+        },
+      },
+    };
+  </script>
+  <style>
+    a:focus-visible, button:focus-visible { outline: 2px solid #4f46e5; outline-offset: 2px; }
+    @media print {
+      .no-print { display: none !important; }
+      .print-break { break-inside: avoid; }
+    }
+  </style>
+</head>
+<body class="min-h-screen bg-slate-100 text-slate-800 antialiased text-[15px] sm:text-base leading-relaxed selection:bg-indigo-100 selection:text-indigo-950">
+  <div class="no-print sticky top-0 z-20 border-b border-slate-200/90 bg-white/90 backdrop-blur-md shadow-sm shadow-slate-200/40">
+    <div class="max-w-3xl mx-auto px-4 py-2.5 flex flex-wrap items-center justify-between gap-2 text-sm">
+      <span class="font-mono text-[11px] text-slate-400 tracking-tight">sales-report-onboarding-flow.html</span>
+      <nav class="flex flex-wrap items-center gap-x-4 gap-y-1 text-[13px] font-medium">
+        <a href="sales-report-build-steps.html" class="text-indigo-600 hover:text-indigo-800 decoration-indigo-200 underline-offset-4 hover:underline">やさしい図解</a>
+        <a href="sales-report-flow.html" class="text-indigo-600 hover:text-indigo-800 decoration-indigo-200 underline-offset-4 hover:underline">全体の流れ</a>
+        <a href="sales-report-mvp-tool-ui.html" class="text-indigo-600 hover:text-indigo-800 decoration-indigo-200 underline-offset-4 hover:underline">実装 UI モック</a>
+        <a href="sales-report-tool-face.html" class="text-slate-500 hover:text-slate-800 decoration-slate-300 underline-offset-4 hover:underline">UI 素片</a>
+        <a href="sales-report-onboarding-flow.md" class="text-slate-400 hover:text-slate-600 text-xs sm:text-[13px]">Markdown</a>
+      </nav>
+    </div>
+  </div>
+
+  <div class="max-w-3xl mx-auto px-4 sm:px-6 py-8 sm:py-12 pb-24">
+    <div class="rounded-2xl sm:rounded-3xl border border-slate-200/80 bg-white shadow-xl shadow-slate-300/30 overflow-hidden ring-1 ring-slate-900/[0.03]">
+      <!-- ヒーロー -->
+      <header class="relative px-5 sm:px-10 pt-8 sm:pt-12 pb-9 sm:pb-11 bg-gradient-to-br from-indigo-600 via-indigo-600 to-violet-700 text-white print-break">
+        <div class="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg width=\'60\' height=\'60\' viewBox=\'0 0 60 60\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cg fill=\'none\' fill-rule=\'evenodd\'%3E%3Cg fill=\'%23ffffff\' fill-opacity=\'0.06\'%3E%3Cpath d=\'M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z\'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E')] opacity-90 pointer-events-none" aria-hidden="true"></div>
+        <div class="relative">
+          <p class="text-xs font-semibold tracking-widest text-indigo-200/90 uppercase font-display">Onboarding</p>
+          <h1 class="mt-2 font-display text-2xl sm:text-3xl font-bold tracking-tight leading-snug">週次売上レポート自動化<br><span class="text-indigo-100 font-semibold text-xl sm:text-2xl">これからどうするか（新卒向け）</span></h1>
+          <p class="mt-5 max-w-2xl text-[15px] sm:text-base text-indigo-50/95 leading-relaxed">図解やチェックリストは見たけれど、<strong class="text-white font-semibold">自分は次に何をすればいいの？</strong>というときの<strong class="text-white font-semibold">進め方の地図</strong>です。順番と役割が分かるように並べています。</p>
+        </div>
+      </header>
+
+      <article class="px-5 sm:px-10 py-8 sm:py-11 space-y-12 sm:space-y-14">
+
+        <!-- いまの状態 -->
+        <section class="print-break" aria-labelledby="status-heading">
+          <h2 id="status-heading" class="font-display text-lg sm:text-xl font-bold text-slate-900 tracking-tight flex items-center gap-3">
+            <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-sm font-bold text-slate-600 ring-1 ring-slate-200/80" aria-hidden="true">現</span>
+            いまの状態（ざっくり）
+          </h2>
+          <ul class="mt-5 space-y-3 text-slate-700 leading-relaxed">
+            <li class="flex gap-3"><span class="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-indigo-400" aria-hidden="true"></span><span><strong class="text-slate-900">設計のたたき台</strong>はあります（流れ図・チェックリスト・画面の見本）。</span></li>
+            <li class="flex gap-3"><span class="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-indigo-400" aria-hidden="true"></span><span><strong class="text-slate-900">Python の小さなツール</strong>は、サンプル CSV を読み込んで集計し、AI に渡す用のデータを作るところまで動きます（<code class="mx-0.5 rounded bg-slate-100 px-1.5 py-0.5 text-[13px] text-slate-800 ring-1 ring-slate-200/80">sales-report-automation/README.md</code>）。</span></li>
+            <li class="flex gap-3"><span class="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-400" aria-hidden="true"></span><span><strong class="text-slate-900">まだこれからやること</strong>として、LINE 本送信・定期実行・承認の記録などは、会社の方針と合わせて詰める段階です。</span></li>
+          </ul>
+          <p class="mt-5 rounded-xl border border-amber-200/90 bg-amber-50/80 px-4 py-3 text-sm text-amber-950 leading-relaxed"><strong class="text-amber-950">運用の決めごと:</strong> <strong>JST</strong> で 1 週間は<strong>月 08:00:00 〜 翌週月 07:59:59</strong>。毎週<strong>月曜 08:00</strong>に CSV を自動送信し、<strong>受信でツールが起動</strong>。詳細はチェックリストの確定メモ・B 節。</p>
+          <p class="mt-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 leading-relaxed"><strong class="text-slate-900">本番で変わること（かんたんに）:</strong> いまは手でコマンドを打って試すだけ。本番では <strong class="text-slate-900">「CSV が届いたら同じ処理を始める」</strong> ようにする。週の名前を毎回打たなくするのはあとから足す仕事。くわしくはリポジトリの <code class="text-xs bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">sales-report-automation/README.md</code> の見出し<strong class="text-slate-900">「いまの CLI と本番の違い（新卒向け）」</strong>。</p>
+          <p class="mt-3 rounded-xl border border-slate-200 bg-slate-50/90 px-4 py-3 text-sm sm:text-[15px] text-slate-700 leading-relaxed"><strong class="text-slate-900">位置づけ:</strong> 「道具の原型」と「やることリスト」はある。本番運用に寄せる作業がこれから、です。</p>
+        </section>
+
+        <div class="h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent" role="separator" aria-hidden="true"></div>
+
+        <!-- フェーズ群 -->
+        <section aria-labelledby="phases-heading">
+          <h2 id="phases-heading" class="font-display text-lg sm:text-xl font-bold text-slate-900 tracking-tight">あなたが取るべき流れ（おすすめの順番）</h2>
+          <p class="mt-4 text-slate-600 leading-relaxed">次の <strong class="text-slate-900">4 フェーズ</strong> を上から順に。全部を一人でやる必要はありません。<strong class="text-slate-900">分からないところは上司かエンジニアに相談</strong>で大丈夫です。</p>
+
+          <div class="mt-8 space-y-6">
+            <!-- Phase 1 -->
+            <section class="print-break rounded-2xl border border-blue-200/90 bg-gradient-to-br from-blue-50/90 to-white p-5 sm:p-6 shadow-sm shadow-blue-100/40 ring-1 ring-blue-900/[0.04]">
+              <div class="flex flex-wrap items-start gap-4">
+                <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-blue-600 text-sm font-bold text-white shadow-md shadow-blue-600/25 font-display" aria-hidden="true">1</span>
+                <div class="min-w-0 flex-1">
+                  <h3 class="font-display font-bold text-blue-950 text-lg leading-snug">フェーズ 1 — 全体を頭に入れる<span class="block sm:inline sm:before:content-['_'] text-sm font-normal text-blue-800/80">（半日〜1日）</span></h3>
+                  <p class="mt-2 text-sm text-blue-900/85 leading-relaxed"><span class="font-semibold text-blue-950">目的:</span> 「何のために何が動くか」を言葉で説明できるようにする。</p>
+                </div>
+              </div>
+              <div class="mt-5 overflow-hidden rounded-xl border border-blue-100 bg-white shadow-sm">
+                <table class="min-w-full text-sm">
+                  <thead><tr class="bg-blue-50/90 text-left text-blue-950"><th class="px-4 py-2.5 w-14 text-center text-xs font-bold uppercase tracking-wide">順</th><th class="px-4 py-2.5 text-xs font-bold uppercase tracking-wide">すること</th></tr></thead>
+                  <tbody class="text-slate-700 divide-y divide-slate-100">
+                    <tr class="hover:bg-slate-50/80 transition-colors"><td class="px-4 py-3 text-center font-semibold text-slate-500 tabular-nums">1</td><td class="px-4 py-3"><a href="sales-report-build-steps.html" class="font-medium text-indigo-600 hover:text-indigo-800 underline decoration-indigo-200 underline-offset-2">sales-report-build-steps.html</a> を読む（たとえ話と 8 ステップ）。</td></tr>
+                    <tr class="hover:bg-slate-50/80 transition-colors"><td class="px-4 py-3 text-center font-semibold text-slate-500 tabular-nums">2</td><td class="px-4 py-3"><a href="sales-report-flow.html" class="font-medium text-indigo-600 hover:text-indigo-800 underline decoration-indigo-200 underline-offset-2">sales-report-flow.html</a> で「一枚の流れ」を眺める。</td></tr>
+                    <tr class="hover:bg-slate-50/80 transition-colors"><td class="px-4 py-3 text-center font-semibold text-slate-500 tabular-nums">3</td><td class="px-4 py-3">用語が気になったら <a href="sales-report-glossary.md" class="font-medium text-indigo-600 hover:text-indigo-800 underline decoration-indigo-200 underline-offset-2">sales-report-glossary.md</a> を拾い読み。</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <p class="mt-4 flex gap-2 rounded-lg bg-blue-600/5 px-3 py-2.5 text-sm text-blue-950 leading-relaxed border border-blue-100/80"><span class="font-bold text-blue-700 shrink-0">ゴール</span><span>「CSV → 集計 → AI が文章 → LINE などで送る予定」が自分の言葉で言える。</span></p>
+            </section>
+
+            <!-- Phase 2 -->
+            <section class="print-break rounded-2xl border border-amber-200/90 bg-gradient-to-br from-amber-50/80 to-white p-5 sm:p-6 shadow-sm shadow-amber-100/50 ring-1 ring-amber-900/[0.04]">
+              <div class="flex flex-wrap items-start gap-4">
+                <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-amber-500 text-sm font-bold text-amber-950 shadow-md shadow-amber-500/25 font-display" aria-hidden="true">2</span>
+                <div class="min-w-0 flex-1">
+                  <h3 class="font-display font-bold text-amber-950 text-lg leading-snug">フェーズ 2 — 社内で「決めること」を埋める<span class="block sm:inline sm:before:content-['_'] text-sm font-normal text-amber-900/80">（数日〜数週間）</span></h3>
+                  <p class="mt-2 text-sm text-amber-900/85 leading-relaxed"><span class="font-semibold text-amber-950">目的:</span> プログラムより先に<strong class="text-amber-950">ビジネス側のルール</strong>を決める。曖昧だと手戻りします。</p>
+                </div>
+              </div>
+              <div class="mt-5 overflow-hidden rounded-xl border border-amber-100 bg-white shadow-sm">
+                <table class="min-w-full text-sm">
+                  <thead><tr class="bg-amber-50/90 text-left text-amber-950"><th class="px-4 py-2.5 w-14 text-center text-xs font-bold uppercase tracking-wide">順</th><th class="px-4 py-2.5 text-xs font-bold uppercase tracking-wide">すること</th></tr></thead>
+                  <tbody class="text-slate-700 divide-y divide-slate-100">
+                    <tr class="hover:bg-slate-50/80 transition-colors"><td class="px-4 py-3 text-center font-semibold text-slate-500 tabular-nums">1</td><td class="px-4 py-3"><a href="sales-report-automation-checklist.md" class="font-medium text-indigo-600 hover:text-indigo-800 underline decoration-indigo-200 underline-offset-2">sales-report-automation-checklist.md</a> を開く。</td></tr>
+                    <tr class="hover:bg-slate-50/80 transition-colors"><td class="px-4 py-3 text-center font-semibold text-slate-500 tabular-nums">2</td><td class="px-4 py-3"><strong class="text-slate-900">上司・関係部署と打ち合わせ</strong>しながらチェックを <code class="rounded bg-slate-100 px-1.5 py-0.5 text-xs ring-1 ring-slate-200">[x]</code> に。</td></tr>
+                    <tr class="hover:bg-slate-50/80 transition-colors"><td class="px-4 py-3 text-center font-semibold text-slate-500 tabular-nums">3</td><td class="px-4 py-3">CSV の列が違う場合は「どの列が顧客・金額か」をメモし、エンジニアに渡す。</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <p class="mt-4 flex gap-2 rounded-lg bg-amber-500/5 px-3 py-2.5 text-sm text-amber-950 leading-relaxed border border-amber-100/80"><span class="font-bold text-amber-700 shrink-0">ゴール</span><span>チェックリストの「決めること」が社内で合意に近づく。</span></p>
+            </section>
+
+            <!-- Phase 3 -->
+            <section class="print-break rounded-2xl border border-violet-200/90 bg-gradient-to-br from-violet-50/80 to-white p-5 sm:p-6 shadow-sm shadow-violet-100/40 ring-1 ring-violet-900/[0.04]">
+              <div class="flex flex-wrap items-start gap-4">
+                <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-violet-600 text-sm font-bold text-white shadow-md shadow-violet-600/25 font-display" aria-hidden="true">3</span>
+                <div class="min-w-0 flex-1">
+                  <h3 class="font-display font-bold text-violet-950 text-lg leading-snug">フェーズ 3 — 手元で試す<span class="block sm:inline sm:before:content-['_'] text-sm font-normal text-violet-800/80">（エンジニア主・見学可）</span></h3>
+                  <p class="mt-2 text-sm text-violet-900/85 leading-relaxed"><span class="font-semibold text-violet-950">目的:</span> 本番の鍵やデータを使う前に<strong class="text-violet-950">動きと出力</strong>を確認する。</p>
+                </div>
+              </div>
+              <div class="mt-5 overflow-hidden rounded-xl border border-violet-100 bg-white shadow-sm">
+                <table class="min-w-full text-sm">
+                  <thead><tr class="bg-violet-50/90 text-left text-violet-950"><th class="px-4 py-2.5 w-14 text-center text-xs font-bold uppercase tracking-wide">順</th><th class="px-4 py-2.5 text-xs font-bold uppercase tracking-wide">すること</th></tr></thead>
+                  <tbody class="text-slate-700 divide-y divide-slate-100">
+                    <tr class="hover:bg-slate-50/80 transition-colors"><td class="px-4 py-3 text-center font-semibold text-slate-500 tabular-nums">1</td><td class="px-4 py-3"><code class="rounded bg-slate-100 px-1.5 py-0.5 text-xs ring-1 ring-slate-200">sales-report-automation</code> の README に従い環境を用意。</td></tr>
+                    <tr class="hover:bg-slate-50/80 transition-colors"><td class="px-4 py-3 text-center font-semibold text-slate-500 tabular-nums">2</td><td class="px-4 py-3">まず <code class="rounded bg-slate-100 px-1.5 py-0.5 text-xs ring-1 ring-slate-200">--dry-run</code>（API 不要・無料で確認）。</td></tr>
+                    <tr class="hover:bg-slate-50/80 transition-colors"><td class="px-4 py-3 text-center font-semibold text-slate-500 tabular-nums">3</td><td class="px-4 py-3">問題なければテスト用の鍵で文案まで。</td></tr>
+                    <tr class="hover:bg-slate-50/80 transition-colors"><td class="px-4 py-3 text-center font-semibold text-slate-500 tabular-nums">4</td><td class="px-4 py-3">日本語ヘッダの CSV は <strong class="text-slate-900">JSON 設定</strong>をエンジニアと確認。</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <p class="mt-4 flex gap-2 rounded-lg bg-violet-600/5 px-3 py-2.5 text-sm text-violet-950 leading-relaxed border border-violet-100/80"><span class="font-bold text-violet-700 shrink-0">ゴール</span><span>「この週のファイル → この JSON／文章」が再現できる。</span></p>
+            </section>
+
+            <!-- Phase 4 -->
+            <section class="print-break rounded-2xl border border-emerald-200/90 bg-gradient-to-br from-emerald-50/70 to-white p-5 sm:p-6 shadow-sm shadow-emerald-100/40 ring-1 ring-emerald-900/[0.04]">
+              <div class="flex flex-wrap items-start gap-4">
+                <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-600 text-sm font-bold text-white shadow-md shadow-emerald-600/25 font-display" aria-hidden="true">4</span>
+                <div class="min-w-0 flex-1">
+                  <h3 class="font-display font-bold text-emerald-950 text-lg leading-snug">フェーズ 4 — 本番に近づける<span class="block sm:inline sm:before:content-['_'] text-sm font-normal text-emerald-800/80">（体制に依存）</span></h3>
+                  <p class="mt-2 text-sm text-emerald-900/85 leading-relaxed"><span class="font-semibold text-emerald-950">目的:</span> 毎週同じ品質で回し、トラブル時に説明できるようにする。</p>
+                </div>
+              </div>
+              <div class="mt-5 overflow-hidden rounded-xl border border-emerald-100 bg-white shadow-sm">
+                <table class="min-w-full text-sm">
+                  <thead><tr class="bg-emerald-50/90 text-left text-emerald-950"><th class="px-4 py-2.5 w-14 text-center text-xs font-bold uppercase tracking-wide">順</th><th class="px-4 py-2.5 text-xs font-bold uppercase tracking-wide">すること</th></tr></thead>
+                  <tbody class="text-slate-700 divide-y divide-slate-100">
+                    <tr class="hover:bg-slate-50/80 transition-colors"><td class="px-4 py-3 text-center font-semibold text-slate-500 tabular-nums">1</td><td class="px-4 py-3"><strong class="text-slate-900">誰が・いつまでに</strong> CSV を渡すかを決める。</td></tr>
+                    <tr class="hover:bg-slate-50/80 transition-colors"><td class="px-4 py-3 text-center font-semibold text-slate-500 tabular-nums">2</td><td class="px-4 py-3">単価空行の扱い（自動候補か人の承認か）を決める。</td></tr>
+                    <tr class="hover:bg-slate-50/80 transition-colors"><td class="px-4 py-3 text-center font-semibold text-slate-500 tabular-nums">3</td><td class="px-4 py-3">LINE / Slack の送信手順・鍵の置き場をセキュリティ方針に合わせる。</td></tr>
+                    <tr class="hover:bg-slate-50/80 transition-colors"><td class="px-4 py-3 text-center font-semibold text-slate-500 tabular-nums">4</td><td class="px-4 py-3">定期実行（cron / GitHub Actions 等）は会社の許可のもとで。</td></tr>
+                    <tr class="hover:bg-slate-50/80 transition-colors"><td class="px-4 py-3 text-center font-semibold text-slate-500 tabular-nums">5</td><td class="px-4 py-3"><strong class="text-slate-900">監査ログ</strong>の要否・範囲を決める。</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <p class="mt-4 flex gap-2 rounded-lg bg-emerald-600/5 px-3 py-2.5 text-sm text-emerald-950 leading-relaxed border border-emerald-100/80"><span class="font-bold text-emerald-700 shrink-0">ゴール</span><span>運用手順がドキュメント化され、引き継げる。</span></p>
+            </section>
+          </div>
+        </section>
+
+        <div class="h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent" role="separator" aria-hidden="true"></div>
+
+        <!-- 役割 -->
+        <section class="print-break" aria-labelledby="roles-heading">
+          <h2 id="roles-heading" class="font-display text-lg sm:text-xl font-bold text-slate-900 tracking-tight">役割のイメージ（新卒の立ち位置）</h2>
+          <div class="mt-5 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm ring-1 ring-slate-900/[0.02]">
+            <table class="min-w-full text-sm">
+              <thead><tr class="border-b border-slate-200 bg-slate-50 text-left"><th class="px-4 py-3 font-display font-bold text-slate-700 w-[11rem] sm:w-48">役割</th><th class="px-4 py-3 font-display font-bold text-slate-700">これからやりやすいこと</th></tr></thead>
+              <tbody class="text-slate-700 divide-y divide-slate-100">
+                <tr class="hover:bg-slate-50/60 transition-colors"><td class="px-4 py-3.5 font-semibold text-slate-900 align-top">新卒（非エンジニア寄り）</td><td class="px-4 py-3.5 leading-relaxed">フェーズ 1 の順番を守る。フェーズ 2 でチェックリストを会議資料に。フェーズ 3 はログを読む練習。</td></tr>
+                <tr class="hover:bg-slate-50/60 transition-colors"><td class="px-4 py-3.5 font-semibold text-slate-900 align-top">新卒（エンジニア）</td><td class="px-4 py-3.5 leading-relaxed">README とコードを追う。フェーズ 3 を担当し、フェーズ 4 の自動実行・API を実装。</td></tr>
+                <tr class="hover:bg-slate-50/60 transition-colors"><td class="px-4 py-3.5 font-semibold text-slate-900 align-top">上司・現場</td><td class="px-4 py-3.5 leading-relaxed">フェーズ 2 の合意、本番データ、承認フローの最終決定。</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- 早見表 -->
+        <section class="print-break" aria-labelledby="cheat-heading">
+          <h2 id="cheat-heading" class="font-display text-lg sm:text-xl font-bold text-slate-900 tracking-tight">困ったときの早見表</h2>
+          <div class="mt-5 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm ring-1 ring-slate-900/[0.02]">
+            <table class="min-w-full text-sm">
+              <thead><tr class="border-b border-slate-200 bg-indigo-50/80 text-left"><th class="px-4 py-3 font-display font-bold text-indigo-950 w-[40%] sm:w-1/3">状況</th><th class="px-4 py-3 font-display font-bold text-indigo-950">まずやること</th></tr></thead>
+              <tbody class="text-slate-700 divide-y divide-slate-100">
+                <tr class="hover:bg-slate-50/60 transition-colors"><td class="px-4 py-3.5">用語が分からない</td><td class="px-4 py-3.5"><a href="sales-report-glossary.md" class="font-medium text-indigo-600 hover:text-indigo-800 underline decoration-indigo-200 underline-offset-2">sales-report-glossary.md</a></td></tr>
+                <tr class="hover:bg-slate-50/60 transition-colors"><td class="px-4 py-3.5">図で流れを追いたい</td><td class="px-4 py-3.5"><a href="sales-report-build-steps.html" class="font-medium text-indigo-600 underline decoration-indigo-200 underline-offset-2">build-steps</a> → <a href="sales-report-flow.html" class="font-medium text-indigo-600 underline decoration-indigo-200 underline-offset-2">flow</a></td></tr>
+                <tr class="hover:bg-slate-50/60 transition-colors"><td class="px-4 py-3.5">何を決めればいいか</td><td class="px-4 py-3.5"><a href="sales-report-automation-checklist.md" class="font-medium text-indigo-600 underline decoration-indigo-200 underline-offset-2">checklist</a> を上司と一緒に</td></tr>
+                <tr class="hover:bg-slate-50/60 transition-colors"><td class="px-4 py-3.5">コマンド・CSV</td><td class="px-4 py-3.5"><code class="rounded bg-slate-100 px-1.5 py-0.5 text-xs ring-1 ring-slate-200">sales-report-automation/README.md</code></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- まとめ -->
+        <section class="print-break rounded-2xl border border-indigo-200/80 bg-gradient-to-br from-indigo-50/90 via-white to-violet-50/50 p-6 sm:p-8 ring-1 ring-indigo-900/[0.04]" aria-labelledby="summary-heading">
+          <h2 id="summary-heading" class="font-display text-lg font-bold text-slate-900">一言でまとめると</h2>
+          <ol class="mt-5 space-y-3 list-none p-0 m-0">
+            <li class="flex gap-3 items-start"><span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-indigo-600 text-xs font-bold text-white font-display">1</span><span class="pt-0.5 font-medium text-slate-800">図で全体を理解する</span></li>
+            <li class="flex gap-3 items-start"><span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-indigo-600 text-xs font-bold text-white font-display">2</span><span class="pt-0.5 font-medium text-slate-800">チェックリストで社内ルールを決める</span></li>
+            <li class="flex gap-3 items-start"><span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-indigo-600 text-xs font-bold text-white font-display">3</span><span class="pt-0.5 font-medium text-slate-800">手元で dry-run から試す</span></li>
+            <li class="flex gap-3 items-start"><span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-indigo-600 text-xs font-bold text-white font-display">4</span><span class="pt-0.5 font-medium text-slate-800">配信・定期実行・記録を本番向けにする</span></li>
+          </ol>
+          <p class="mt-6 text-slate-600 leading-relaxed border-t border-indigo-100/80 pt-6">この順で進めれば一本の線になります。<strong class="text-slate-900">分からない項目は空欄のままにせず、誰に聞くかまで書いておく</strong>と、あとからの自分とチームが助かります。</p>
+        </section>
+      </article>
+    </div>
+  </div>
+
+  <footer class="no-print max-w-3xl mx-auto px-4 pb-10 text-center text-xs text-slate-500 leading-relaxed">
+    編集の正本: <a href="sales-report-onboarding-flow.md" class="text-indigo-600 hover:text-indigo-800 font-medium underline decoration-indigo-200 underline-offset-2">sales-report-onboarding-flow.md</a>
+    <span class="text-slate-300 mx-1">·</span>
+    印刷時はブラウザの印刷でこのページを PDF にできます。
+  </footer>
+</body>
+</html>

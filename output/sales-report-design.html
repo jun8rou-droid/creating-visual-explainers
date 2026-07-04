@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex">
+  <meta name="googlebot" content="noindex, nofollow">
+  <meta property="og:title" content="週次売上レポート自動化ツール — 月次課題">
+  <meta property="og:description" content="自動化ツールの構成・デザインの工夫・ぶつかった課題と解決方法をまとめた図解。">
+  <meta property="og:type" content="article">
+  <title>週次売上レポート自動化ツール — 月次課題</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23FFFFFF'/><rect x='8' y='8' width='84' height='84' rx='14' fill='none' stroke='%233B82F6' stroke-width='4'/><circle cx='32' cy='40' r='10' fill='%233B82F6' opacity='0.8'/><circle cx='68' cy='40' r='10' fill='%2360A5FA' opacity='0.8'/><rect x='25' y='62' width='50' height='6' rx='3' fill='%2394A3B8' opacity='0.6'/><rect x='30' y='74' width='40' height='6' rx='3' fill='%2394A3B8' opacity='0.3'/></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            ads: {
+              bg: '#FFFFFF',
+              surface: '#F8FAFC',
+              hover: '#F1F5F9',
+              border: '#E2E8F0',
+              accent: '#3B82F6',
+              'accent-light': '#2563EB',
+              text: '#1E293B',
+              muted: '#64748B',
+              dim: '#94A3B8',
+              positive: '#10B981',
+              negative: '#EF4444',
+              warning: '#F59E0B',
+            }
+          },
+          fontFamily: {
+            sans: ['"Noto Sans JP"', '"Hiragino Sans"', '"Hiragino Kaku Gothic ProN"', '"Yu Gothic UI"', '"Meiryo"', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    @media print {
+      .no-print { display: none !important; }
+      body { border-top: none !important; }
+      .rounded-xl { break-inside: avoid; }
+      .md\:flex-row { flex-direction: row !important; }
+      .md\:hidden { display: none !important; }
+      .hidden.md\:block { display: block !important; }
+      .md\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+      .sm\:grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+      .md\:grid-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; }
+      .md\:mb-20 { margin-bottom: 5rem !important; }
+      .md\:py-16 { padding-top: 4rem !important; padding-bottom: 4rem !important; }
+      .bg-clip-text.text-transparent {
+        -webkit-background-clip: initial !important;
+        background-clip: initial !important;
+        color: #2563EB !important;
+        -webkit-text-fill-color: #2563EB !important;
+      }
+    }
+  </style>
+</head>
+<body class="bg-ads-bg text-slate-600 antialiased leading-relaxed border-t-4 border-ads-accent">
+  <div class="no-print max-w-3xl mx-auto px-5 pt-2 flex justify-end">
+    <button onclick="window.print()" class="flex items-center gap-1.5 text-xs text-ads-dim hover:text-ads-accent transition-colors cursor-pointer">
+      <i data-lucide="download" class="w-3.5 h-3.5"></i>
+      PDF
+    </button>
+  </div>
+  <main class="max-w-3xl mx-auto px-5 py-10 md:py-14">
+<!-- CONTENT_START -->
+
+<!-- ============================================================ -->
+<!--  HEADER                                                      -->
+<!-- ============================================================ -->
+<div class="mb-8">
+  <div class="inline-flex items-center gap-2 bg-ads-accent/10 text-ads-accent-light px-3 py-1 rounded-full text-xs font-medium mb-4">
+    <i data-lucide="layout-template" class="w-3.5 h-3.5"></i>
+    月次課題 — 報告ツール
+  </div>
+  <h1 class="text-2xl md:text-4xl font-black text-slate-900 tracking-tight mb-3">
+    週次売上レポート<span class="bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">自動化ツール</span>
+  </h1>
+  <p class="text-base text-ads-muted leading-relaxed">
+    社内システムから出る受注 CSV を inbox に置くだけで、集計・AI 文案・メール配信・ダッシュボード表示まで自動。
+  </p>
+</div>
+
+
+<!-- ============================================================ -->
+<!--  ダッシュボードのスクリーンショット                              -->
+<!-- ============================================================ -->
+<section class="mb-12">
+  <div class="flex items-center gap-3 mb-4">
+    <div class="flex items-center justify-center w-9 h-9 rounded-lg bg-cyan-500/10">
+      <i data-lucide="layout-dashboard" class="w-4 h-4 text-cyan-600"></i>
+    </div>
+    <h2 class="text-xl md:text-2xl font-bold text-slate-900">完成した報告ツールの画面</h2>
+  </div>
+  <p class="text-sm text-ads-muted ml-12 mb-5">
+    ダッシュボードでは、Claude のサマリー・KPI・グラフ・Top10・取引マトリックスを一画面で確認できる。
+  </p>
+
+  <!-- スクリーンショット 上部 -->
+  <figure class="rounded-xl overflow-hidden border border-ads-border shadow-lg mb-4">
+    <img src="dashboard-1.png" alt="売上レポート自動化ツール ダッシュボード上部 — 週次サマリー、KPI、年初来累計、日別売上" class="w-full block" />
+    <figcaption class="text-xs text-ads-dim p-3 bg-ads-surface border-t border-ads-border">
+      画面1: 上部 — 週/月切替、Claude による「今週のひとこと」、KPI 4 枚（売上計・明細行数・平均単価・ユニーク得意先）、年初来累計（YTD）、日別売上チャート
+    </figcaption>
+  </figure>
+
+  <!-- スクリーンショット 下部 -->
+  <figure class="rounded-xl overflow-hidden border border-ads-border shadow-lg">
+    <img src="dashboard-2.png" alt="売上レポート自動化ツール ダッシュボード下部 — Top10、取引マトリックス、AI 質問BOX" class="w-full block" />
+    <figcaption class="text-xs text-ads-dim p-3 bg-ads-surface border-t border-ads-border">
+      画面2: 下部 — 得意先 Top10／品目 Top10（直近 8 期スパークライン付き）、取引マトリックス（Top5 × Top5 のヒートカラー）、AI 質問BOX（表示中のデータをもとに Claude が回答）
+    </figcaption>
+  </figure>
+</section>
+
+
+<!-- ============================================================ -->
+<!--  4 パーツの決め方                                              -->
+<!-- ============================================================ -->
+<section class="mb-12">
+  <div class="flex items-center gap-3 mb-4">
+    <div class="flex items-center justify-center w-9 h-9 rounded-lg bg-blue-500/10">
+      <i data-lucide="layers-3" class="w-4 h-4 text-blue-600"></i>
+    </div>
+    <h2 class="text-xl md:text-2xl font-bold text-slate-900">4 つのパーツの決め方</h2>
+  </div>
+  <p class="text-sm text-ads-muted ml-12 mb-6">
+    報告ツール自動化を「トリガー・ソース元・処理する場所・届ける先」の 4 パーツに分解して設計。
+  </p>
+
+  <!-- 4 パーツのフロー図（横並び） -->
+  <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+
+    <div class="bg-blue-500/5 border-2 border-blue-500/20 rounded-xl p-4">
+      <div class="flex items-center gap-2 mb-3">
+        <div class="w-8 h-8 rounded-lg bg-blue-500/15 flex items-center justify-center flex-shrink-0">
+          <i data-lucide="zap" class="w-4 h-4 text-blue-600"></i>
+        </div>
+        <div class="text-[10px] font-bold uppercase tracking-wider text-blue-600">トリガー</div>
+      </div>
+      <h3 class="text-sm font-bold text-slate-900 mb-2">CSV を inbox に置いた瞬間</h3>
+      <p class="text-xs text-ads-muted leading-relaxed">
+        watcher（フォルダ監視プログラム）が <code class="font-mono text-[10px] bg-slate-100 px-1 py-0.5 rounded">data/inbox/</code> を常時監視。新ファイルを 1 秒以内に検知して取り込みパイプラインを自動起動する。
+      </p>
+    </div>
+
+    <div class="bg-purple-500/5 border-2 border-purple-500/20 rounded-xl p-4">
+      <div class="flex items-center gap-2 mb-3">
+        <div class="w-8 h-8 rounded-lg bg-purple-500/15 flex items-center justify-center flex-shrink-0">
+          <i data-lucide="database-zap" class="w-4 h-4 text-purple-600"></i>
+        </div>
+        <div class="text-[10px] font-bold uppercase tracking-wider text-purple-600">ソース元</div>
+      </div>
+      <h3 class="text-sm font-bold text-slate-900 mb-2">社内システムの受注 CSV</h3>
+      <p class="text-xs text-ads-muted leading-relaxed">
+        社内基幹システムから出力される 1 週間分の受注明細 CSV。日本語ヘッダ・タブ区切り・8 桁日付・CP932 エンコーディングなど複数形式に対応する。
+      </p>
+    </div>
+
+    <div class="bg-emerald-500/5 border-2 border-emerald-500/20 rounded-xl p-4">
+      <div class="flex items-center gap-2 mb-3">
+        <div class="w-8 h-8 rounded-lg bg-emerald-500/15 flex items-center justify-center flex-shrink-0">
+          <i data-lucide="cpu" class="w-4 h-4 text-emerald-600"></i>
+        </div>
+        <div class="text-[10px] font-bold uppercase tracking-wider text-emerald-600">処理する場所</div>
+      </div>
+      <h3 class="text-sm font-bold text-slate-900 mb-2">手元PC + Claude API</h3>
+      <p class="text-xs text-ads-muted leading-relaxed">
+        手元の PC で Python が CSV を SQLite に取り込み・集計・単価候補を計算。確定した数値の JSON を Anthropic Claude API に渡し、文章のみ生成させる。
+      </p>
+    </div>
+
+    <div class="bg-amber-500/5 border-2 border-amber-500/20 rounded-xl p-4">
+      <div class="flex items-center gap-2 mb-3">
+        <div class="w-8 h-8 rounded-lg bg-amber-500/15 flex items-center justify-center flex-shrink-0">
+          <i data-lucide="send" class="w-4 h-4 text-amber-600"></i>
+        </div>
+        <div class="text-[10px] font-bold uppercase tracking-wider text-amber-600">届ける先</div>
+      </div>
+      <h3 class="text-sm font-bold text-slate-900 mb-2">Gmail + ブラウザ画面</h3>
+      <p class="text-xs text-ads-muted leading-relaxed">
+        SMTP で関係者にメール送信（件名「[週次売上] 2024-W52」+ Claude 文案 + ダッシュボード URL）。詳細はブラウザで対話的に確認できる。
+      </p>
+    </div>
+
+  </div>
+
+  <!-- 決め方の根拠 -->
+  <div class="mt-6 bg-ads-surface border border-ads-border rounded-xl p-5">
+    <div class="flex items-start gap-3">
+      <div class="flex items-center justify-center w-8 h-8 rounded-lg bg-ads-accent/10 flex-shrink-0 mt-0.5">
+        <i data-lucide="lightbulb" class="w-4 h-4 text-ads-accent-light"></i>
+      </div>
+      <div class="text-sm leading-relaxed">
+        <p class="font-bold text-slate-900 mb-2">この 4 パーツに分けた理由</p>
+        <p class="text-ads-muted mb-2">
+          「人間の操作を最小化する」という方針から、<strong class="text-slate-800">4 パーツの中でいちばん設計に時間をかけたのはトリガーと処理する場所</strong>です。
+        </p>
+        <ul class="space-y-1 text-ads-muted text-xs">
+          <li>・<strong class="text-slate-800">トリガー：</strong>「毎週覚えてコマンドを打つ」運用は必ず忘れる。フォルダ監視で人間の意志に頼らない設計に。</li>
+          <li>・<strong class="text-slate-800">処理する場所：</strong>AI に集計させると数値がずれるリスクがあるため、数値はコードで確定し、AI には文章だけ書かせる責任分担にした。</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ============================================================ -->
+<!--  デザインの工夫                                                -->
+<!-- ============================================================ -->
+<section class="mb-12">
+  <div class="flex items-center gap-3 mb-4">
+    <div class="flex items-center justify-center w-9 h-9 rounded-lg bg-violet-500/10">
+      <i data-lucide="palette" class="w-4 h-4 text-violet-600"></i>
+    </div>
+    <h2 class="text-xl md:text-2xl font-bold text-slate-900">デザインの工夫</h2>
+  </div>
+  <p class="text-sm text-ads-muted ml-12 mb-6">
+    ダッシュボードを「眺めるだけで状況がわかる」ようにするための、UI 設計のポイント 5 つ。
+  </p>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+
+    <div class="bg-white border border-ads-border rounded-xl p-4">
+      <div class="flex items-start gap-3 mb-2">
+        <div class="w-8 h-8 rounded-lg bg-ads-accent/10 flex items-center justify-center flex-shrink-0">
+          <i data-lucide="sparkles" class="w-4 h-4 text-ads-accent-light"></i>
+        </div>
+        <h3 class="font-bold text-slate-900 text-sm">Claude 要約を最上段に</h3>
+      </div>
+      <p class="text-xs text-ads-muted leading-relaxed">
+        数字より「ストーリー」を先に見せる。紫×シアンのグラデーション枠で視線を集め、開いた瞬間に「今週どうだったか」が伝わる構成にした。
+      </p>
+    </div>
+
+    <div class="bg-white border border-ads-border rounded-xl p-4">
+      <div class="flex items-start gap-3 mb-2">
+        <div class="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
+          <i data-lucide="trending-up" class="w-4 h-4 text-emerald-600"></i>
+        </div>
+        <h3 class="font-bold text-slate-900 text-sm">KPI に色と矢印</h3>
+      </div>
+      <p class="text-xs text-ads-muted leading-relaxed">
+        前週比は閾値で 5 段階に分類。+30% 以上なら緑 pill、−30% 以下なら赤 pill＋▲▼アイコン。「良い週か悪い週か」が一目でわかる。
+      </p>
+    </div>
+
+    <div class="bg-white border border-ads-border rounded-xl p-4">
+      <div class="flex items-start gap-3 mb-2">
+        <div class="w-8 h-8 rounded-lg bg-cyan-500/10 flex items-center justify-center flex-shrink-0">
+          <i data-lucide="line-chart" class="w-4 h-4 text-cyan-600"></i>
+        </div>
+        <h3 class="font-bold text-slate-900 text-sm">Top10 にスパークライン</h3>
+      </div>
+      <p class="text-xs text-ads-muted leading-relaxed">
+        各得意先・品目の直近 8 期間の売上推移をミニチャートで併記。「Top10 だけど落ち目」を金額だけでは見えない情報として補足する。
+      </p>
+    </div>
+
+    <div class="bg-white border border-ads-border rounded-xl p-4">
+      <div class="flex items-start gap-3 mb-2">
+        <div class="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center flex-shrink-0">
+          <i data-lucide="alert-triangle" class="w-4 h-4 text-amber-600"></i>
+        </div>
+        <h3 class="font-bold text-slate-900 text-sm">単価欠けは独立警告カード</h3>
+      </div>
+      <p class="text-xs text-ads-muted leading-relaxed">
+        埋もれがちな「要対応」を琥珀色の独立カードに昇格。件数バッジ＋ CSV ダウンロードボタンで、放置されない仕組みにした。
+      </p>
+    </div>
+
+    <div class="bg-white border border-ads-border rounded-xl p-4 md:col-span-2">
+      <div class="flex items-start gap-3 mb-2">
+        <div class="w-8 h-8 rounded-lg bg-rose-500/10 flex items-center justify-center flex-shrink-0">
+          <i data-lucide="grid-3x3" class="w-4 h-4 text-rose-600"></i>
+        </div>
+        <h3 class="font-bold text-slate-900 text-sm">取引マトリックス＋ヒートマップカレンダー</h3>
+      </div>
+      <p class="text-xs text-ads-muted leading-relaxed">
+        Top5 顧客 × Top5 品目のクロス表で「どの顧客がどの品目に強いか」、月次は日別ヒートマップカレンダーで「強い曜日・強い日」を一目で把握。テキストでは伝わりにくい関係性を視覚化した。
+      </p>
+    </div>
+
+  </div>
+</section>
+
+
+<!-- ============================================================ -->
+<!--  ぶつかった課題と解決方法                                       -->
+<!-- ============================================================ -->
+<section class="mb-12">
+  <div class="flex items-center gap-3 mb-4">
+    <div class="flex items-center justify-center w-9 h-9 rounded-lg bg-red-500/10">
+      <i data-lucide="wrench" class="w-4 h-4 text-red-600"></i>
+    </div>
+    <h2 class="text-xl md:text-2xl font-bold text-slate-900">ぶつかった課題と解決方法</h2>
+  </div>
+  <p class="text-sm text-ads-muted ml-12 mb-6">
+    開発中に出てきた問題と、どう解決したか。
+  </p>
+
+  <div class="space-y-4">
+
+    <!-- 課題 1: ハルシネーション -->
+    <div class="bg-white border border-ads-border rounded-xl overflow-hidden">
+      <div class="flex items-center gap-3 px-5 py-3 bg-red-500/5 border-b border-ads-border/50">
+        <div class="w-7 h-7 rounded-full bg-red-500/15 flex items-center justify-center flex-shrink-0">
+          <i data-lucide="x" class="w-4 h-4 text-red-600"></i>
+        </div>
+        <div class="flex-1">
+          <div class="text-[10px] font-bold uppercase tracking-wider text-red-600 mb-0.5">課題 1</div>
+          <h3 class="font-bold text-slate-900 text-sm">AI に直接レポートを書かせると数字がずれる（ハルシネーション）</h3>
+        </div>
+      </div>
+      <div class="px-5 py-4">
+        <div class="flex items-start gap-3">
+          <div class="w-7 h-7 rounded-full bg-emerald-500/15 flex items-center justify-center flex-shrink-0 mt-0.5">
+            <i data-lucide="check" class="w-4 h-4 text-emerald-600"></i>
+          </div>
+          <div class="text-sm">
+            <p class="text-xs font-bold text-emerald-700 mb-1">解決</p>
+            <p class="text-ads-muted leading-relaxed">
+              <strong class="text-slate-800">数値はコード、文章は AI</strong>と役割分担を明確化。Python で集計を完全に確定し、JSON にして Claude へ渡す。プロンプトに「JSON にある数値以外は使うな」と明示し、文章だけを生成させる。
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 課題 2: CSV の方言 -->
+    <div class="bg-white border border-ads-border rounded-xl overflow-hidden">
+      <div class="flex items-center gap-3 px-5 py-3 bg-red-500/5 border-b border-ads-border/50">
+        <div class="w-7 h-7 rounded-full bg-red-500/15 flex items-center justify-center flex-shrink-0">
+          <i data-lucide="x" class="w-4 h-4 text-red-600"></i>
+        </div>
+        <div class="flex-1">
+          <div class="text-[10px] font-bold uppercase tracking-wider text-red-600 mb-0.5">課題 2</div>
+          <h3 class="font-bold text-slate-900 text-sm">CSV の形式が顧客ごとに違う（日本語/英語ヘッダ・列順・タブ区切り）</h3>
+        </div>
+      </div>
+      <div class="px-5 py-4">
+        <div class="flex items-start gap-3">
+          <div class="w-7 h-7 rounded-full bg-emerald-500/15 flex items-center justify-center flex-shrink-0 mt-0.5">
+            <i data-lucide="check" class="w-4 h-4 text-emerald-600"></i>
+          </div>
+          <div class="text-sm">
+            <p class="text-xs font-bold text-emerald-700 mb-1">解決</p>
+            <p class="text-ads-muted leading-relaxed">
+              <strong class="text-slate-800">正規スキーマ＋マッピング JSON</strong>で吸収。内部で扱う列は <code class="font-mono text-[10px] bg-slate-100 px-1 py-0.5 rounded">customer_code, product_code, quantity, unit_price, amount, ship_date</code> の 6 つに固定。各 CSV の方言は JSON ファイル 1 つで「日付 → ship_date」のように対応付ける。新形式が来ても集計コードは触らない。
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 課題 3: 単価欠け -->
+    <div class="bg-white border border-ads-border rounded-xl overflow-hidden">
+      <div class="flex items-center gap-3 px-5 py-3 bg-red-500/5 border-b border-ads-border/50">
+        <div class="w-7 h-7 rounded-full bg-red-500/15 flex items-center justify-center flex-shrink-0">
+          <i data-lucide="x" class="w-4 h-4 text-red-600"></i>
+        </div>
+        <div class="flex-1">
+          <div class="text-[10px] font-bold uppercase tracking-wider text-red-600 mb-0.5">課題 3</div>
+          <h3 class="font-bold text-slate-900 text-sm">単価が空欄の行があり、平均単価などの集計が壊れる</h3>
+        </div>
+      </div>
+      <div class="px-5 py-4">
+        <div class="flex items-start gap-3">
+          <div class="w-7 h-7 rounded-full bg-emerald-500/15 flex items-center justify-center flex-shrink-0 mt-0.5">
+            <i data-lucide="check" class="w-4 h-4 text-emerald-600"></i>
+          </div>
+          <div class="text-sm">
+            <p class="text-xs font-bold text-emerald-700 mb-1">解決</p>
+            <p class="text-ads-muted leading-relaxed mb-2">
+              <strong class="text-slate-800">5 段階のフォールバックで候補を自動算出</strong>。具体的な情報から徐々に抽象的な情報へ降りる。
+            </p>
+            <ol class="text-xs text-ads-muted space-y-1 ml-2">
+              <li><span class="font-bold text-slate-700">①</span> 同一顧客 × 同一品目の過去最新価格</li>
+              <li><span class="font-bold text-slate-700">②</span> 同一顧客 × 同一材質の過去最新価格</li>
+              <li><span class="font-bold text-slate-700">③</span> 同期間の同先 × 材質 平均価格</li>
+              <li><span class="font-bold text-slate-700">④</span> 同期間の同品目 平均価格</li>
+              <li><span class="font-bold text-slate-700">⑤</span> 金額 ÷ 数量 の逆算（最終手段）</li>
+            </ol>
+            <p class="text-ads-muted leading-relaxed mt-2">
+              「データがないからわからない」と諦めず、ある情報から最良の候補を出す。どの根拠で出したか画面に表示するので、最終判断は人間ができる。
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 課題 4: 運用週 -->
+    <div class="bg-white border border-ads-border rounded-xl overflow-hidden">
+      <div class="flex items-center gap-3 px-5 py-3 bg-red-500/5 border-b border-ads-border/50">
+        <div class="w-7 h-7 rounded-full bg-red-500/15 flex items-center justify-center flex-shrink-0">
+          <i data-lucide="x" class="w-4 h-4 text-red-600"></i>
+        </div>
+        <div class="flex-1">
+          <div class="text-[10px] font-bold uppercase tracking-wider text-red-600 mb-0.5">課題 4</div>
+          <h3 class="font-bold text-slate-900 text-sm">「今週」の境界（ISO 月曜 0:00）が業務感覚と合わない</h3>
+        </div>
+      </div>
+      <div class="px-5 py-4">
+        <div class="flex items-start gap-3">
+          <div class="w-7 h-7 rounded-full bg-emerald-500/15 flex items-center justify-center flex-shrink-0 mt-0.5">
+            <i data-lucide="check" class="w-4 h-4 text-emerald-600"></i>
+          </div>
+          <div class="text-sm">
+            <p class="text-xs font-bold text-emerald-700 mb-1">解決</p>
+            <p class="text-ads-muted leading-relaxed">
+              <strong class="text-slate-800">JST 月曜 8:00 起算の「運用週」</strong>を独自定義してコード上に明示。月曜朝 7 時の出荷は前週扱いになり、月曜朝レポートで「先週ぶん」が正しくまとまる。標準仕様より業務感覚を優先した。
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 課題 5: 忘れる -->
+    <div class="bg-white border border-ads-border rounded-xl overflow-hidden">
+      <div class="flex items-center gap-3 px-5 py-3 bg-red-500/5 border-b border-ads-border/50">
+        <div class="w-7 h-7 rounded-full bg-red-500/15 flex items-center justify-center flex-shrink-0">
+          <i data-lucide="x" class="w-4 h-4 text-red-600"></i>
+        </div>
+        <div class="flex-1">
+          <div class="text-[10px] font-bold uppercase tracking-wider text-red-600 mb-0.5">課題 5</div>
+          <h3 class="font-bold text-slate-900 text-sm">毎週ターミナルでコマンドを打つ運用は、忙しい週に必ず忘れる</h3>
+        </div>
+      </div>
+      <div class="px-5 py-4">
+        <div class="flex items-start gap-3">
+          <div class="w-7 h-7 rounded-full bg-emerald-500/15 flex items-center justify-center flex-shrink-0 mt-0.5">
+            <i data-lucide="check" class="w-4 h-4 text-emerald-600"></i>
+          </div>
+          <div class="text-sm">
+            <p class="text-xs font-bold text-emerald-700 mb-1">解決</p>
+            <p class="text-ads-muted leading-relaxed">
+              <strong class="text-slate-800">macOS の launchd で watcher を常駐</strong>。PC 起動と同時に自動で動き出し、<code class="font-mono text-[10px] bg-slate-100 px-1 py-0.5 rounded">data/inbox/</code> に CSV を置けば検知して処理が走る。人間がやるのはドラッグ＆ドロップ 1 回だけ。
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+
+<!-- ============================================================ -->
+<!--  まとめ                                                      -->
+<!-- ============================================================ -->
+<section>
+  <div class="flex items-center gap-3 mb-4">
+    <div class="flex items-center justify-center w-9 h-9 rounded-lg bg-ads-accent/10">
+      <i data-lucide="check-circle" class="w-4 h-4 text-ads-accent-light"></i>
+    </div>
+    <h2 class="text-xl md:text-2xl font-bold text-slate-900">まとめ — 設計で大事にした3つの考え方</h2>
+  </div>
+
+  <div class="space-y-3 mb-6">
+    <div class="bg-ads-surface border border-ads-border rounded-xl p-5 border-l-4 border-l-blue-500">
+      <div class="flex items-start gap-4">
+        <div class="text-xl font-black text-blue-500 leading-none flex-shrink-0 mt-1">01</div>
+        <div>
+          <h3 class="font-bold text-slate-900 text-sm mb-1">AI に任せるのは「人間が苦手なこと」だけ</h3>
+          <p class="text-xs text-ads-muted leading-relaxed">数字の計算は AI が苦手。文章は AI が得意。役割分担を明確にすると、AI を業務で安心して使える。</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="bg-ads-surface border border-ads-border rounded-xl p-5 border-l-4 border-l-emerald-500">
+      <div class="flex items-start gap-4">
+        <div class="text-xl font-black text-emerald-500 leading-none flex-shrink-0 mt-1">02</div>
+        <div>
+          <h3 class="font-bold text-slate-900 text-sm mb-1">過去データは「文脈」になる</h3>
+          <p class="text-xs text-ads-muted leading-relaxed">「データがないからわからない」と諦めない。フォールバックで段階的に候補を出すと、最低限の妥当な値が手に入る。</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="bg-ads-surface border border-ads-border rounded-xl p-5 border-l-4 border-l-amber-500">
+      <div class="flex items-start gap-4">
+        <div class="text-xl font-black text-amber-500 leading-none flex-shrink-0 mt-1">03</div>
+        <div>
+          <h3 class="font-bold text-slate-900 text-sm mb-1">「忘れない仕組み」が一番強い</h3>
+          <p class="text-xs text-ads-muted leading-relaxed">毎週覚えて操作する運用は必ず破綻する。常駐＋フォルダ投下＋失敗時の自動退避で、人間の意志に頼らない設計にした。</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- キーワード -->
+  <div class="border-t border-ads-border/50 pt-5">
+    <div class="text-[11px] font-bold uppercase tracking-wider text-ads-dim mb-3">キーワード</div>
+    <div class="flex flex-wrap gap-2">
+      <span class="text-xs bg-white border border-ads-border rounded-full px-3 py-1 text-slate-700">ハルシネーション防止</span>
+      <span class="text-xs bg-white border border-ads-border rounded-full px-3 py-1 text-slate-700">フォールバック</span>
+      <span class="text-xs bg-white border border-ads-border rounded-full px-3 py-1 text-slate-700">ETL（正規化）</span>
+      <span class="text-xs bg-white border border-ads-border rounded-full px-3 py-1 text-slate-700">運用週</span>
+      <span class="text-xs bg-white border border-ads-border rounded-full px-3 py-1 text-slate-700">launchd 常駐</span>
+      <span class="text-xs bg-white border border-ads-border rounded-full px-3 py-1 text-slate-700">SQLite</span>
+      <span class="text-xs bg-white border border-ads-border rounded-full px-3 py-1 text-slate-700">peer 平均</span>
+      <span class="text-xs bg-white border border-ads-border rounded-full px-3 py-1 text-slate-700">SMTP</span>
+      <span class="text-xs bg-white border border-ads-border rounded-full px-3 py-1 text-slate-700">FastAPI</span>
+    </div>
+  </div>
+</section>
+
+<!-- CONTENT_END -->
+  </main>
+  <footer class="max-w-3xl mx-auto px-5 pb-10 pt-6 border-t border-ads-border/30">
+    <p class="text-xs text-ads-dim text-center">AI-Driven School の図解ツールで作成</p>
+  </footer>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script>lucide.createIcons();</script>
+</body>
+</html>

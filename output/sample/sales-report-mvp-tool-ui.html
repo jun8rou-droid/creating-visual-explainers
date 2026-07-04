@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="color-scheme" content="light">
+  <title>週次売上レポート自動化 — 実装版 UI イメージ（モック）</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Noto+Sans+JP:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Noto Sans JP"', 'sans-serif'],
+            display: ['"Plus Jakarta Sans"', '"Noto Sans JP"', 'sans-serif'],
+            mono: ['"IBM Plex Mono"', 'ui-monospace', 'monospace'],
+          },
+        },
+      },
+    };
+  </script>
+  <style>
+    a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+      outline: 2px solid #4f46e5;
+      outline-offset: 2px;
+    }
+    .tab-active { border-color: rgb(79 70 229); color: rgb(49 46 129); background: rgb(255 255 255); }
+    .tab-inactive { border-color: transparent; color: rgb(100 116 139); background: rgb(248 250 252); }
+  </style>
+</head>
+<body class="min-h-screen bg-slate-100 text-slate-800 antialiased text-[14px] leading-relaxed">
+  <!-- ナビ -->
+  <header class="border-b border-slate-200 bg-white">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-3">
+      <div class="min-w-0">
+        <p class="text-[11px] font-semibold uppercase tracking-wider text-slate-400 font-display">sales-report-automation · UI mock</p>
+        <h1 class="font-display font-bold text-slate-900 text-lg sm:text-xl tracking-tight truncate">週次売上レポート自動化（MVP）</h1>
+      </div>
+      <div class="flex flex-wrap items-center gap-2 text-xs sm:text-sm">
+        <span class="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 font-medium text-amber-900">静的モック</span>
+        <span class="text-slate-400 hidden sm:inline">実 CLI と同じ項目構成</span>
+        <nav class="flex items-center gap-2 border-l border-slate-200 pl-3 ml-1">
+          <a href="sales-report-onboarding-flow.html" class="text-indigo-600 font-medium hover:underline underline-offset-2">進め方</a>
+          <a href="sales-report-flow.html" class="text-slate-500 hover:text-slate-800">flow</a>
+        </nav>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8 pb-16 space-y-6">
+    <p class="text-sm text-slate-600 max-w-3xl">
+      リポジトリ内の <code class="rounded bg-white px-1.5 py-0.5 text-xs ring-1 ring-slate-200 font-mono">python -m sales_report_automation</code>
+      がやっていることの<strong class="text-slate-800">画面イメージ</strong>です。送信や保存は行いません（デモ用の見た目のみ）。
+    </p>
+
+    <div class="flex flex-col lg:flex-row gap-6 items-start">
+      <!-- 左: 入力 -->
+      <div class="w-full lg:w-[min(100%,22rem)] lg:flex-shrink-0 space-y-4">
+        <section class="rounded-2xl border border-slate-200 bg-white shadow-sm ring-1 ring-slate-900/[0.02] overflow-hidden" aria-labelledby="input-heading">
+          <div class="border-b border-slate-100 px-4 sm:px-5 py-3 bg-slate-50/80">
+            <h2 id="input-heading" class="font-display font-bold text-slate-900 text-sm">取り込み・実行</h2>
+            <p class="text-xs text-slate-500 mt-0.5">CLI の <code class="font-mono text-[11px]">--csv</code> <code class="font-mono text-[11px]">--week</code> などに相当。本番は<strong class="text-slate-700">毎週月曜 08:00（JST）</strong>に CSV が自動送信され、<strong class="text-slate-700">受信がトリガー</strong>。データ週は<strong class="text-slate-700">月 08:00:00〜翌週月 07:59:59</strong>。</p>
+          </div>
+          <div class="p-4 sm:p-5 space-y-4">
+            <div>
+              <label for="f-csv" class="block text-xs font-semibold text-slate-600 mb-1">CSV ファイル</label>
+              <input id="f-csv" type="text" readonly value="sample/week_sample.csv"
+                class="w-full rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-2 text-sm font-mono text-slate-800 ring-0">
+            </div>
+            <div>
+              <label for="f-week" class="block text-xs font-semibold text-slate-600 mb-1">週キー <span class="font-normal text-slate-400">--week</span></label>
+              <input id="f-week" type="text" readonly value="2026-W14"
+                class="w-full rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-2 text-sm font-mono text-slate-800">
+            </div>
+            <div>
+              <label for="f-config" class="block text-xs font-semibold text-slate-600 mb-1">列マッピング JSON <span class="font-normal text-slate-400">--config（任意）</span></label>
+              <input id="f-config" type="text" readonly placeholder="未指定（標準ヘッダ CSV）"
+                class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-mono text-slate-500 placeholder:text-slate-400">
+            </div>
+            <div>
+              <label for="f-db" class="block text-xs font-semibold text-slate-600 mb-1">SQLite パス <span class="font-normal text-slate-400">--db</span></label>
+              <input id="f-db" type="text" readonly value="data/report_store.sqlite"
+                class="w-full rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-2 text-sm font-mono text-slate-800">
+            </div>
+            <div class="flex flex-col gap-2.5 pt-1">
+              <label class="flex items-center gap-2.5 cursor-pointer group">
+                <input type="checkbox" id="f-replace" class="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500">
+                <span class="text-sm text-slate-700">同一週を削除してから再取込 <code class="ml-1 text-xs font-mono text-slate-500">--replace-week</code></span>
+              </label>
+              <label class="flex items-center gap-2.5 cursor-pointer">
+                <input type="checkbox" id="f-dry" checked class="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500">
+                <span class="text-sm text-slate-700">Dry-run（Claude を呼ばずペイロードのみ） <code class="ml-1 text-xs font-mono text-slate-500">--dry-run</code></span>
+              </label>
+            </div>
+            <div class="pt-2 flex flex-wrap gap-2">
+              <button type="button" id="btn-run"
+                class="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-md shadow-indigo-600/20 hover:bg-indigo-500 active:scale-[0.99] transition-all">
+                <span aria-hidden="true">▶</span> 実行（デモ）
+              </button>
+              <button type="button" id="btn-reset" class="text-sm font-medium text-slate-500 hover:text-slate-800 px-3 py-2">結果を隠す</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="rounded-2xl border border-slate-200 bg-white shadow-sm p-4 sm:p-5" aria-labelledby="cmd-heading">
+          <h2 id="cmd-heading" class="font-display font-bold text-slate-900 text-sm mb-2">相当するコマンド</h2>
+          <pre id="cmd-preview" class="text-[11px] sm:text-xs font-mono text-slate-700 bg-slate-50 rounded-lg p-3 border border-slate-100 overflow-x-auto leading-relaxed whitespace-pre-wrap break-all">python -m sales_report_automation \
+  --csv sample/week_sample.csv \
+  --week 2026-W14 \
+  --dry-run</pre>
+        </section>
+      </div>
+
+      <!-- 右: 出力 -->
+      <div class="w-full min-w-0 lg:flex-1 space-y-4" id="panel-results" hidden>
+        <section class="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden" aria-labelledby="meta-heading">
+          <div class="border-b border-slate-100 px-4 sm:px-5 py-3 flex flex-wrap items-center justify-between gap-2 bg-emerald-50/40">
+            <h2 id="meta-heading" class="font-display font-bold text-slate-900 text-sm">直近の実行結果</h2>
+            <span id="badge-status" class="text-xs font-medium text-emerald-800 bg-emerald-100/80 border border-emerald-200/80 rounded-full px-2.5 py-0.5">取り込み・集計まで完了（モック）</span>
+          </div>
+          <div class="px-4 sm:px-5 py-3 text-xs font-mono text-slate-600 space-y-1 border-b border-slate-50 bg-slate-50/30">
+            <p><span class="text-slate-400">run_id</span> <span id="out-runid" class="text-slate-800">—</span></p>
+            <p><span class="text-slate-400">week_key</span> <span id="out-week" class="text-slate-800">2026-W14</span></p>
+          </div>
+          <div class="p-4 sm:p-5">
+            <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wide mb-3">集計（<code class="font-mono normal-case text-[11px]">aggregate_for_import</code> 相当）</h3>
+            <div class="grid sm:grid-cols-3 gap-3">
+              <div class="rounded-xl border border-slate-100 bg-slate-50/60 p-4">
+                <p class="text-[11px] font-semibold text-slate-500">行数</p>
+                <p id="kpi-lines" class="mt-1 font-display text-2xl font-bold text-slate-900 tabular-nums">—</p>
+              </div>
+              <div class="rounded-xl border border-slate-100 bg-slate-50/60 p-4">
+                <p class="text-[11px] font-semibold text-slate-500">合計金額</p>
+                <p id="kpi-total" class="mt-1 font-display text-2xl font-bold text-slate-900 tabular-nums">—</p>
+              </div>
+              <div class="rounded-xl border border-slate-100 bg-slate-50/60 p-4">
+                <p class="text-[11px] font-semibold text-slate-500">単価欠損行</p>
+                <p id="kpi-missing" class="mt-1 font-display text-2xl font-bold text-slate-900 tabular-nums">—</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden" aria-labelledby="hints-heading">
+          <div class="border-b border-slate-100 px-4 sm:px-5 py-3 bg-slate-50/80">
+            <h2 id="hints-heading" class="font-display font-bold text-slate-900 text-sm">単価欠損の候補（<code class="font-mono text-xs font-normal text-slate-600">unit_price_hints</code>）</h2>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="min-w-full text-sm">
+              <thead>
+                <tr class="border-b border-slate-200 bg-slate-50 text-left text-xs font-semibold text-slate-600">
+                  <th class="px-3 py-2 whitespace-nowrap">行</th>
+                  <th class="px-3 py-2 whitespace-nowrap">顧客</th>
+                  <th class="px-3 py-2 whitespace-nowrap">品目</th>
+                  <th class="px-3 py-2 whitespace-nowrap">候補単価</th>
+                  <th class="px-3 py-2">根拠</th>
+                </tr>
+              </thead>
+              <tbody id="hints-body" class="text-slate-700 divide-y divide-slate-100"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden" aria-labelledby="tabs-label">
+          <div class="border-b border-slate-100 px-2 sm:px-3 pt-2 flex gap-1" role="tablist" aria-labelledby="tabs-label">
+            <span id="tabs-label" class="sr-only">出力の種類</span>
+            <button type="button" role="tab" aria-selected="true" id="tab-dry" class="tab-active rounded-t-lg border border-b-0 px-3 sm:px-4 py-2 text-xs sm:text-sm font-semibold transition-colors">Dry-run JSON</button>
+            <button type="button" role="tab" aria-selected="false" id="tab-llm" class="tab-inactive rounded-t-lg border border-b-0 px-3 sm:px-4 py-2 text-xs sm:text-sm font-semibold transition-colors">Claude 文案（想定）</button>
+          </div>
+          <div class="p-3 sm:p-4 border-t border-slate-100 -mt-px bg-white">
+            <div id="pane-dry" role="tabpanel">
+              <pre id="pre-dry" class="text-[11px] sm:text-xs font-mono text-slate-700 bg-slate-50 rounded-lg p-3 max-h-[min(28rem,50vh)] overflow-auto border border-slate-100 leading-relaxed"></pre>
+            </div>
+            <div id="pane-llm" role="tabpanel" hidden>
+              <div class="rounded-lg border border-violet-100 bg-violet-50/40 p-4 text-sm text-slate-800 leading-relaxed space-y-3" id="pre-llm"></div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <!-- 初期ヒント -->
+    <p id="hint-empty" class="text-center text-sm text-slate-500 py-8 rounded-2xl border border-dashed border-slate-200 bg-white/50 max-w-6xl mx-auto">
+      左の「実行（デモ）」で、集計・ヒント・出力タブのサンプルを表示します。
+    </p>
+  </main>
+
+  <footer class="max-w-6xl mx-auto px-4 sm:px-6 pb-10 text-xs text-slate-400 text-center">
+    実装: <code class="font-mono text-slate-500">sales-report-automation/</code>
+    · 本ページは静的 HTML のみ（API 未接続）
+  </footer>
+
+  <script>
+(function () {
+  const MOCK_RUN = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890';
+  const MOCK_STATS = { line_count: 128, total_amount: 3847290.5, missing_unit_count: 2 };
+  const MOCK_HINTS = [
+    { row_index: 14, customer_code: 'C-1042', product_code: 'P-NEJI-M8-25', amount: 12400, ship_date: '2026-04-02', suggested_unit_price: 310, suggested_from_ship_date: '2026-03-18', reason: 'historical_match' },
+    { row_index: 67, customer_code: 'C-2201', product_code: 'P-BOLT-A2-40', amount: 8800, ship_date: '2026-04-04', suggested_unit_price: null, suggested_from_ship_date: null, reason: 'no_history' },
+  ];
+  const payload = {
+    week_key: '2026-W14',
+    run_id: MOCK_RUN,
+    summary: {
+      line_count: MOCK_STATS.line_count,
+      total_amount: Math.round(MOCK_STATS.total_amount * 100) / 100,
+      missing_unit_price_rows: MOCK_STATS.missing_unit_count,
+    },
+    unit_price_hints: MOCK_HINTS.map(function (h) {
+      return {
+        row_index: h.row_index,
+        customer_code: h.customer_code,
+        product_code: h.product_code,
+        amount: h.amount,
+        ship_date: h.ship_date,
+        suggested_unit_price: h.suggested_unit_price,
+        suggested_from_ship_date: h.suggested_from_ship_date,
+        reason: h.reason,
+      };
+    }),
+    instructions_for_model: '数値はこの JSON の summary / unit_price_hints のみを引用すること。新しい合計や単価を捏造しないこと。',
+  };
+  const dryJson = JSON.stringify({ dry_run: true, payload: payload }, null, 2);
+  const llmText =
+    '<p class="font-medium text-violet-950">週次サマリー（サンプル文案）</p>' +
+    '<p>週キー 2026-W14 の取り込みでは、計 <strong>128</strong> 行を集計し、売上合計は <strong>¥3,847,290.50</strong> でした。単価が未入力の行は <strong>2</strong> 行あります。</p>' +
+    '<p>顧客 C-1042・品目 P-NEJI-M8-25 については、過去出荷（2026-03-18）から単価候補 <strong>¥310</strong> を付与しています。顧客 C-2201・品目 P-BOLT-A2-40 は履歴が見つからず、候補はありません。最終確認は担当者の承認をお願いします。</p>' +
+    '<p class="text-xs text-slate-500 border-t border-violet-100/80 pt-3 mt-3">※ 実ツールでは Anthropic API（環境変数 ANTHROPIC_API_KEY）経由で生成されます。数値は入力 JSON のみを引用する前提です。</p>';
+
+  function esc(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function renderHints() {
+    var tbody = document.getElementById('hints-body');
+    tbody.innerHTML = MOCK_HINTS.map(function (h) {
+      var price = h.suggested_unit_price != null ? '¥' + h.suggested_unit_price.toLocaleString('ja-JP') : '—';
+      var reason = h.reason === 'historical_match' ? '過去単価一致' : '履歴なし';
+      return '<tr class="hover:bg-slate-50/80"><td class="px-3 py-2 font-mono tabular-nums">' + h.row_index + '</td>' +
+        '<td class="px-3 py-2 font-mono text-xs">' + esc(h.customer_code) + '</td>' +
+        '<td class="px-3 py-2 font-mono text-xs max-w-[10rem] truncate" title="' + esc(h.product_code) + '">' + esc(h.product_code) + '</td>' +
+        '<td class="px-3 py-2 tabular-nums">' + price + '</td>' +
+        '<td class="px-3 py-2 text-slate-600">' + reason + '</td></tr>';
+    }).join('');
+  }
+
+  function updateCmd() {
+    var dry = document.getElementById('f-dry').checked;
+    var rep = document.getElementById('f-replace').checked;
+    var lines = [
+      'python -m sales_report_automation \\',
+      '  --csv sample/week_sample.csv \\',
+      '  --week 2026-W14',
+    ];
+    if (rep) {
+      lines[lines.length - 1] += ' \\';
+      lines.push('  --replace-week');
+    }
+    if (dry) {
+      lines[lines.length - 1] += ' \\';
+      lines.push('  --dry-run');
+    }
+    document.getElementById('cmd-preview').textContent = lines.join('\n');
+  }
+
+  document.getElementById('f-dry').addEventListener('change', updateCmd);
+  document.getElementById('f-replace').addEventListener('change', updateCmd);
+  updateCmd();
+
+  document.getElementById('btn-run').addEventListener('click', function () {
+    document.getElementById('hint-empty').hidden = true;
+    document.getElementById('panel-results').hidden = false;
+    document.getElementById('out-runid').textContent = MOCK_RUN;
+    document.getElementById('kpi-lines').textContent = String(MOCK_STATS.line_count);
+    document.getElementById('kpi-total').textContent = '¥' + MOCK_STATS.total_amount.toLocaleString('ja-JP', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    document.getElementById('kpi-missing').textContent = String(MOCK_STATS.missing_unit_count);
+    renderHints();
+    document.getElementById('pre-dry').textContent = dryJson;
+    document.getElementById('pre-llm').innerHTML = llmText;
+    var dryTab = document.getElementById('f-dry').checked;
+    document.getElementById('tab-dry').setAttribute('aria-selected', dryTab ? 'true' : 'false');
+    document.getElementById('tab-llm').setAttribute('aria-selected', dryTab ? 'false' : 'true');
+    if (dryTab) showTab('dry'); else showTab('llm');
+    document.getElementById('badge-status').textContent = dryTab
+      ? 'Dry-run（Claude 未呼び出し）'
+      : '文案生成まで完了（想定）';
+    document.getElementById('badge-status').className = dryTab
+      ? 'text-xs font-medium text-amber-900 bg-amber-100/80 border border-amber-200/80 rounded-full px-2.5 py-0.5'
+      : 'text-xs font-medium text-emerald-800 bg-emerald-100/80 border border-emerald-200/80 rounded-full px-2.5 py-0.5';
+  });
+
+  document.getElementById('btn-reset').addEventListener('click', function () {
+    document.getElementById('panel-results').hidden = true;
+    document.getElementById('hint-empty').hidden = false;
+  });
+
+  function showTab(name) {
+    var dry = name === 'dry';
+    document.getElementById('pane-dry').hidden = !dry;
+    document.getElementById('pane-llm').hidden = dry;
+    document.getElementById('tab-dry').className = dry ? 'tab-active rounded-t-lg border border-b-0 px-3 sm:px-4 py-2 text-xs sm:text-sm font-semibold transition-colors' : 'tab-inactive rounded-t-lg border border-b-0 px-3 sm:px-4 py-2 text-xs sm:text-sm font-semibold transition-colors';
+    document.getElementById('tab-llm').className = !dry ? 'tab-active rounded-t-lg border border-b-0 px-3 sm:px-4 py-2 text-xs sm:text-sm font-semibold transition-colors' : 'tab-inactive rounded-t-lg border border-b-0 px-3 sm:px-4 py-2 text-xs sm:text-sm font-semibold transition-colors';
+    document.getElementById('tab-dry').setAttribute('aria-selected', dry ? 'true' : 'false');
+    document.getElementById('tab-llm').setAttribute('aria-selected', dry ? 'false' : 'true');
+  }
+
+  document.getElementById('tab-dry').addEventListener('click', function () { showTab('dry'); });
+  document.getElementById('tab-llm').addEventListener('click', function () { showTab('llm'); });
+})();
+  </script>
+</body>
+</html>

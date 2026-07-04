@@ -1,0 +1,10 @@
+output/*.html
+deploy-history.log
+.DS_Store
+**/.DS_Store
+.cursor/
+
+# 秘密情報 · 依存パッケージ（GitHub / Vercel に上げない）
+**/.env
+!**/.env.example
+**/node_modules/

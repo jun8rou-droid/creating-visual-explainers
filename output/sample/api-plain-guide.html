@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <title>APIって何？ — やさしい図解（売上レポートの話）</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['"Noto Sans JP"', 'sans-serif'] },
+        }
+      }
+    }
+  </script>
+  <style>
+    .flow-line { border-left: 3px solid #cbd5e1; margin-left: 0.75rem; padding-left: 1.25rem; }
+    a:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 antialiased min-h-screen">
+  <header class="bg-white border-b border-slate-200">
+    <div class="max-w-2xl mx-auto px-5 py-10">
+      <p class="text-xs font-semibold text-blue-700 tracking-wide mb-2">はじめて向け</p>
+      <h1 class="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">APIって何？</h1>
+      <p class="text-slate-600 mt-3 text-sm leading-relaxed">売上レポートやLINE通知の話をするときによく出る「API」を、専門用語なしで整理した図解です。</p>
+    </div>
+  </header>
+
+  <main class="max-w-2xl mx-auto px-5 py-10 space-y-12 pb-16">
+
+    <!-- ひとこと -->
+    <section aria-labelledby="s1">
+      <h2 id="s1" class="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+        <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-100 text-blue-800 text-sm font-black">1</span>
+        ひとことでいうと
+      </h2>
+      <div class="rounded-2xl bg-white border border-slate-200 p-5 shadow-sm">
+        <p class="text-slate-800 font-medium leading-relaxed">
+          <strong class="text-slate-900">API</strong>は、<strong class="text-slate-900">プログラム同士が、決まった手順でお願いしあう「窓口」</strong>のことです。
+        </p>
+        <p class="text-sm text-slate-600 mt-3 leading-relaxed">
+          人がブラウザでボタンを押す代わりに、<strong>自動処理のプログラム</strong>がその窓口に「こうして」と短いメッセージを送り、向こうのコンピュータが答えを返します。
+        </p>
+      </div>
+    </section>
+
+    <!-- たとえ -->
+    <section aria-labelledby="s2">
+      <h2 id="s2" class="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+        <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-100 text-amber-900 text-sm font-black">2</span>
+        たとえ話（レストラン）
+      </h2>
+      <div class="rounded-2xl border-2 border-amber-200 bg-amber-50/80 p-5 space-y-4 text-sm">
+        <div class="flex gap-3">
+          <div class="shrink-0 w-10 h-10 rounded-full bg-white border-2 border-amber-300 flex items-center justify-center font-bold text-amber-800">客</div>
+          <div>
+            <p class="font-semibold text-slate-900">あなたの自動レポートのプログラム</p>
+            <p class="text-slate-600 mt-1">厨房の中には入れない。メニュー表に書いてある頼み方だけできる。</p>
+          </div>
+        </div>
+        <div class="flex justify-center text-amber-600 text-2xl" aria-hidden="true">↓</div>
+        <div class="flex gap-3">
+          <div class="shrink-0 w-10 h-10 rounded-full bg-amber-600 text-white flex items-center justify-center font-bold">API</div>
+          <div>
+            <p class="font-semibold text-slate-900">ウェイター（窓口）</p>
+            <p class="text-slate-600 mt-1">「ハンバーグ1つ」と言える。変な頼み方は受け付けない。<strong>決まった言い方＝API</strong>。</p>
+          </div>
+        </div>
+        <div class="flex justify-center text-amber-600 text-2xl" aria-hidden="true">↓</div>
+        <div class="flex gap-3">
+          <div class="shrink-0 w-10 h-10 rounded-full bg-white border-2 border-amber-300 flex items-center justify-center font-bold text-amber-800">厨</div>
+          <div>
+            <p class="font-semibold text-slate-900">向こう側のサービス（AIの会社・LINEの会社など）</p>
+            <p class="text-slate-600 mt-1">中身は見えないが、頼めば料理（結果）が返ってくる。</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- あなたの仕組みでのAPI -->
+    <section aria-labelledby="s3">
+      <h2 id="s3" class="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+        <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-100 text-emerald-800 text-sm font-black">3</span>
+        あなたが作りたい仕組みでの「API」
+      </h2>
+      <p class="text-sm text-slate-600 mb-5 leading-relaxed">週に1回CSVを取り込んで、気づきを文章にしてLINEで知らせる、という流れだと、<strong class="text-slate-800">APIが出てくるのは主に2か所</strong>です（※CSVファイルを手で置くだけなら、その部分はAPIじゃなくてもよい）。</p>
+
+      <div class="rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-sm">
+        <div class="bg-slate-100 px-4 py-2 text-xs font-bold text-slate-600 uppercase tracking-wide">流れと窓口</div>
+        <div class="p-4 space-y-0 divide-y divide-slate-100">
+          <div class="py-4">
+            <div class="flex flex-wrap items-center gap-2 mb-2">
+              <span class="text-sm font-bold text-slate-900">① 受注管理ツール → あなたのプログラム</span>
+              <span class="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-slate-200 text-slate-700">よくあるのはファイル</span>
+            </div>
+            <p class="text-sm text-slate-600 leading-relaxed">CSVを<strong>エクスポートしてフォルダに置く</strong>だけなら、これは「API」ではなく<strong>ファイルの受け渡し</strong>です。ツールが<strong>自動で送ってくれる専用の窓口</strong>が付いている場合だけ、その窓口がAPIと呼ばれます。</p>
+          </div>
+          <div class="py-4">
+            <div class="flex flex-wrap items-center gap-2 mb-2">
+              <span class="text-sm font-bold text-slate-900">② あなたのプログラム → AI（文章を作ってもらう）</span>
+              <span class="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-violet-200 text-violet-900">API がよく使われる</span>
+            </div>
+            <p class="text-sm text-slate-600 leading-relaxed">「今週の数字の要約を、秘書みたいに書いて」と<strong>プログラムからお願いする</strong>とき、その<strong>お願い口</strong>が<strong>AIのAPI</strong>です。ブラウザでChatGPTを開いて打つ操作を、機械が代わりに行うイメージです。</p>
+          </div>
+          <div class="py-4">
+            <div class="flex flex-wrap items-center gap-2 mb-2">
+              <span class="text-sm font-bold text-slate-900">③ あなたのプログラム → LINE（通知を送る）</span>
+              <span class="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-green-200 text-green-900">API がよく使われる</span>
+            </div>
+            <p class="text-sm text-slate-600 leading-relaxed">自分のスマホのLINEに、プログラムからメッセージを送るには、LINE側が用意した<strong>決まった送り方（Messaging API）</strong>を使います。これもAPIの仲間です。</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- 簡易図 -->
+      <div class="mt-6 rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 p-4 sm:p-6">
+        <p class="text-xs font-bold text-slate-500 mb-4 text-center">全体のイメージ（ざっくり）</p>
+        <div class="flex flex-col sm:flex-row sm:flex-wrap items-stretch justify-center gap-3 text-center text-sm">
+          <div class="rounded-xl bg-white border border-slate-200 px-4 py-3 shadow-sm flex-1 min-w-[8rem]">
+            <p class="font-bold text-slate-800">受注ツール</p>
+            <p class="text-xs text-slate-500 mt-1">CSV など</p>
+          </div>
+          <div class="hidden sm:flex items-center text-slate-400 font-bold">→</div>
+          <div class="flex sm:hidden justify-center text-slate-400">↓</div>
+          <div class="rounded-xl bg-blue-50 border-2 border-blue-200 px-4 py-3 shadow-sm flex-1 min-w-[8rem]">
+            <p class="font-bold text-blue-900">あなたの処理</p>
+            <p class="text-xs text-blue-800/80 mt-1">集計・文章用の材料づくり</p>
+          </div>
+          <div class="hidden sm:flex items-center text-slate-400 font-bold">→</div>
+          <div class="flex sm:hidden justify-center text-slate-400">↓</div>
+          <div class="rounded-xl bg-violet-50 border-2 border-violet-200 px-4 py-3 shadow-sm flex-1 min-w-[8rem]">
+            <p class="font-bold text-violet-900">AIの窓口</p>
+            <p class="text-xs text-violet-800/80 mt-1">API で「レポート文」を依頼</p>
+          </div>
+          <div class="hidden sm:flex items-center text-slate-400 font-bold">→</div>
+          <div class="flex sm:hidden justify-center text-slate-400">↓</div>
+          <div class="rounded-xl bg-green-50 border-2 border-green-200 px-4 py-3 shadow-sm flex-1 min-w-[8rem]">
+            <p class="font-bold text-green-900">LINEの窓口</p>
+            <p class="text-xs text-green-800/80 mt-1">API で送信</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- APIじゃないもの -->
+    <section aria-labelledby="s4">
+      <h2 id="s4" class="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+        <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-200 text-slate-800 text-sm font-black">4</span>
+        「APIじゃない」と言われることもある
+      </h2>
+      <ul class="space-y-3 text-sm text-slate-700">
+        <li class="flex gap-2 rounded-xl bg-white border border-slate-200 p-4">
+          <span class="text-slate-400 shrink-0">・</span>
+          <span><strong class="text-slate-900">人がブラウザで画面をクリックするだけ</strong>（プログラムが介在しない）は、普通APIとは言いません。</span>
+        </li>
+        <li class="flex gap-2 rounded-xl bg-white border border-slate-200 p-4">
+          <span class="text-slate-400 shrink-0">・</span>
+          <span><strong class="text-slate-900">CSVファイルを手で保存して、フォルダに置いた</strong>だけなら、それは「ファイル」であって、必ずしもAPIではありません。</span>
+        </li>
+      </ul>
+    </section>
+
+    <!-- まとめ -->
+    <section aria-labelledby="s5" class="rounded-2xl bg-slate-900 text-white p-6">
+      <h2 id="s5" class="text-lg font-bold mb-3">まとめ</h2>
+      <ul class="text-sm text-slate-300 space-y-2 list-disc list-inside leading-relaxed">
+        <li><strong class="text-white">API</strong>＝プログラム向けの<strong class="text-white">お願いの窓口</strong>（決まった言い方で頼む）</li>
+        <li>売上レポート自動化では、<strong class="text-white">AIに文章を頼む窓口</strong>と、<strong class="text-white">LINEに送る窓口</strong>が「API」としてよく出てくる</li>
+        <li>CSVは<strong class="text-white">ファイルの受け渡し</strong>であり、APIと混同しないと整理しやすい</li>
+      </ul>
+      <p class="text-xs text-slate-500 mt-5">
+        <a href="sales-report-flow.html" class="text-blue-300 underline hover:text-white">全体の流れの図解</a>
+        へ戻る（同じフォルダ内）
+      </p>
+    </section>
+  </main>
+
+  <footer class="max-w-2xl mx-auto px-5 pb-10 text-center text-xs text-slate-400">
+    api-plain-guide.html
+  </footer>
+</body>
+</html>

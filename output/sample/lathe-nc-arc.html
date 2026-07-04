@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <title>NC旋盤 円弧 R・I・K 計算</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            ads: {
+              bg: '#FFFFFF',
+              surface: '#F8FAFC',
+              border: '#E2E8F0',
+              accent: '#2563EB',
+              text: '#1E293B',
+              muted: '#64748B',
+              dim: '#94A3B8',
+            }
+          },
+          fontFamily: {
+            sans: ['"Noto Sans JP"', '"Hiragino Sans"', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-ads-bg text-slate-600 antialiased leading-relaxed border-t-4 border-ads-accent min-h-screen">
+  <main class="max-w-3xl mx-auto px-4 py-8 md:py-12">
+    <header class="mb-8">
+      <h1 class="text-2xl md:text-3xl font-bold text-slate-900 tracking-tight mb-2">NC旋盤 円弧 R・I・K 計算</h1>
+      <p class="text-sm text-ads-muted">
+        <strong class="text-slate-800">始点 (X0, Z0)</strong> と<strong>円弧中心 (X, Z)</strong>を、旋盤の<strong>X・Z 座標</strong>として入れると、円弧半径 <strong>R</strong> と G02/G03 用の <strong>I・K</strong> を求めます。下の「X軸・Z軸」と同じ定義で数値を読んでください。
+      </p>
+    </header>
+
+    <section class="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6 text-sm text-slate-800">
+      <p class="font-semibold text-blue-900 mb-2">NC旋盤における X軸と Z軸（このツールの前提）</p>
+      <dl class="space-y-3 text-[13px] leading-relaxed">
+        <div>
+          <dt class="font-medium text-slate-900">Z 軸（軸方向）</dt>
+          <dd class="text-slate-700 mt-0.5">主軸（ワークの回転軸）に<strong>平行</strong>な座標です。端面・テーパの位置が Z で変わります。<strong>正方向（+Z がどちら向きか）</strong>は機械ごとに違うので、プログラムと図面では必ず同じ座標系で読み取ってください。</dd>
+        </div>
+        <div>
+          <dt class="font-medium text-slate-900">X 軸（径方向）</dt>
+          <dd class="text-slate-700 mt-0.5">主軸<strong>中心線からの外径方向</strong>の位置を表します。多くの旋盤では <strong>X は直径プログラム</strong>（表示・入力が「直径」）です。断面で半径 r と書く幾何学では、中心からの距離は <strong>X/2</strong> です。</dd>
+        </div>
+        <div>
+          <dt class="font-medium text-slate-900">円弧の I と K（ファナック系の一般的な取り方）</dt>
+          <dd class="text-slate-700 mt-0.5"><strong>K</strong> は始点から見た円弧中心までの <strong>Z 方向の増分</strong>（Z と同じ軸）。<strong>I</strong> は同じく X 方向の増分ですが、直径プログラムのため <strong>半径で表した差</strong>になり、<strong>直径差 ÷ 2</strong> で計算します。</dd>
+        </div>
+      </dl>
+    </section>
+
+    <section class="bg-slate-50 border border-slate-200 rounded-xl p-4 mb-8 text-sm text-slate-800">
+      <p class="font-semibold text-slate-900 mb-2">計算式（上記の X・Z をそのまま使用）</p>
+      <p class="mb-2">始点 <code class="text-xs bg-white px-1 rounded border">(X0, Z0)</code>、円弧中心 <code class="text-xs bg-white px-1 rounded border">(X, Z)</code> はいずれも<strong>プログラム上の X（直径）と Z</strong>。始点から円弧中心までの距離が<strong>切削円弧の半径 R</strong> です。</p>
+      <ul class="list-disc pl-5 space-y-1 font-mono text-xs sm:text-sm">
+        <li>I = (X − X0) ÷ 2　← X 方向は「半径差」</li>
+        <li>K = Z − Z0　← Z 軸方向の差そのまま</li>
+        <li>R = √(I² + K²)</li>
+      </ul>
+      <p class="mt-2 text-xs text-slate-600">G02/G03 の向きは機械・原点の取り方で変わるため、実機で要確認です。</p>
+    </section>
+
+    <div class="bg-ads-surface border border-ads-border rounded-xl p-5 md:p-6 mb-6">
+      <div class="grid md:grid-cols-2 gap-6 items-start">
+        <figure class="rounded-xl border border-ads-border bg-white p-3 shadow-sm">
+          <p class="text-xs font-medium text-slate-700 mb-2">XZ 平面（旋盤の断面イメージ）</p>
+          <svg viewBox="0 0 320 200" class="w-full h-auto max-h-52" aria-hidden="true">
+            <line x1="30" y1="170" x2="30" y2="30" stroke="#cbd5e1" stroke-width="1" stroke-dasharray="5 4"/>
+            <text x="32" y="168" class="fill-slate-400 text-[8px]">← 主軸中心付近</text>
+            <line x1="30" y1="170" x2="280" y2="170" stroke="#64748b" stroke-width="1.5"/>
+            <line x1="30" y1="170" x2="30" y2="25" stroke="#64748b" stroke-width="1.5"/>
+            <text x="285" y="173" class="fill-slate-700 text-[11px] font-medium">Z 軸</text>
+            <text x="248" y="188" class="fill-slate-500 text-[9px]">軸方向（端面・テーパ）</text>
+            <text x="26" y="18" class="fill-slate-700 text-[11px] font-medium">径方向</text>
+            <text x="34" y="32" class="fill-slate-500 text-[8px]">X↑で外径側</text>
+            <circle cx="165" cy="95" r="48" fill="none" stroke="#0369a1" stroke-width="2"/>
+            <circle cx="165" cy="95" r="4" fill="#0f766e"/>
+            <text x="172" y="98" class="fill-teal-900 text-[10px] font-semibold">中心 (X,Z)</text>
+            <circle cx="210" cy="68" r="4" fill="#dc2626"/>
+            <text x="216" y="65" class="fill-red-700 text-[9px]">始点 (X0,Z0)</text>
+            <line x1="210" y1="68" x2="165" y2="95" stroke="#64748b" stroke-width="1" stroke-dasharray="4 3"/>
+            <text x="178" y="78" class="fill-slate-600 text-[9px]">R</text>
+          </svg>
+          <figcaption class="text-[11px] text-ads-muted mt-2">横が<strong>Z 軸</strong>、縦が<strong>径方向（X に対応）</strong>の断面です。X は画面では半径方向の位置ですが、数値は<strong>直径プログラムの X</strong>をそのまま入力します。</figcaption>
+        </figure>
+
+        <div class="space-y-5">
+          <div>
+            <p class="text-sm font-medium text-slate-800 mb-2">始点（スタート）</p>
+            <div class="grid grid-cols-2 gap-3">
+              <label class="block">
+                <span class="text-xs text-slate-700">X0（直径・径方向）</span>
+                <input type="number" id="x0" step="any" class="mt-1 w-full border border-ads-border rounded-lg px-3 py-2 text-slate-900" value="50">
+              </label>
+              <label class="block">
+                <span class="text-xs text-slate-700">Z0（軸方向）</span>
+                <input type="number" id="z0" step="any" class="mt-1 w-full border border-ads-border rounded-lg px-3 py-2" value="0">
+              </label>
+            </div>
+          </div>
+          <div>
+            <p class="text-sm font-medium text-slate-800 mb-2">円弧の中心</p>
+            <div class="grid grid-cols-2 gap-3">
+              <label class="block">
+                <span class="text-xs text-slate-700">X（直径・径方向）</span>
+                <input type="number" id="x" step="any" class="mt-1 w-full border border-ads-border rounded-lg px-3 py-2" value="46">
+              </label>
+              <label class="block">
+                <span class="text-xs text-slate-700">Z（軸方向）</span>
+                <input type="number" id="z" step="any" class="mt-1 w-full border border-ads-border rounded-lg px-3 py-2" value="5">
+              </label>
+            </div>
+          </div>
+          <div>
+            <p class="text-sm font-medium text-slate-800 mb-2">終点（円弧の終わり）</p>
+            <p class="text-[11px] text-ads-muted mb-2">任意。入れると中心から終点までの半径が始点側の R と一致するか検証します。</p>
+            <div class="grid grid-cols-2 gap-3">
+              <label class="block">
+                <span class="text-xs text-slate-700">Xe（直径・径方向）</span>
+                <input type="number" id="xe" step="any" class="mt-1 w-full border border-ads-border rounded-lg px-3 py-2" value="42" placeholder="省略可">
+              </label>
+              <label class="block">
+                <span class="text-xs text-slate-700">Ze（軸方向）</span>
+                <input type="number" id="ze" step="any" class="mt-1 w-full border border-ads-border rounded-lg px-3 py-2" value="8" placeholder="省略可">
+              </label>
+            </div>
+          </div>
+          <button type="button" id="btn" class="bg-ads-accent hover:bg-blue-700 text-white text-sm font-medium px-5 py-2.5 rounded-lg w-full sm:w-auto">計算</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="out" class="hidden bg-white border border-ads-border rounded-xl p-5 md:p-6 mb-8"></div>
+
+    <footer class="pt-6 border-t border-ads-border text-xs text-ads-dim">
+      <p>用途は自己責任でご利用ください。干渉・G02/G03 の向きは図面と照合してください。</p>
+    </footer>
+  </main>
+
+  <script>
+(function () {
+  const D = 4;
+  function fmt(n) {
+    if (n === null || n === undefined || Number.isNaN(n)) return '—';
+    return Number(n).toFixed(D);
+  }
+
+  function renderBlock(title, rows, note) {
+    let h = `<h3 class="font-bold text-slate-900 mb-3">${title}</h3><dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm">`;
+    rows.forEach(([k, v]) => {
+      h += `<dt class="text-ads-muted">${k}</dt><dd class="font-mono text-slate-900">${v}</dd>`;
+    });
+    h += '</dl>';
+    if (note) h += `<div class="mt-4 text-xs text-ads-muted">${note}</div>`;
+    return h;
+  }
+
+  function copyBtn(id, text) {
+    return `<button type="button" class="mt-3 text-xs text-ads-accent hover:underline" data-copy="${id}">コピー</button><textarea id="${id}" class="sr-only" readonly>${text}</textarea>`;
+  }
+
+  /** 2点 (Xd1,Z1) (Xd2,Z2) の距離（X は直径） */
+  function distXZ(Xd1, z1, Xd2, z2) {
+    const r1 = Xd1 / 2;
+    const r2 = Xd2 / 2;
+    const dz = z2 - z1;
+    const dr = r2 - r1;
+    return Math.sqrt(dr * dr + dz * dz);
+  }
+
+  document.getElementById('btn').addEventListener('click', () => {
+    const X0 = parseFloat(document.getElementById('x0').value);
+    const Z0 = parseFloat(document.getElementById('z0').value);
+    const X = parseFloat(document.getElementById('x').value);
+    const Z = parseFloat(document.getElementById('z').value);
+    const xeStr = document.getElementById('xe').value.trim();
+    const zeStr = document.getElementById('ze').value.trim();
+    const out = document.getElementById('out');
+
+    if ([X0, Z0, X, Z].some((v) => Number.isNaN(v))) {
+      out.classList.remove('hidden');
+      out.innerHTML = '<p class="text-red-600 text-sm">始点・中心の数値を確認してください。</p>';
+      return;
+    }
+
+    const hasEnd = xeStr !== '' && zeStr !== '';
+    const Xe = hasEnd ? parseFloat(xeStr) : NaN;
+    const Ze = hasEnd ? parseFloat(zeStr) : NaN;
+    if (hasEnd && [Xe, Ze].some((v) => Number.isNaN(v))) {
+      out.classList.remove('hidden');
+      out.innerHTML = '<p class="text-red-600 text-sm">終点 Xe・Ze の両方に数値を入れるか、両方空にしてください。</p>';
+      return;
+    }
+
+    const I = (X - X0) / 2;
+    const K = Z - Z0;
+    const R = Math.sqrt(I * I + K * K);
+
+    let rows = [
+      ['R（円弧半径・始点→中心）', fmt(R)],
+      ['I', fmt(I)],
+      ['K', fmt(K)],
+    ];
+    let verifyNote = '';
+
+    if (hasEnd) {
+      const Re = distXZ(Xe, Ze, X, Z);
+      const err = Math.abs(R - Re);
+      const ok = err < Math.max(1e-4, R * 1e-6);
+      rows.push(['R（終点→中心）', fmt(Re)]);
+      rows.push(['半径の差 |R始 − R終|', fmt(err)]);
+      verifyNote = ok
+        ? `<span class="text-emerald-800">始点・終点ともに中心から同じ半径 R 上にあります。</span>`
+        : `<strong class="text-amber-800">注意:</strong> 始点側 R ${fmt(R)} と終点側 ${fmt(Re)} が一致しません。中心または終点の座標を図面と照合してください。`;
+    } else {
+      verifyNote = '終点を入れていないため、半径の一致検証はしていません。';
+    }
+
+    let copyText =
+      `R = ${fmt(R)}\nI = ${fmt(I)}\nK = ${fmt(K)}\n` +
+      `始点 X${fmt(X0)} Z${fmt(Z0)} / 中心 X${fmt(X)} Z${fmt(Z)}`;
+    if (hasEnd) {
+      copyText += `\nG0? X${fmt(Xe)} Z${fmt(Ze)} I${fmt(I)} K${fmt(K)}`;
+    }
+
+    const foot = hasEnd
+      ? 'G02/G03: 始点で <code class="text-xs bg-slate-100 px-1 rounded">X' +
+        fmt(Xe) +
+        ' Z' +
+        fmt(Ze) +
+        ' I' +
+        fmt(I) +
+        ' K' +
+        fmt(K) +
+        '</code> のように終点と I・K を同一ブロックで指定する例（向きは要確認）。'
+      : 'G02/G03: 始点に合わせたあと、図面の終点座標 X・Z と <code class="text-xs bg-slate-100 px-1 rounded">I' +
+        fmt(I) +
+        ' K' +
+        fmt(K) +
+        '</code> を指定。終点を上に入力するとコピー用の1行例に含まれます。';
+
+    out.classList.remove('hidden');
+    out.innerHTML =
+      renderBlock('結果', rows, verifyNote + '<p class="mt-3 text-slate-600">' + foot + '</p>') +
+      copyBtn('c1', copyText);
+    out.querySelector('[data-copy="c1"]')?.addEventListener('click', () => {
+      document.getElementById('c1').select();
+      document.execCommand('copy');
+    });
+  });
+})();
+  </script>
+</body>
+</html>

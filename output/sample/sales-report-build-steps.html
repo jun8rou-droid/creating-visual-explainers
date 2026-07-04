@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <title>週次売上レポート自動化 — やさしい図解（初心者向け）</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600;700;900&family=Plus+Jakarta+Sans:wght@600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Noto Sans JP"', 'sans-serif'],
+            display: ['"Plus Jakarta Sans"', '"Noto Sans JP"', 'sans-serif'],
+          },
+        }
+      }
+    }
+  </script>
+  <style>
+    a:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
+    @media print {
+      .no-print { display: none !important; }
+      .print-break { break-inside: avoid; }
+    }
+  </style>
+</head>
+<body class="min-h-screen bg-slate-50 text-slate-800 antialiased text-base leading-relaxed">
+  <div class="no-print border-b border-slate-200 bg-white">
+    <div class="max-w-2xl mx-auto px-4 py-2 flex flex-wrap items-center justify-between gap-2 text-sm text-slate-500">
+      <span class="font-mono text-xs">sales-report-build-steps.html</span>
+      <span class="flex flex-wrap gap-3">
+        <a href="sales-report-onboarding-flow.html" class="text-indigo-600 hover:text-indigo-800 font-medium">これからの流れ</a>
+        <a href="sales-report-flow.html" class="text-indigo-600 hover:text-indigo-800 font-medium">全体の流れ</a>
+        <a href="sales-report-automation-checklist.md" class="text-indigo-600 hover:text-indigo-800 font-medium">チェックリスト</a>
+        <a href="sales-report-bundle/sales-insight-mockup.html" class="text-indigo-600 hover:text-indigo-800 font-medium">画面の見本</a>
+      </span>
+    </div>
+  </div>
+
+  <header class="border-b border-slate-200 bg-white">
+    <div class="max-w-2xl mx-auto px-4 sm:px-6 py-10 sm:py-12">
+      <p class="text-sm font-semibold text-indigo-700 mb-2">はじめての人向け</p>
+      <h1 class="font-display text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight leading-snug">週次の売上レポートを<br class="sm:hidden">自動で作る仕組み</h1>
+      <p class="text-lg text-slate-700 mt-5 font-medium leading-relaxed">毎週、<strong class="text-slate-900">売上の表（データ）</strong>を渡すと、<strong class="text-slate-900">合計や注意点</strong>をまとめて、<strong class="text-slate-900">読みやすい文章</strong>にして、<strong class="text-slate-900">LINE などに送る</strong>——そんな道具を、どういう順で作るかを図にしました。</p>
+      <p class="mt-6 rounded-xl border-2 border-indigo-200 bg-indigo-50/90 px-4 py-3 text-slate-800 text-sm sm:text-base"><strong class="text-indigo-900">「これから自分は何をすればいい？」</strong>の順番だけ先に知りたい人は → <a href="sales-report-onboarding-flow.html" class="font-semibold text-indigo-700 underline decoration-indigo-300 underline-offset-2">新卒向け：これからの進め方</a>（ブラウザ向け）</p>
+    </div>
+  </header>
+
+  <main class="max-w-2xl mx-auto px-4 sm:px-6 py-10 sm:py-14 space-y-14 pb-20">
+
+    <!-- たとえ話 -->
+    <section aria-labelledby="analogy-heading" class="print-break rounded-2xl border-2 border-amber-200 bg-amber-50/80 p-6 sm:p-7 shadow-sm">
+      <h2 id="analogy-heading" class="font-display text-xl font-bold text-amber-950 mb-4 flex items-center gap-2">
+        <i data-lucide="utensils" class="w-6 h-6 text-amber-700 shrink-0" aria-hidden="true"></i>
+        まずはたとえ話
+      </h2>
+      <ul class="space-y-3 text-slate-800">
+        <li class="flex gap-3"><span class="text-amber-600 font-bold shrink-0">・</span><span><strong class="text-slate-900">受注管理ツールから出る CSV</strong>＝ 毎週届く「材料リスト」（会社が正とする原本）</span></li>
+        <li class="flex gap-3"><span class="text-amber-600 font-bold shrink-0">・</span><span><strong class="text-slate-900">これから作る自動報告ツール</strong>＝ キッチン。ここで材料をチェックし、合計を計算し、メモを残す</span></li>
+        <li class="flex gap-3"><span class="text-amber-600 font-bold shrink-0">・</span><span><strong class="text-slate-900">AI（Claude など）</strong>＝ 文章が得意な人。「合計はこの数字です」と書かれたメモだけ見て、<strong>お客様に読みやすい言葉</strong>に直す（数字を勝手に変えない）</span></li>
+        <li class="flex gap-3"><span class="text-amber-600 font-bold shrink-0">・</span><span><strong class="text-slate-900">LINE などで送る</strong>＝ できあがったお知らせを配る</span></li>
+      </ul>
+    </section>
+
+    <!-- 用語 -->
+    <section aria-labelledby="words-heading" class="print-break">
+      <h2 id="words-heading" class="font-display text-xl font-bold text-slate-900 mb-4">このあと出てくる言葉（3つだけ）</h2>
+      <div class="space-y-3">
+        <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          <p class="font-bold text-indigo-800">CSV（シーエスブイ）</p>
+          <p class="text-slate-600 mt-1">表計算で開けるような、カンマで区切った表ファイル。「週の売上一覧」をファイルで渡すときによく使います。</p>
+        </div>
+        <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          <p class="font-bold text-violet-800">AI（いまの話では Claude）</p>
+          <p class="text-slate-600 mt-1">インターネット越しに「文章を書いて」とお願いできる相手です。ここでは <strong class="text-slate-800">お知らせ文を整える</strong>のに使います。<strong class="text-slate-800">売上の足し算そのものは、道具側のプログラムがやります。</strong></p>
+        </div>
+        <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          <p class="font-bold text-slate-800">JSON（ジェイソン）</p>
+          <p class="text-slate-600 mt-1">コンピュータ同士が渡しやすい「短い表の形」。AI には、長い生の表ではなく、<strong class="text-slate-800">もう計算し終わった結果だけ</strong>をこの形で渡すと、安全で安く済みやすいです。</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3つの箱 -->
+    <section aria-labelledby="three-roles-heading" class="print-break">
+      <h2 id="three-roles-heading" class="font-display text-xl font-bold text-slate-900 mb-5">全体は「3つの場所」のお話</h2>
+      <div class="grid gap-4 sm:grid-cols-3">
+        <div class="rounded-2xl border-2 border-slate-300 bg-slate-50 p-5 text-center">
+          <i data-lucide="building-2" class="w-10 h-10 text-slate-600 mx-auto mb-3" aria-hidden="true"></i>
+          <p class="font-bold text-slate-900">① いつもの会社ツール</p>
+          <p class="text-sm text-slate-600 mt-2 leading-relaxed">ここが<strong>正しい数字の本拠</strong>。ここから表ファイルを出す。</p>
+        </div>
+        <div class="rounded-2xl border-2 border-amber-300 bg-amber-50 p-5 text-center sm:col-span-1 ring-2 ring-amber-200/60">
+          <i data-lucide="package" class="w-10 h-10 text-amber-800 mx-auto mb-3" aria-hidden="true"></i>
+          <p class="font-bold text-amber-950">② 自動報告ツール</p>
+          <p class="text-sm text-amber-950/90 mt-2 leading-relaxed">表を受け取り、<strong>チェック・保存・合計・単価の候補</strong>までここでやる。</p>
+        </div>
+        <div class="rounded-2xl border-2 border-violet-200 bg-violet-50 p-5 text-center">
+          <i data-lucide="message-circle" class="w-10 h-10 text-violet-700 mx-auto mb-3" aria-hidden="true"></i>
+          <p class="font-bold text-slate-900">③ AI と配信</p>
+          <p class="text-sm text-slate-700 mt-2 leading-relaxed">短い結果を文章にし、<strong>LINE などで送る</strong>（必要なら人が最後に確認）。</p>
+        </div>
+      </div>
+      <p class="text-sm text-slate-500 mt-4 text-center">② に溜まるデータは「コピー用の控え」です。① を差し替えるものではありません。</p>
+    </section>
+
+    <!-- 縦の大きいステップ -->
+    <section aria-labelledby="steps-heading" class="print-break">
+      <h2 id="steps-heading" class="font-display text-xl font-bold text-slate-900 mb-2">流れの全体像（8つのコマ）</h2>
+      <p class="text-slate-600 mb-6">上から順に進みます。<span class="text-amber-800 font-semibold">オレンジ</span>は自動報告ツールの中、<span class="text-violet-800 font-semibold">紫</span>は AI まわりです。</p>
+
+      <ol class="space-y-4">
+        <li class="rounded-2xl border-2 border-slate-200 bg-white p-5 shadow-sm">
+          <div class="flex items-start gap-4">
+            <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-200 text-slate-800 font-black text-lg">1</span>
+            <div>
+              <p class="font-bold text-lg text-slate-900">表ファイル（CSV）を出す</p>
+              <p class="text-slate-600 mt-2">いつもの受注管理ツールから、週のデータをファイルにします。</p>
+            </div>
+          </div>
+        </li>
+        <li class="rounded-2xl border-2 border-amber-200 bg-amber-50/90 p-5 shadow-sm ring-1 ring-amber-100">
+          <div class="flex items-start gap-4">
+            <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-400 text-white font-black text-lg">2</span>
+            <div>
+              <p class="font-bold text-lg text-amber-950">自動報告ツールが受け取ってチェック</p>
+              <p class="text-slate-700 mt-2">「決まった列があるか」「おかしな行がないか」を機械で確認します。問題があれば止められるようにします。</p>
+            </div>
+          </div>
+        </li>
+        <li class="rounded-2xl border-2 border-amber-200 bg-amber-50/90 p-5 shadow-sm ring-1 ring-amber-100">
+          <div class="flex items-start gap-4">
+            <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-400 text-white font-black text-lg">3</span>
+            <div>
+              <p class="font-bold text-lg text-amber-950">ツールの中に保存</p>
+              <p class="text-slate-700 mt-2">「いつの分か」「何回目の実行か」がわかるようにメモを付けて保存します。同じ週をもう一度流しても壊れないようにします。</p>
+            </div>
+          </div>
+        </li>
+        <li class="rounded-2xl border-2 border-amber-300 bg-amber-50 p-5 shadow-sm ring-1 ring-amber-200">
+          <div class="flex items-start gap-4">
+            <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-600 text-white font-black text-lg">4</span>
+            <div>
+              <p class="font-bold text-lg text-amber-950">合計を出す・単価が空の行を手伝う</p>
+              <p class="text-slate-700 mt-2"><strong class="text-amber-950">A.</strong> 売上や件数など、週報に必要な数字を<strong>プログラムで足し合わせます</strong>。<br><strong class="text-amber-950">B.</strong> 単価が空の行は、<strong>過去に保存してあるデータの中から</strong>「似た行」を探して候補を付けます（ここもプログラム）。</p>
+            </div>
+          </div>
+        </li>
+        <li class="rounded-2xl border-2 border-violet-200 bg-violet-50 p-5 shadow-sm ring-1 ring-violet-100">
+          <div class="flex items-start gap-4">
+            <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-violet-500 text-white font-black text-lg">5</span>
+            <div>
+              <p class="font-bold text-lg text-slate-900">AI に渡す用に、短くまとめる</p>
+              <p class="text-slate-700 mt-2">長い表ごとは渡しません。<strong class="text-violet-900">「今週の合計はこの数字」「単価が空の行はこんな候補」</strong>だけを、JSON などの短い形にします。</p>
+            </div>
+          </div>
+        </li>
+        <li class="rounded-2xl border-2 border-violet-300 bg-violet-50/95 p-5 shadow-sm ring-1 ring-violet-200">
+          <div class="flex items-start gap-4">
+            <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-violet-600 text-white font-black text-lg">6</span>
+            <div>
+              <p class="font-bold text-lg text-slate-900">AI に「読みやすい文章」にしてもらう</p>
+              <p class="text-slate-700 mt-2">Claude（Anthropic）の API などに送り、<strong>お知らせの文章</strong>を書いてもらいます。渡した数字を<strong>書き換えない</strong>よう、お願い文に書いておきます。</p>
+            </div>
+          </div>
+        </li>
+        <li class="rounded-2xl border-2 border-slate-200 bg-white p-5 shadow-sm">
+          <div class="flex items-start gap-4">
+            <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-300 text-slate-900 font-black text-lg">7</span>
+            <div>
+              <p class="font-bold text-lg text-slate-900">人が見てよければ OK</p>
+              <p class="text-slate-600 mt-2">特に単価の候補は、最初のうちは<strong>担当の人が確認</strong>できるようにしておくと安心です。</p>
+            </div>
+          </div>
+        </li>
+        <li class="rounded-2xl border-2 border-emerald-200 bg-emerald-50 p-5 shadow-sm">
+          <div class="flex items-start gap-4">
+            <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-white font-black text-lg">8</span>
+            <div>
+              <p class="font-bold text-lg text-emerald-950">LINE などに送る・記録を残す</p>
+              <p class="text-slate-700 mt-2">送った日時や内容があとで追えるように、<strong>ログ（記録）</strong>を残します。</p>
+            </div>
+          </div>
+        </li>
+      </ol>
+    </section>
+
+    <!-- 覚えておく1行 -->
+    <section class="print-break rounded-2xl bg-slate-900 text-white p-6 sm:p-7">
+      <p class="text-sm font-semibold text-indigo-200 mb-2">いちばん大事な一行</p>
+      <p class="text-lg sm:text-xl font-bold leading-relaxed">売上の<strong class="text-amber-200">計算と候補出し</strong>は自動報告ツール（プログラム）。<strong class="text-violet-200">文章に整える</strong>ところだけ AI。</p>
+    </section>
+
+    <!-- 作る順番 平易版 -->
+    <section aria-labelledby="build-heading" class="print-break">
+      <h2 id="build-heading" class="font-display text-xl font-bold text-slate-900 mb-5">実際に「作る」ときの順番</h2>
+      <div class="space-y-4">
+        <div class="rounded-xl border-l-4 border-blue-400 bg-blue-50/80 pl-4 pr-4 py-4">
+          <p class="font-bold text-blue-950">最初に：ルールを決める（まだ細かいプログラムは書かない）</p>
+          <p class="text-slate-700 mt-2 text-sm sm:text-base">いつファイルを出すか、週の意味（例：月〜金）、どの列が必須か、LINE で送るのか。チェックリストの A・B に当たる話です。</p>
+        </div>
+        <div class="rounded-xl border-l-4 border-amber-400 bg-amber-50/80 pl-4 pr-4 py-4">
+          <p class="font-bold text-amber-950">次に：受け取り口と倉庫</p>
+          <p class="text-slate-700 mt-2 text-sm sm:text-base">ファイルを受け取って、チェックして、ツールの中に保存できるようにする（ステップ 2・3）。</p>
+        </div>
+        <div class="rounded-xl border-l-4 border-amber-500 bg-amber-50 pl-4 pr-4 py-4">
+          <p class="font-bold text-amber-950">その次：合計と単価の候補</p>
+          <p class="text-slate-700 mt-2 text-sm sm:text-base">週報に載せる数字を出す。単価が空の行だけ、過去データから候補を付ける（ステップ 4・5）。</p>
+        </div>
+        <div class="rounded-xl border-l-4 border-violet-400 bg-violet-50/80 pl-4 pr-4 py-4">
+          <p class="font-bold text-violet-950">最後に：AI と送信</p>
+          <p class="text-slate-700 mt-2 text-sm sm:text-base">API の鍵を安全な場所に置き、短いデータを送って文章をもらう。LINE 等へ送り、記録を残す（ステップ 6〜8）。</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 次へ -->
+    <section class="rounded-2xl border-2 border-indigo-200 bg-indigo-50/60 p-6 print-break">
+      <h2 class="font-display font-bold text-slate-900 mb-3">このあと何を見る？</h2>
+      <ul class="space-y-2 text-slate-700">
+        <li><strong class="text-slate-900">まず：次に何をするか（流れ）</strong> → <a href="sales-report-onboarding-flow.html" class="text-indigo-700 font-semibold underline decoration-indigo-300 underline-offset-2">これからの進め方</a>（フェーズ 1〜4・役割）</li>
+        <li><strong class="text-slate-900">専門用語の解説（新卒向け）</strong> → <a href="sales-report-glossary.md" class="text-indigo-700 font-semibold underline decoration-indigo-300 underline-offset-2">用語集</a>（CSV・API・SQLite などを短く説明）</li>
+        <li>細かい項目のチェック → <a href="sales-report-automation-checklist.md" class="text-indigo-700 font-semibold underline decoration-indigo-300 underline-offset-2">チェックリスト</a></li>
+        <li>会社の人に見せる一枚の流れ → <a href="sales-report-flow.html" class="text-indigo-700 font-semibold underline decoration-indigo-300 underline-offset-2">全体の流れ</a></li>
+        <li>画面のイメージ → <a href="sales-report-bundle/sales-insight-mockup.html" class="text-indigo-700 font-semibold underline decoration-indigo-300 underline-offset-2">画面の見本</a></li>
+        <li>実装に近いツール画面のモック → <a href="sales-report-mvp-tool-ui.html" class="text-indigo-700 font-semibold underline decoration-indigo-300 underline-offset-2">実装 UI モック</a></li>
+        <li>実際に動かす Python ツール → <code class="text-sm bg-white/80 px-1 rounded border border-indigo-100">sales-report-automation/README.md</code>（リポジトリ内）</li>
+      </ul>
+    </section>
+  </main>
+
+  <footer class="max-w-2xl mx-auto px-4 sm:px-6 pb-12 text-center text-sm text-slate-400">
+    sales-report-build-steps.html — 初心者向け・やさしい図解
+  </footer>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script>lucide.createIcons();</script>
+</body>
+</html>

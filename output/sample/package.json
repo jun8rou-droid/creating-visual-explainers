@@ -1,0 +1,22 @@
+{
+  "name": "machining-quote",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node api-server/server.mjs",
+    "dev": "node --watch api-server/server.mjs",
+    "migrate": "node api-server/migrate.mjs"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.54.0",
+    "@google/generative-ai": "^0.24.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "multer": "^1.4.5-lts.2",
+    "pg": "^8.16.0"
+  }
+}

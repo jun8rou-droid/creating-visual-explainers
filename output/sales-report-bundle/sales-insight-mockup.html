@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex">
+  <title>受注〜請求の売上まとめ — 画面イメージ</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            ads: {
+              bg: '#FFFFFF',
+              surface: '#F8FAFC',
+              hover: '#F1F5F9',
+              border: '#E2E8F0',
+              accent: '#3B82F6',
+              'accent-light': '#2563EB',
+              text: '#1E293B',
+              muted: '#64748B',
+              dim: '#94A3B8',
+              positive: '#10B981',
+              negative: '#EF4444',
+              warning: '#F59E0B',
+            },
+            msg: { bar: '#475569', bubble: '#F1F5F9' }
+          },
+          fontFamily: {
+            sans: ['"Noto Sans JP"', '"Hiragino Sans"', '"Yu Gothic UI"', 'sans-serif'],
+            display: ['"Plus Jakarta Sans"', '"Noto Sans JP"', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    @media print {
+      .no-print { display: none !important; }
+      body { border-top: none !important; }
+      .si-mesh { background: #fff !important; }
+    }
+    .si-mesh {
+      background-color: #eef2f9;
+      background-image:
+        radial-gradient(ellipse 120% 80% at 50% -30%, rgba(59, 130, 246, 0.14), transparent 52%),
+        radial-gradient(ellipse 90% 60% at 100% 0%, rgba(139, 92, 246, 0.08), transparent 48%),
+        radial-gradient(ellipse 70% 50% at 0% 80%, rgba(16, 185, 129, 0.06), transparent 50%);
+    }
+    section[id]:target {
+      scroll-margin-top: 5rem;
+    }
+    nav[aria-label="セクション"] a.nav-active {
+      border-color: rgba(59, 130, 246, 0.35);
+      background: linear-gradient(135deg, rgba(255, 255, 255, 1), rgba(239, 246, 255, 0.95));
+      font-weight: 600;
+      color: #2563EB;
+      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+    }
+    a:focus-visible,
+    button:focus-visible,
+    label[role="tab"]:focus-visible {
+      outline: 2px solid #2563eb;
+      outline-offset: 2px;
+    }
+    .si-section-bar { width: 4px; border-radius: 9999px; flex-shrink: 0; }
+  </style>
+</head>
+<body class="si-mesh min-h-screen text-slate-600 antialiased leading-relaxed">
+  <div class="no-print h-[3px] bg-gradient-to-r from-sky-500 via-indigo-500 to-violet-500" aria-hidden="true"></div>
+  <div class="no-print max-w-6xl mx-auto px-4 sm:px-6 pt-4 flex flex-wrap items-center justify-between gap-3">
+    <p class="text-xs text-slate-500">
+      <span class="font-display font-semibold tracking-tight text-slate-800">SalesInsight</span>
+      <span class="text-slate-400 mx-1.5">·</span>
+      ダッシュボード／年次・得意先は別ページ
+    </p>
+    <button type="button" onclick="window.print()" aria-label="ブラウザの印刷ダイアログを開く" class="no-print inline-flex items-center gap-2 rounded-full border border-slate-200/80 bg-white/90 px-3.5 py-1.5 text-xs font-medium text-slate-600 shadow-sm shadow-slate-900/5 backdrop-blur-sm transition hover:border-slate-300 hover:bg-white hover:text-slate-900 cursor-pointer">
+      <i data-lucide="printer" class="w-3.5 h-3.5 opacity-70" aria-hidden="true"></i>
+      印刷
+    </button>
+  </div>
+
+  <main class="max-w-6xl mx-auto px-4 sm:px-6 py-8 md:py-12">
+    <header class="mb-10 text-center">
+      <div class="inline-flex items-center gap-2 rounded-full border border-blue-200/80 bg-gradient-to-r from-blue-50 to-indigo-50/90 px-4 py-2 text-sm font-semibold text-blue-900 shadow-sm shadow-blue-900/5 mb-5">
+        <i data-lucide="factory" class="w-4 h-4 text-blue-600"></i>
+        製造・受発注データ
+      </div>
+      <h1 class="font-display text-3xl md:text-[2rem] font-extrabold text-slate-900 tracking-tight mb-3">
+        受注〜請求の<span class="bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">売上まとめ</span>
+      </h1>
+      <p class="text-sm text-slate-500 max-w-2xl mx-auto leading-relaxed">
+        社内の専用ソフトからデータを取り込み、ここ7年くらいの流れや材質の割合を見られるようにします。<strong class="text-slate-700">「いつ何が増えるか」では、月ごとの材質の寄りから先読みの仮説を立てられます。</strong><strong class="text-slate-700">月〜金で区切った1週間の内容は、毎週メッセージで自動でお知らせ</strong>する想定です。
+      </p>
+    </header>
+
+    <nav class="no-print flex flex-wrap items-center gap-1.5 mb-8 rounded-2xl border border-white/70 bg-white/65 p-1.5 text-sm shadow-lg shadow-slate-900/[0.06] backdrop-blur-md ring-1 ring-slate-900/[0.04]" aria-label="主要ページ">
+      <span class="rounded-xl border border-blue-300/60 bg-gradient-to-b from-blue-50 to-blue-100/80 px-3.5 py-2 font-display font-semibold text-blue-800 shadow-sm">ダッシュボード</span>
+      <a href="sales-insight-yearly.html" class="rounded-xl border border-transparent px-3.5 py-2 text-slate-600 transition hover:border-slate-200 hover:bg-white/90 hover:text-slate-900">年次売上推移</a>
+      <a href="sales-insight-customers.html" class="rounded-xl border border-transparent px-3.5 py-2 text-slate-600 transition hover:border-slate-200 hover:bg-white/90 hover:text-slate-900">得意先ごとの売上</a>
+    </nav>
+
+    <div class="rounded-[1.35rem] border border-slate-200/80 bg-white/95 shadow-[0_24px_60px_-12px_rgba(15,23,42,0.14)] ring-1 ring-slate-900/[0.04] overflow-hidden backdrop-blur-sm">
+      <div class="flex items-center gap-3 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 px-4 py-2.5 border-b border-white/5">
+        <div class="flex gap-1.5" aria-hidden="true" title="見た目の例（押せません）">
+          <div class="w-3 h-3 rounded-full bg-red-500/90"></div>
+          <div class="w-3 h-3 rounded-full bg-yellow-500/90"></div>
+          <div class="w-3 h-3 rounded-full bg-green-500/90"></div>
+        </div>
+        <div class="flex items-center gap-2 text-xs text-slate-400 flex-1 min-w-0">
+          <i data-lucide="layout-dashboard" class="w-3.5 h-3.5 flex-shrink-0"></i>
+          <span class="truncate">SalesInsight — 社内のブラウザや専用の端末から</span>
+        </div>
+      </div>
+
+      <div class="flex flex-wrap items-center gap-3 px-4 py-2.5 bg-gradient-to-r from-emerald-50/95 via-teal-50/50 to-emerald-50/95 border-b border-emerald-200/70 text-sm">
+        <div class="flex items-center gap-2 text-emerald-900 font-semibold">
+          <i data-lucide="database" class="w-4 h-4 text-emerald-600"></i>
+          データの元: いまお使いの専用ソフト（見るだけ）
+        </div>
+        <div class="flex flex-col gap-0.5 text-emerald-800/90 text-xs min-w-0">
+          <span>いちばん新しい取り込み: 2026/04/07 07:15 · 受注〜請求の、日ごとのデータ</span>
+          <span class="text-[11px] text-emerald-800/75">※ 毎朝 07:00 から自動で取り込み開始。表示の時刻は<strong class="font-medium text-emerald-900">終わった時刻</strong>です（予定より遅くなることもあります）</span>
+        </div>
+        <span class="ml-auto text-xs font-medium text-emerald-900 bg-white/90 border border-emerald-300/50 rounded-full px-3 py-0.5 shrink-0 shadow-sm">再入力なし</span>
+      </div>
+
+      <div class="flex flex-col lg:flex-row lg:min-h-0">
+        <aside class="w-full lg:w-52 bg-ads-surface border-b lg:border-b-0 lg:border-r border-ads-border shrink-0">
+          <p class="text-[10px] text-ads-dim px-3 pt-2 lg:pt-3 uppercase tracking-wide">ページ内セクション</p>
+          <p class="text-[10px] text-ads-muted px-3 pb-1">年次・得意先は上のメニューから</p>
+          <nav class="flex lg:flex-col gap-1 p-2 overflow-x-auto lg:overflow-visible pb-2 lg:pb-4" aria-label="セクション">
+            <a href="#sec-dashboard" data-section-id="sec-dashboard" class="nav-side-link flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-600 hover:bg-white border border-transparent hover:border-ads-border whitespace-nowrap transition-colors">
+              <i data-lucide="layout-dashboard" class="w-4 h-4 flex-shrink-0"></i>
+              概要
+            </a>
+            <a href="#sec-season" data-section-id="sec-season" class="nav-side-link flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-600 hover:bg-white border border-transparent hover:border-ads-border whitespace-nowrap transition-colors">
+              <i data-lucide="calendar-range" class="w-4 h-4 flex-shrink-0 text-ads-dim"></i>
+              いつ何が増えるか
+            </a>
+            <a href="#sec-material" data-section-id="sec-material" class="nav-side-link flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-600 hover:bg-white border border-transparent hover:border-ads-border whitespace-nowrap transition-colors">
+              <i data-lucide="layers" class="w-4 h-4 flex-shrink-0 text-ads-dim"></i>
+              材質・構成比
+            </a>
+            <a href="#sec-delivery" data-section-id="sec-delivery" class="nav-side-link flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-600 hover:bg-white border border-transparent hover:border-ads-border whitespace-nowrap transition-colors">
+              <i data-lucide="message-circle" class="w-4 h-4 flex-shrink-0 text-ads-dim"></i>
+              週のお知らせ
+            </a>
+            <a href="#sec-integration" data-section-id="sec-integration" class="nav-side-link flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-600 hover:bg-white border border-transparent hover:border-ads-border whitespace-nowrap transition-colors">
+              <i data-lucide="plug" class="w-4 h-4 flex-shrink-0 text-ads-dim"></i>
+              つなぎ方
+            </a>
+            <a href="#sec-jobs" data-section-id="sec-jobs" class="nav-side-link flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-600 hover:bg-white border border-transparent hover:border-ads-border whitespace-nowrap transition-colors">
+              <i data-lucide="timer" class="w-4 h-4 flex-shrink-0 text-ads-dim"></i>
+              自動の処理
+            </a>
+          </nav>
+        </aside>
+
+        <div class="flex-1 flex flex-col min-w-0">
+          <div class="no-print sticky top-0 z-20 px-4 py-2.5 border-b border-slate-100 bg-white/90 backdrop-blur-md flex flex-wrap items-center justify-between gap-2">
+            <p class="text-xs text-slate-600 flex items-center gap-2 min-w-0">
+              <span class="text-slate-400 shrink-0 font-medium">現在地</span>
+              <span id="current-section-label" class="font-display font-semibold text-slate-900 truncate">概要</span>
+            </p>
+            <span class="text-xs text-slate-400 shrink-0">見られる人: 本人 / 工場長</span>
+          </div>
+
+          <div class="p-4 md:p-6 space-y-8 flex-1 bg-gradient-to-b from-white via-slate-50/30 to-slate-50/60">
+
+            <!-- ダッシュボード -->
+            <section id="sec-dashboard" class="scroll-mt-24 space-y-5">
+              <div class="flex items-center gap-3">
+                <span class="si-section-bar h-7 bg-blue-600" aria-hidden="true"></span>
+                <div>
+                  <p class="text-[10px] font-bold uppercase tracking-wider text-blue-700">この画面の中身</p>
+                  <p class="text-sm font-bold text-slate-800">概要</p>
+                </div>
+              </div>
+
+              <!-- 今月（暦月） -->
+              <div class="rounded-r-2xl border border-blue-200/80 border-l-4 border-l-blue-600 bg-gradient-to-br from-slate-50/90 via-white to-indigo-50/50 p-5 md:p-6 shadow-md shadow-blue-900/[0.06] ring-1 ring-blue-900/[0.06]">
+                <p class="text-[10px] font-bold text-blue-800 mb-3 inline-flex items-center gap-1.5 rounded-full bg-blue-100/90 border border-blue-200 px-2.5 py-0.5">比較① · 今月（カレンダー通りの月）の売上</p>
+                <div class="flex flex-wrap items-center gap-2 mb-2">
+                  <span class="text-[11px] rounded-full border border-ads-border bg-white px-2.5 py-0.5 text-slate-600 font-medium">集め方: カレンダー通りの月・今月</span>
+                </div>
+                <p class="text-[11px] text-slate-500 mb-3">数年分の推移を見るときは、<strong class="text-slate-700">下のカード「年次売上の推移」</strong>を押してください。この上の枠は説明用で、押してもページは変わりません。</p>
+                <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
+                  <div>
+                    <p class="text-xs font-bold text-ads-accent-light uppercase tracking-wide">今月のまとめ</p>
+                    <p class="text-sm text-ads-muted mt-0.5">売上に数える日: 出荷した日 · <span class="text-slate-800 font-medium">2026年3月分（締め済み想定）</span></p>
+                  </div>
+                </div>
+                <div class="grid sm:grid-cols-2 gap-3 md:gap-4 mb-5 sm:gap-0 sm:overflow-hidden sm:rounded-xl sm:border sm:border-slate-200">
+                  <div class="rounded-xl bg-emerald-50/90 p-4 shadow-inner sm:rounded-none sm:border-0 sm:shadow-none border-l-[6px] border-l-emerald-600 border border-emerald-200/80 sm:border-r sm:border-slate-200">
+                    <p class="text-[10px] font-bold text-emerald-900 uppercase tracking-wide mb-0.5">伸び（先月基準）</p>
+                    <p class="text-xs font-semibold text-emerald-800 mb-1">先月と比べて</p>
+                    <p class="text-3xl md:text-4xl font-black text-emerald-600 tracking-tight">+4.2<span class="text-lg font-bold">%</span></p>
+                    <p class="text-[11px] text-emerald-800/80 mt-2 border-t border-emerald-200/70 pt-2">いまの月 vs ひと月前（2026年2月）</p>
+                  </div>
+                  <div class="rounded-xl bg-blue-50/90 p-4 shadow-inner sm:rounded-none sm:border-0 sm:shadow-none border-l-[6px] border-l-blue-700 border border-blue-200/80">
+                    <p class="text-[10px] font-bold text-blue-900 uppercase tracking-wide mb-0.5">伸び（前年同月）</p>
+                    <p class="text-xs font-semibold text-blue-900 mb-1">去年の同じ月と比べて</p>
+                    <p class="text-3xl md:text-4xl font-black text-blue-600 tracking-tight">+8.4<span class="text-lg font-bold">%</span></p>
+                    <p class="text-[11px] text-blue-900/80 mt-2 border-t border-blue-200/70 pt-2">いまの月 vs 去年の同じ月（2025年3月）</p>
+                  </div>
+                </div>
+                <div class="pt-4 border-t border-ads-border/50 space-y-2">
+                  <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                    <span class="text-sm text-ads-muted">当月売上合計</span>
+                    <span class="text-2xl md:text-3xl font-black text-slate-900">¥ 156.2M</span>
+                    <span class="text-xs text-ads-dim">（サンプル）</span>
+                  </div>
+                  <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+                    <span class="text-ads-muted">注文件数</span>
+                    <span class="font-bold text-slate-900 tabular-nums">12,480<span class="text-base font-black text-violet-700 ml-0.5">件</span></span>
+                    <span class="text-[11px] text-slate-500">注文の件数（1注文＝1件。数量は関係しません・モック）</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="flex items-center gap-3 py-1" role="presentation">
+                <div class="flex-1 h-px bg-slate-200"></div>
+                <span class="text-[11px] font-semibold text-slate-500 shrink-0">別ページへ移動</span>
+                <div class="flex-1 h-px bg-slate-200"></div>
+              </div>
+              <div class="grid sm:grid-cols-2 gap-3">
+                <a href="sales-insight-yearly.html" class="group rounded-xl border border-slate-200/90 bg-white p-4 shadow-sm shadow-slate-900/5 hover:border-indigo-300/60 hover:shadow-lg hover:shadow-indigo-900/10 transition-all flex items-center gap-3">
+                  <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500/15 to-indigo-500/10 text-violet-600 ring-1 ring-violet-500/10">
+                    <i data-lucide="bar-chart-2" class="w-5 h-5"></i>
+                  </div>
+                  <div class="min-w-0 flex-1">
+                    <p class="text-sm font-bold text-slate-900 group-hover:text-ads-accent-light">年次売上の推移</p>
+                    <p class="text-xs text-ads-dim">約7年分 · 別ページで表示</p>
+                  </div>
+                  <i data-lucide="chevron-right" class="w-5 h-5 text-ads-dim shrink-0"></i>
+                </a>
+                <a href="sales-insight-customers.html" class="group rounded-xl border border-slate-200/90 bg-white p-4 shadow-sm shadow-slate-900/5 hover:border-amber-300/60 hover:shadow-lg hover:shadow-amber-900/10 transition-all flex items-center gap-3">
+                  <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-amber-400/20 to-orange-500/10 text-amber-700 ring-1 ring-amber-500/15">
+                    <i data-lucide="users" class="w-5 h-5"></i>
+                  </div>
+                  <div class="min-w-0 flex-1">
+                    <p class="text-sm font-bold text-slate-900 group-hover:text-ads-accent-light">得意先ごとの売上</p>
+                    <p class="text-xs text-ads-dim">週で見る／月で見る · 別のページ</p>
+                  </div>
+                  <i data-lucide="chevron-right" class="w-5 h-5 text-ads-dim shrink-0"></i>
+                </a>
+              </div>
+
+              <div class="rounded-r-xl border border-slate-200 border-l-4 border-l-slate-500 bg-gradient-to-r from-slate-50/90 to-white p-4 md:p-5 space-y-4">
+                <div class="flex flex-wrap items-center gap-2 justify-between">
+                  <div class="flex items-center gap-2">
+                    <span class="si-section-bar h-6 bg-slate-500" aria-hidden="true"></span>
+                    <div>
+                      <p class="text-[10px] font-bold uppercase tracking-wider text-slate-600">比較② · 上の「今月」とは別</p>
+                      <p class="text-sm font-bold text-slate-800">先週（月〜金）だけの数字</p>
+                    </div>
+                  </div>
+                  <span class="text-[11px] rounded-full border-2 border-slate-300 bg-white px-2.5 py-1 text-slate-700 font-semibold">営業日5日・先週分</span>
+                </div>
+                <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                  <div class="rounded-xl border-2 border-slate-200 bg-white p-4 shadow-sm ring-1 ring-slate-900/[0.03]">
+                    <div class="text-[10px] font-bold text-slate-500 mb-1">売上</div>
+                    <div class="text-xs text-slate-600 font-medium mb-1">先週の月〜金</div>
+                    <div class="text-2xl font-black text-slate-900">¥ 42.8M</div>
+                    <div class="text-xs text-emerald-700 font-semibold mt-1">前の週より +6.2%</div>
+                    <div class="mt-3 pt-2 border-t border-slate-100 text-[11px]">
+                      <span class="text-slate-500">注文件数</span>
+                      <span class="ml-1.5 font-bold text-slate-800 tabular-nums">1,240<span class="text-violet-700">件</span></span>
+                    </div>
+                  </div>
+                  <div class="rounded-xl border-2 border-dashed border-slate-300 bg-slate-50/80 p-4">
+                    <div class="text-[10px] font-bold text-slate-500 mb-1">期間</div>
+                    <div class="text-xs text-slate-600 font-medium mb-1">いつからいつまでか</div>
+                    <div class="text-lg font-bold text-slate-900">3/31 〜 4/4</div>
+                    <div class="text-xs text-slate-500 mt-1">出荷した日で数えた売上</div>
+                  </div>
+                  <div class="rounded-xl border-2 border-slate-200 bg-white p-4 shadow-sm">
+                    <div class="text-[10px] font-bold text-slate-500 mb-1">件数</div>
+                    <div class="text-xs text-slate-600 font-medium mb-1">伝票の行</div>
+                    <div class="text-2xl font-black text-slate-900">186</div>
+                    <div class="mt-2 text-[11px] text-slate-500 leading-snug">注文件数と伝票行は別です（1注文に複数行があることもあります）</div>
+                  </div>
+                  <div class="rounded-xl border-2 border-amber-200 bg-amber-50/60 p-4">
+                    <div class="text-[10px] font-bold text-amber-900 mb-1">お知らせ</div>
+                    <div class="text-xs text-amber-900/90 font-medium mb-1">次に送る予定</div>
+                    <div class="text-lg font-bold text-slate-900">月 09:00</div>
+                    <div class="text-xs text-amber-900/80 mt-1">下の「毎週のお知らせ」参照</div>
+                  </div>
+                </div>
+              </div>
+              <div class="rounded-lg border border-amber-200 bg-amber-50/90 px-4 py-3 text-sm text-amber-950">
+                <p class="font-bold text-amber-900 mb-1 flex items-center gap-1.5">
+                  <i data-lucide="info" class="w-4 h-4 shrink-0"></i>
+                  期間の見方（ここが重要）
+                </p>
+                <p class="text-xs text-amber-900/90 leading-relaxed">
+                  <strong>比較①（青い枠）</strong>は<strong>今月（例: 3月）の売上の合計</strong>について。<strong>比較②（グレー寄りの枠）</strong>は<strong>先週の月〜金だけ</strong>。<strong>比較③（紫の枠・材質）</strong>は<strong>直近12か月</strong>の割合です。                  三者は混ぜないでください。
+                  数年ぶんの流れは<strong>「年次売上推移」ページ</strong>を見てください。季節の山は<strong>下の「いつ何が増えるか」</strong>を参照してください。
+                </p>
+              </div>
+            </section>
+
+            <!-- 季節・先読み（材質×月） -->
+            <section id="sec-season" class="scroll-mt-24 space-y-4">
+              <div class="flex items-center gap-3">
+                <span class="si-section-bar h-7 bg-teal-600" aria-hidden="true"></span>
+                <div>
+                  <p class="text-[10px] font-bold uppercase tracking-wider text-teal-800">先読み · 過去の山から仮説を立てる</p>
+                  <p class="text-sm font-bold text-slate-800">いつ何が増えるか（材質×月）</p>
+                </div>
+              </div>
+
+              <div class="rounded-r-2xl border border-teal-200/80 border-l-4 border-l-teal-600 bg-gradient-to-br from-white via-teal-50/40 to-emerald-50/30 p-4 md:p-6 shadow-md shadow-teal-900/[0.05] ring-1 ring-teal-900/[0.04]">
+                <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
+                  <div class="min-w-0">
+                    <h2 class="text-sm font-bold text-slate-900 flex items-center gap-2 mb-1">
+                      <i data-lucide="trending-up" class="w-4 h-4 text-teal-600 shrink-0"></i>
+                      月ごとの「材質の寄り」（サンプル）
+                    </h2>
+                    <p class="text-xs text-ads-muted leading-relaxed max-w-3xl">
+                      各行の<strong class="text-slate-700">材質</strong>について、<strong class="text-slate-700">出荷日（または納期）</strong>がその月に入る売上を集計し、<strong class="text-slate-700">その材質の年間のうち何割がその月に来たか</strong>を色の濃さで示します（12か月で足すと各行100%）。濃い月＝「いつもこの時期にこの材が厚くなる」という<strong class="text-slate-800">繰り返しの傾向</strong>のたたき台になります。
+                    </p>
+                  </div>
+                  <span class="text-[11px] font-semibold text-teal-900 bg-white/90 border border-teal-200 rounded-full px-3 py-1 shrink-0 shadow-sm">直近3〜5年平均イメージ · モック</span>
+                </div>
+
+                <div class="overflow-x-auto rounded-xl border border-teal-100/90 bg-white/90 p-3 md:p-4 shadow-inner">
+                  <p class="text-[10px] text-slate-500 mb-2 md:hidden">横にスクロールで12か月を表示</p>
+                  <div class="inline-block min-w-[min(100%,36rem)] w-full">
+                    <div class="grid gap-1 text-center" style="grid-template-columns: 5.5rem repeat(12, minmax(0, 1fr));">
+                      <div class="text-[9px] font-bold text-slate-400 py-1 text-left pl-1">材質＼月</div>
+                      <div class="text-[9px] font-bold text-slate-500 py-1">1</div>
+                      <div class="text-[9px] font-bold text-slate-500 py-1">2</div>
+                      <div class="text-[9px] font-bold text-slate-500 py-1">3</div>
+                      <div class="text-[9px] font-bold text-slate-500 py-1">4</div>
+                      <div class="text-[9px] font-bold text-slate-500 py-1">5</div>
+                      <div class="text-[9px] font-bold text-slate-500 py-1">6</div>
+                      <div class="text-[9px] font-bold text-slate-500 py-1">7</div>
+                      <div class="text-[9px] font-bold text-slate-500 py-1">8</div>
+                      <div class="text-[9px] font-bold text-slate-500 py-1">9</div>
+                      <div class="text-[9px] font-bold text-slate-500 py-1">10</div>
+                      <div class="text-[9px] font-bold text-slate-500 py-1">11</div>
+                      <div class="text-[9px] font-bold text-slate-500 py-1">12</div>
+
+                      <div class="text-[10px] font-bold text-slate-700 py-2 pl-1 text-left flex items-center">SS400 系</div>
+                      <div class="rounded-sm min-h-[1.75rem] bg-slate-100" title="SS400 · 1月 やや少ない"></div>
+                      <div class="rounded-sm min-h-[1.75rem] bg-slate-100" title="SS400 · 2月 やや少ない"></div>
+                      <div class="rounded-sm min-h-[1.75rem] bg-orange-500" title="SS400 · 3月 ピーク"></div>
+                      <div class="rounded-sm min-h-[1.75rem] bg-orange-400" title="SS400 · 4月 高い"></div>
+                      <div class="rounded-sm min-h-[1.75rem] bg-amber-200" title="SS400 · 5月 中程度"></div>
+                      <div class="rounded-sm min-h-[1.75rem] bg-slate-100" title="SS400 · 6月 やや少ない"></div>
+                      <div class="rounded-sm min-h-[1.75rem] bg-slate-100" title="SS400 · 7月 やや少ない"></div>
+                      <div class="rounded-sm min-h-[1.75rem] bg-orange-300" title="SS400 · 8月 高め"></div>
+                      <div class="rounded-sm min-h-[1.75rem] bg-amber-200" title="SS400 · 9月 中程度"></div>
+                      <div class="rounded-sm min-h-[1.75rem] bg-amber-100" title="SS400 · 10月 やや多い"></div>
+                      <div class="rounded-sm min-h-[1.75rem] bg-slate-100" title="SS400 · 11月 やや少ない"></div>
+                      <div class="rounded-sm min-h-[1.75rem] bg-slate-100" title="SS400 · 12月 やや少ない"></div>
+
+                      <div class="text-[10px] font-bold text-slate-700 py-2 pl-1 text-left flex items-center">ステンレス</div>
+                      <div class="rounded-sm min-h-[1.75rem] bg-amber-200" title="SUS · 1月 中程度"></div>
+                      <div class="rounded-sm min-h-[1.75rem] bg-amber-100" title="SUS · 2月 やや多い"></div>
+                      <div class="rounded-sm min-h-[1.75rem] bg-amber-100" title="SUS · 3月 やや多い"></div>
+                      <div class="rounded-sm min-h-[1.75rem] bg-slate-100" title="SUS · 4月 やや少ない"></div>
+                      <div class="rounded-sm min-h-[1.75rem] bg-slate-100" title="SUS · 5月 やや少ない"></div>
+                      <div class="rounded-sm min-h-[1.75rem] bg-slate-100" title="SUS · 6月 やや少ない"></div>
+                      <div class="rounded-sm min-h-[1.75rem] bg-slate-100" title="SUS · 7月 やや少ない"></div>
+                      <div class="rounded-sm min-h-[1.75rem] bg-slate-100" title="SUS · 8月 やや少ない"></div>
+                      <div class="rounded-sm min-h-[1.75rem] bg-amber-100" title="SUS · 9月 やや多い"></div>
+                      <div class="rounded-sm min-h-[1.75rem] bg-orange-300" title="SUS · 10月 高め"></div>
+                      <div class="rounded-sm min-h-[1.75rem] bg-orange-500" title="SUS · 11月 ピーク"></div>
+                      <div class="rounded-sm min-h-[1.75rem] bg-orange-400" title="SUS · 12月 高い"></div>
+
+                      <div class="text-[10px] font-bold text-slate-700 py-2 pl-1 text-left flex items-center">アルミ</div>
+                      <div class="rounded-sm min-h-[1.75rem] bg-amber-100" title="Al · 1月"></div>
+                      <div class="rounded-sm min-h-[1.75rem] bg-amber-100" title="Al · 2月"></div>
+                      <div class="rounded-sm min-h-[1.75rem] bg-amber-200" title="Al · 3月"></div>
+                      <div class="rounded-sm min-h-[1.75rem] bg-orange-300" title="Al · 4月 高め"></div>
+                      <div class="rounded-sm min-h-[1.75rem] bg-orange-500" title="Al · 5月 ピーク"></div>
+                      <div class="rounded-sm min-h-[1.75rem] bg-orange-400" title="Al · 6月 高い"></div>
+                      <div class="rounded-sm min-h-[1.75rem] bg-slate-100" title="Al · 7月 やや少ない"></div>
+                      <div class="rounded-sm min-h-[1.75rem] bg-slate-100" title="Al · 8月 やや少ない"></div>
+                      <div class="rounded-sm min-h-[1.75rem] bg-amber-200" title="Al · 9月"></div>
+                      <div class="rounded-sm min-h-[1.75rem] bg-amber-200" title="Al · 10月"></div>
+                      <div class="rounded-sm min-h-[1.75rem] bg-amber-100" title="Al · 11月"></div>
+                      <div class="rounded-sm min-h-[1.75rem] bg-amber-100" title="Al · 12月"></div>
+
+                      <div class="text-[10px] font-bold text-slate-700 py-2 pl-1 text-left flex items-center">その他</div>
+                      <div class="rounded-sm min-h-[1.75rem] bg-amber-100" title="その他 · 1月"></div>
+                      <div class="rounded-sm min-h-[1.75rem] bg-amber-100" title="その他 · 2月"></div>
+                      <div class="rounded-sm min-h-[1.75rem] bg-amber-100" title="その他 · 3月"></div>
+                      <div class="rounded-sm min-h-[1.75rem] bg-amber-100" title="その他 · 4月"></div>
+                      <div class="rounded-sm min-h-[1.75rem] bg-amber-200" title="その他 · 5月"></div>
+                      <div class="rounded-sm min-h-[1.75rem] bg-slate-100" title="その他 · 6月 やや少ない"></div>
+                      <div class="rounded-sm min-h-[1.75rem] bg-slate-100" title="その他 · 7月 やや少ない"></div>
+                      <div class="rounded-sm min-h-[1.75rem] bg-amber-100" title="その他 · 8月"></div>
+                      <div class="rounded-sm min-h-[1.75rem] bg-amber-100" title="その他 · 9月"></div>
+                      <div class="rounded-sm min-h-[1.75rem] bg-amber-100" title="その他 · 10月"></div>
+                      <div class="rounded-sm min-h-[1.75rem] bg-amber-100" title="その他 · 11月"></div>
+                      <div class="rounded-sm min-h-[1.75rem] bg-amber-200" title="その他 · 12月"></div>
+                    </div>
+                  </div>
+                  <div class="flex flex-wrap items-center gap-3 mt-3 pt-3 border-t border-slate-100 text-[10px] text-slate-500">
+                    <span class="font-semibold text-slate-600">濃さの目安</span>
+                    <span class="inline-flex items-center gap-1"><span class="w-4 h-3 rounded-sm bg-slate-100 border border-slate-200"></span> その材質にとって月が薄い</span>
+                    <span class="inline-flex items-center gap-1"><span class="w-4 h-3 rounded-sm bg-amber-200 border border-amber-300/50"></span> 中くらい</span>
+                    <span class="inline-flex items-center gap-1"><span class="w-4 h-3 rounded-sm bg-orange-500 border border-orange-600/30"></span> その材質にとって月が厚い</span>
+                  </div>
+                </div>
+
+                <div class="mt-4 grid md:grid-cols-2 gap-3">
+                  <div class="rounded-xl border border-teal-200/80 bg-white/95 p-4 shadow-sm">
+                    <p class="text-[10px] font-bold text-teal-900 uppercase tracking-wide mb-2">この先の打ち手につなげるには</p>
+                    <ul class="text-xs text-slate-600 space-y-2 leading-relaxed">
+                      <li><strong class="text-slate-800">得意先名</strong>で同じ図を切ると、「季節の山」が業界なのか特定顧客なのかを切り分けやすくなります。</li>
+                      <li><strong class="text-slate-800">寸法帯</strong>（太さ・長さのビン）を足すと、混み合う月が「どの加工に効くか」まで議論を進められます。</li>
+                      <li><strong class="text-slate-800">数量・金額</strong>を切り替え表示すると、薄利多売の月と高単価が寄る月の違いも見えます。</li>
+                    </ul>
+                  </div>
+                  <div class="rounded-xl border border-amber-200/90 bg-amber-50/80 p-4 shadow-sm">
+                    <p class="text-[10px] font-bold text-amber-900 uppercase tracking-wide mb-2">サンプルから読み取れる仮説（要検証）</p>
+                    <ul class="text-xs text-amber-950/90 space-y-2 leading-relaxed list-disc list-inside marker:text-amber-700">
+                      <li>SS400 は<strong>3〜4月・8月</strong>に寄りやすい → 年度・夏季需要の仮説として現場とすり合わせ。</li>
+                      <li>ステンレスは<strong>10〜12月</strong>が厚め → 設備・外注の枠を先に確保する議論の材料に。</li>
+                      <li>アルミは<strong>5〜6月</strong>が山 → 同時期の納期カレンダーと重ねて負荷を確認。</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <!-- 材質 -->
+            <section id="sec-material" class="scroll-mt-24 space-y-3">
+              <div class="flex items-center gap-3">
+                <span class="si-section-bar h-7 bg-violet-600" aria-hidden="true"></span>
+                <div>
+                  <p class="text-[10px] font-bold uppercase tracking-wider text-violet-700">比較③ · ①②の週次とも期間が違う</p>
+                  <p class="text-sm font-bold text-slate-800">材質・構成比</p>
+                </div>
+              </div>
+              <div class="rounded-r-xl border border-violet-200/80 border-l-4 border-l-violet-600 bg-white p-4 md:p-5 shadow-sm">
+                <div class="flex flex-wrap items-center justify-between gap-2 mb-1">
+                  <h2 class="text-sm font-bold text-slate-900 flex items-center gap-2">
+                    <i data-lucide="pie-chart" class="w-4 h-4 text-violet-600"></i>
+                    材質別 売上構成
+                  </h2>
+                  <span class="text-xs font-medium text-violet-800 bg-violet-50 border border-violet-200 rounded-full px-2.5 py-0.5">直近12か月 · 上の「先週の数字」とは期間が違います</span>
+                </div>
+                <p class="text-xs text-ads-muted mb-4">割合は<strong>直近12か月の売上全体</strong>を100%として計算しています（先週だけの割合ではありません）。</p>
+                <div class="space-y-3">
+                  <div class="rounded-lg border border-slate-100 bg-slate-50/50 p-3">
+                    <div class="flex justify-between items-baseline text-xs mb-2">
+                      <span class="font-semibold text-slate-800"><span class="text-slate-400 font-bold mr-1.5">1</span>SS400 系</span>
+                      <span class="text-slate-700 font-bold tabular-nums">34%</span>
+                    </div>
+                    <div class="h-2.5 rounded-full bg-white border border-slate-200 overflow-hidden">
+                      <div class="h-full bg-blue-500 rounded-full w-[34%]"></div>
+                    </div>
+                  </div>
+                  <div class="rounded-lg border border-slate-100 bg-slate-50/50 p-3">
+                    <div class="flex justify-between items-baseline text-xs mb-2">
+                      <span class="font-semibold text-slate-800"><span class="text-slate-400 font-bold mr-1.5">2</span>SUS304 系</span>
+                      <span class="text-slate-700 font-bold tabular-nums">28%</span>
+                    </div>
+                    <div class="h-2.5 rounded-full bg-white border border-slate-200 overflow-hidden">
+                      <div class="h-full bg-emerald-500 rounded-full w-[28%]"></div>
+                    </div>
+                  </div>
+                  <div class="rounded-lg border border-slate-100 bg-slate-50/50 p-3">
+                    <div class="flex justify-between items-baseline text-xs mb-2">
+                      <span class="font-semibold text-slate-800"><span class="text-slate-400 font-bold mr-1.5">3</span>アルミ</span>
+                      <span class="text-slate-700 font-bold tabular-nums">22%</span>
+                    </div>
+                    <div class="h-2.5 rounded-full bg-white border border-slate-200 overflow-hidden">
+                      <div class="h-full bg-amber-500 rounded-full w-[22%]"></div>
+                    </div>
+                  </div>
+                  <div class="rounded-lg border border-slate-100 bg-slate-50/50 p-3">
+                    <div class="flex justify-between items-baseline text-xs mb-2">
+                      <span class="font-semibold text-slate-800"><span class="text-slate-400 font-bold mr-1.5">4</span>その他</span>
+                      <span class="text-slate-700 font-bold tabular-nums">16%</span>
+                    </div>
+                    <div class="h-2.5 rounded-full bg-white border border-slate-200 overflow-hidden">
+                      <div class="h-full bg-slate-400 rounded-full w-[16%]"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <!-- 週次・配信 -->
+            <section id="sec-delivery" class="scroll-mt-24 space-y-4">
+              <div class="flex items-center gap-3">
+                <span class="si-section-bar h-7 bg-emerald-600" aria-hidden="true"></span>
+                <div>
+                  <p class="text-[10px] font-bold uppercase tracking-wider text-emerald-700">②の数字を毎週送る</p>
+                  <p class="text-sm font-bold text-slate-800">毎週のお知らせ</p>
+                </div>
+              </div>
+              <div class="grid md:grid-cols-2 gap-4">
+                <div class="rounded-xl border-2 border-emerald-100 bg-white p-4 md:p-5 shadow-sm">
+                  <h2 class="text-sm font-bold text-slate-900 flex items-center gap-2 mb-3">
+                    <i data-lucide="workflow" class="w-4 h-4 text-slate-700"></i>
+                    データの流れ（できあがったあと）
+                  </h2>
+                  <div class="flex flex-wrap items-center gap-2 text-xs">
+                    <span class="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 font-medium text-blue-900">専用ソフト</span>
+                    <i data-lucide="arrow-right" class="w-4 h-4 text-ads-dim hidden sm:inline"></i>
+                    <span class="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-slate-800">取り込み・まとめ</span>
+                    <i data-lucide="arrow-right" class="w-4 h-4 text-ads-dim hidden sm:inline"></i>
+                    <span class="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 font-medium text-emerald-900">週のまとめを作成</span>
+                    <i data-lucide="arrow-right" class="w-4 h-4 text-ads-dim hidden sm:inline"></i>
+                    <span class="rounded-lg border border-slate-300 bg-msg-bubble px-3 py-2 font-medium text-slate-800">メッセージ配信</span>
+                  </div>
+                  <p class="text-[11px] text-ads-dim mt-3">送り方（社内のメッセージなど）は設定で選べます。つなぎ方の詳細は「連携設定」を見てください。</p>
+                </div>
+
+                <div class="rounded-xl border-2 border-slate-200 bg-slate-50 p-4 md:p-5">
+                  <h2 class="text-xs font-bold text-slate-700 mb-3">お知らせの送り方（イメージ）</h2>
+                  <dl class="grid grid-cols-1 gap-2 text-xs mb-4">
+                    <div class="flex justify-between gap-2 border-b border-slate-200/80 pb-2">
+                      <dt class="text-ads-dim">送り主の名前</dt>
+                      <dd class="text-slate-800 font-medium">SalesInsight（社内）</dd>
+                    </div>
+                    <div class="flex justify-between gap-2 border-b border-slate-200/80 pb-2">
+                      <dt class="text-ads-dim">毎週の自動送信</dt>
+                      <dd class="text-emerald-800 font-medium">オン</dd>
+                    </div>
+                    <div class="flex justify-between gap-2 border-b border-slate-200/80 pb-2">
+                      <dt class="text-ads-dim">いまの状態</dt>
+                      <dd class="text-slate-800">2026/04/07 09:00 に送信できた</dd>
+                    </div>
+                    <div class="flex justify-between gap-2">
+                      <dt class="text-ads-dim">同じ週に二重で送らない</dt>
+                      <dd class="text-slate-700">その週は「もう送った」と記録して、同じ内容を二度送らない</dd>
+                    </div>
+                  </dl>
+
+                  <p class="text-xs font-bold text-slate-700 mb-2">文面のイメージ（見た目は簡略）</p>
+                  <div class="max-w-sm mx-auto rounded-2xl border border-slate-300 bg-white shadow-md overflow-hidden">
+                    <div class="bg-msg-bar text-white text-xs px-3 py-2 font-medium">週次サマリー · 自動送信</div>
+                    <div class="p-3 space-y-2 bg-slate-50/80">
+                      <div class="rounded-2xl rounded-tl-sm bg-white border border-slate-200 px-3 py-2.5 text-sm text-slate-800 shadow-sm">
+                        <p class="text-[13px] leading-relaxed">
+                          【週次】3/31〜4/4（月〜金）売上 <strong>¥42.8M</strong> · 注文件数<strong>1,240件</strong> · 伝票行186 · 前週比+6.2%
+                        </p>
+                        <p class="text-[13px] leading-relaxed mt-2 text-slate-700">
+                          材質（<strong>直近12か月</strong>の割合）: SS400 34% / SUS 28% / Al 22% / 他16% · 売上の数え方: 出荷日
+                        </p>
+                        <p class="text-[10px] text-ads-dim mt-2">SalesInsight 自動生成 · 社内配信</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <!-- 連携設定（短いブロック） -->
+            <section id="sec-integration" class="scroll-mt-24 space-y-3">
+              <div class="flex items-center gap-3">
+                <span class="si-section-bar h-7 bg-sky-600" aria-hidden="true"></span>
+                <div>
+                  <p class="text-[10px] font-bold uppercase tracking-wider text-sky-700">設定</p>
+                  <p class="text-sm font-bold text-slate-800">つなぎ方（概要）</p>
+                </div>
+              </div>
+              <div class="rounded-xl border-2 border-sky-100 bg-white p-4 md:p-5 shadow-sm">
+                <div class="flex items-start gap-3">
+                  <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-ads-accent/10">
+                    <i data-lucide="plug" class="w-5 h-5 text-ads-accent-light"></i>
+                  </div>
+                  <div class="min-w-0 flex-1">
+                    <h2 class="text-sm font-bold text-slate-900 mb-2">専用ソフトからデータを取り込む</h2>
+                    <ul class="text-xs text-ads-muted space-y-1.5 list-disc list-inside">
+                      <li>データベースから直接読む／定期的なCSVファイル／どれにするかは試す段階で決める</li>
+                      <li>本番ではパスワードや、どこからつないだかの記録など、安全のルールを別途決める</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <!-- 自動ジョブ -->
+            <section id="sec-jobs" class="scroll-mt-24 space-y-3">
+              <div class="flex items-center gap-3">
+                <span class="si-section-bar h-7 bg-amber-500" aria-hidden="true"></span>
+                <div>
+                  <p class="text-[10px] font-bold uppercase tracking-wider text-amber-800">自動</p>
+                  <p class="text-sm font-bold text-slate-800">自動で動く処理</p>
+                </div>
+              </div>
+              <div class="rounded-xl border-2 border-amber-100 bg-white overflow-hidden hidden lg:block shadow-sm">
+                <div class="px-4 py-3 border-b border-ads-border bg-ads-surface/50 flex flex-wrap items-center justify-between gap-2">
+                  <h2 class="text-sm font-bold text-slate-900">処理の一覧</h2>
+                  <span class="text-xs text-ads-dim">毎週のお知らせは月曜の朝に、先週（月〜金）をまとめて送る</span>
+                </div>
+                <div class="overflow-x-auto w-full">
+                  <table class="w-full text-sm min-w-[520px]">
+                    <thead class="bg-ads-surface text-xs text-ads-dim">
+                      <tr>
+                        <th class="text-left px-4 py-2 font-medium">名前</th>
+                        <th class="text-left px-4 py-2 font-medium">スケジュール</th>
+                        <th class="text-left px-4 py-2 font-medium">宛先</th>
+                        <th class="text-left px-4 py-2 font-medium">前回</th>
+                      </tr>
+                    </thead>
+                    <tbody class="divide-y divide-ads-border">
+                      <tr class="hover:bg-ads-hover/40">
+                        <td class="px-4 py-3 font-medium text-slate-900">毎週の売上と材質の内訳</td>
+                        <td class="px-4 py-3 text-ads-muted">毎週月 09:00</td>
+                        <td class="px-4 py-3 text-ads-muted">本人・工場長</td>
+                        <td class="px-4 py-3 text-ads-muted">2026/04/07 送信済</td>
+                      </tr>
+                      <tr class="bg-ads-surface/30 hover:bg-ads-hover/40">
+                        <td class="px-4 py-3 font-medium text-slate-900">毎日のデータ取り込み</td>
+                        <td class="px-4 py-3 text-ads-muted">毎日 07:00</td>
+                        <td class="px-4 py-3 text-ads-muted">—</td>
+                        <td class="px-4 py-3 text-emerald-700 text-xs font-medium">成功</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <!-- 狭い画面用: カード（同じ内容） -->
+              <div class="lg:hidden space-y-3">
+                <div class="rounded-xl border border-ads-border bg-white overflow-hidden">
+                  <div class="px-4 py-3 border-b border-ads-border bg-ads-surface/50">
+                    <h2 class="text-sm font-bold text-slate-900">処理の一覧</h2>
+                    <span class="text-xs text-ads-dim">毎週のお知らせは月曜の朝に、先週（月〜金）をまとめて送る</span>
+                  </div>
+                </div>
+                <div class="rounded-xl border border-ads-border bg-white p-4 shadow-sm">
+                  <div class="text-xs font-bold text-slate-900 mb-2">毎週の売上と材質の内訳</div>
+                  <dl class="text-xs space-y-1.5 text-ads-muted">
+                    <div class="flex justify-between"><dt>スケジュール</dt><dd class="text-slate-700">毎週月 09:00</dd></div>
+                    <div class="flex justify-between"><dt>宛先</dt><dd class="text-slate-700">本人・工場長</dd></div>
+                    <div class="flex justify-between"><dt>前回</dt><dd class="text-slate-700">2026/04/07 送信済</dd></div>
+                  </dl>
+                </div>
+                <div class="rounded-xl border border-ads-border bg-white p-4 shadow-sm">
+                  <div class="text-xs font-bold text-slate-900 mb-2">毎日のデータ取り込み</div>
+                  <dl class="text-xs space-y-1.5 text-ads-muted">
+                    <div class="flex justify-between gap-2"><dt class="shrink-0">スケジュール</dt><dd class="text-slate-700 text-right">毎日 07:00</dd></div>
+                    <div class="flex justify-between gap-2"><dt class="shrink-0">宛先</dt><dd class="text-slate-700 text-right">—</dd></div>
+                    <div class="flex justify-between gap-2"><dt class="shrink-0">前回</dt><dd class="text-emerald-700 font-medium text-right">成功</dd></div>
+                  </dl>
+                </div>
+              </div>
+            </section>
+
+            <div class="rounded-xl border border-dashed border-ads-accent/35 bg-ads-accent/5 p-4">
+              <p class="text-xs font-bold text-ads-accent-light mb-2">画面のメモ（社内向け）</p>
+              <ul class="text-xs text-ads-muted space-y-1 list-disc list-inside">
+                <li>左の「別ページ」リンクはやめて、<strong>上のメニューとカード</strong>にまとめた。</li>
+                <li>年次・得意先ページは見た目をそろえ、印刷・キーボード・レビュー指摘（印刷ボタン、Lucide固定版、タブのaria-hidden など）を反映した。</li>
+                <li><strong>いつ何が増えるか</strong>は材質×月のヒートマップ（先読み・季節のモック）。本番は出荷日／納期・複数年平均などをパラメータ化。</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="max-w-6xl mx-auto px-4 sm:px-6 pb-10 pt-6 border-t border-slate-200/60">
+    <p class="text-xs text-slate-400 text-center">sales-insight-mockup.html — レビュー反映版（画面イメージ）</p>
+  </footer>
+  <script src="https://cdn.jsdelivr.net/npm/lucide@0.469.0/dist/umd/lucide.min.js" crossorigin="anonymous"></script>
+  <script>
+    if (typeof lucide !== 'undefined') {
+      lucide.createIcons();
+    }
+    (function () {
+      var titles = {
+        'sec-dashboard': '概要',
+        'sec-season': 'いつ何が増えるか',
+        'sec-material': '材質・構成比',
+        'sec-delivery': '週のお知らせ',
+        'sec-integration': 'つなぎ方',
+        'sec-jobs': '自動の処理'
+      };
+      var label = document.getElementById('current-section-label');
+      var links = document.querySelectorAll('.nav-side-link[data-section-id]');
+      var sections = document.querySelectorAll('section[id^="sec-"]');
+
+      function setActive(id) {
+        if (label && titles[id]) label.textContent = titles[id];
+        links.forEach(function (a) {
+          var sid = a.getAttribute('data-section-id');
+          var on = sid === id;
+          a.classList.toggle('nav-active', on);
+        });
+      }
+
+      function updateActiveFromScroll() {
+        var mid = window.innerHeight * 0.38;
+        var best = null;
+        var bestDist = Infinity;
+        sections.forEach(function (s) {
+          var r = s.getBoundingClientRect();
+          if (r.bottom < 120 || r.top > window.innerHeight - 40) return;
+          var center = (r.top + r.bottom) / 2;
+          var dist = Math.abs(center - mid);
+          if (dist < bestDist) {
+            bestDist = dist;
+            best = s;
+          }
+        });
+        if (best && best.id) {
+          setActive(best.id);
+        } else if (sections.length && sections[0].id) {
+          setActive(sections[0].id);
+        }
+      }
+
+      window.addEventListener(
+        'scroll',
+        function () {
+          window.requestAnimationFrame(updateActiveFromScroll);
+        },
+        { passive: true }
+      );
+      window.addEventListener('resize', updateActiveFromScroll);
+      updateActiveFromScroll();
+    })();
+  </script>
+</body>
+</html>

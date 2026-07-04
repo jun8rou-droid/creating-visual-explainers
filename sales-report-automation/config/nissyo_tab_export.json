@@ -1,0 +1,16 @@
+{
+  "label": "タブ区切り・日付8桁（手元データ想定・列推定）",
+  "encoding": "utf-8",
+  "encoding_fallbacks": ["utf-8-sig", "cp932"],
+  "delimiter": "\t",
+  "date_compact_yyyymmdd": true,
+  "product_delimiter": "|",
+  "columns": {
+    "ship_date": "日付",
+    "customer_code": "得意先コード",
+    "product_code_parts": ["商品コード", "寸法", "材質", "商品名"],
+    "quantity": "数量",
+    "unit_price": "単価",
+    "amount": "金額"
+  }
+}

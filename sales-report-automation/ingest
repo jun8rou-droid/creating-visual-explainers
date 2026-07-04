@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# 手元の sales-report-automation フォルダで ./ingest ファイル.csv だけで取り込み（週は auto）
+set -euo pipefail
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
+cd "$DIR"
+if [[ -f .venv/bin/activate ]]; then
+  # shellcheck source=/dev/null
+  source .venv/bin/activate
+fi
+exec python3 -m sales_report_automation.simple_ingest "$@"

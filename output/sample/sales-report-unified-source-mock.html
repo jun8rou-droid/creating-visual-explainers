@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <title>同一ソース統合 — 週次レポート × 売上まとめ（モック）</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Noto Sans JP"', 'sans-serif'],
+            display: ['"Plus Jakarta Sans"', '"Noto Sans JP"', 'sans-serif'],
+          },
+        },
+      },
+    };
+  </script>
+  <style>a:focus-visible { outline: 2px solid #4f46e5; outline-offset: 2px; }</style>
+</head>
+<body class="min-h-screen bg-slate-100 text-slate-800 antialiased text-sm sm:text-base leading-relaxed">
+  <header class="border-b border-slate-200 bg-white">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 py-4 flex flex-wrap items-center justify-between gap-3">
+      <div>
+        <p class="text-[11px] font-semibold uppercase tracking-wider text-slate-400 font-display">Architecture mock</p>
+        <h1 class="font-display text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">同一ソースでつなぐ</h1>
+        <p class="text-slate-500 mt-1 text-sm">週次売上レポート自動化 <span class="text-slate-400">×</span> 売上まとめ（SalesInsight）</p>
+      </div>
+      <nav class="flex flex-wrap gap-3 text-sm font-medium">
+        <a href="sales-report-mocks-index.html" class="text-slate-500 hover:text-slate-800">一覧</a>
+        <a href="sales-report-mvp-tool-ui.html" class="text-indigo-600 hover:text-indigo-800">MVP UI</a>
+        <a href="sales-report-bundle/sales-insight-mockup.html" class="text-indigo-600 hover:text-indigo-800">売上まとめ</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="max-w-4xl mx-auto px-4 sm:px-6 py-8 sm:py-10 pb-16 space-y-10">
+    <p class="text-slate-600 leading-relaxed">
+      <strong class="text-slate-900">正本は一つ</strong>（受注管理ツールのエクスポート）。そこから出る CSV を<strong class="text-slate-900">一度だけ</strong>正規化して蓄積し、<strong class="text-slate-900">週次のお知らせ用</strong>と<strong class="text-slate-900">じっくり見るダッシュボード用</strong>の両方が<strong class="text-slate-900">同じストア</strong>を読むイメージです。静的モックです。
+    </p>
+    <p class="rounded-xl border border-amber-200 bg-amber-50/90 px-4 py-3 text-sm text-amber-950 leading-relaxed">
+      <strong class="text-amber-950">トリガー（運用予定）:</strong> <strong>JST</strong> で毎週<strong>月曜 08:00</strong>に CSV をツールへ<strong>自動送信</strong>。<strong>ツールは「CSV 受信」で処理開始</strong>。1 週間のデータ範囲は<strong>月曜 08:00:00 〜 翌週月曜 07:59:59</strong>。
+    </p>
+
+    <!-- 図 -->
+    <section class="rounded-2xl border border-slate-200 bg-white p-4 sm:p-6 shadow-sm ring-1 ring-slate-900/[0.02]" aria-labelledby="diagram-title">
+      <h2 id="diagram-title" class="font-display font-bold text-slate-900 text-base mb-6">データの流れ（統合）</h2>
+
+      <div class="flex flex-col items-center gap-0">
+        <!-- ソース -->
+        <div class="w-full max-w-md rounded-xl border-2 border-slate-300 bg-slate-50 px-4 py-3 text-center shadow-sm">
+          <p class="text-[10px] font-bold text-slate-500 uppercase tracking-wide">ソース（正本）</p>
+          <p class="font-semibold text-slate-900">受注管理ツール</p>
+          <p class="text-xs text-slate-600 mt-1">週次・一括どちらのエクスポートも <strong class="text-slate-800">同じ列の意味</strong> に揃える</p>
+        </div>
+        <div class="flex flex-col items-center py-1 text-slate-400" aria-hidden="true">
+          <span class="text-lg leading-none">↓</span>
+          <span class="text-[10px] font-mono text-slate-400 mt-0.5">CSV</span>
+        </div>
+        <!-- 取り込み -->
+        <div class="w-full max-w-md rounded-xl border-2 border-amber-300 bg-amber-50 px-4 py-3 text-center shadow-sm ring-1 ring-amber-100">
+          <p class="text-[10px] font-bold text-amber-800 uppercase tracking-wide">共通パイプライン</p>
+          <p class="font-semibold text-amber-950">取り込み · マッピング · 検証</p>
+          <p class="text-xs text-amber-900/85 mt-1">例: <code class="rounded bg-white/80 px-1 text-[11px]">config/nichisho_nissyo.json</code> で内部スキーマへ</p>
+        </div>
+        <div class="flex flex-col items-center py-1 text-slate-400" aria-hidden="true">
+          <span class="text-lg leading-none">↓</span>
+        </div>
+        <!-- ストア -->
+        <div class="w-full max-w-sm rounded-2xl border-2 border-indigo-300 bg-gradient-to-b from-indigo-50 to-white px-5 py-4 text-center shadow-md ring-1 ring-indigo-100">
+          <p class="text-[10px] font-bold text-indigo-700 uppercase tracking-wide">共通ストア</p>
+          <p class="font-display font-bold text-indigo-950 text-lg mt-0.5">SQLite 等</p>
+          <p class="text-xs text-indigo-900/80 mt-2 leading-relaxed">出荷行の正規化データを保持。<br><strong class="text-indigo-950">週次ジョブもダッシュボードもここを読む</strong></p>
+        </div>
+        <div class="flex flex-col items-center py-2 text-slate-400" aria-hidden="true">
+          <span class="text-lg leading-none">↓</span>
+          <span class="text-[10px] text-slate-500 mt-1">参照（読み取り中心）</span>
+        </div>
+
+        <!-- 二股 -->
+        <div class="w-full grid sm:grid-cols-2 gap-4 sm:gap-6 max-w-3xl">
+          <div class="rounded-xl border-2 border-violet-200 bg-violet-50/90 p-4 shadow-sm">
+            <p class="text-[10px] font-bold text-violet-800 uppercase tracking-wide mb-2">面 A · 週次レポート</p>
+            <ul class="text-xs text-violet-950/90 space-y-2 text-left list-disc list-inside">
+              <li><code class="text-[11px] bg-white/70 px-1 rounded">week_key</code> で週を切る集計</li>
+              <li>単価欠損 → 履歴から候補</li>
+              <li>Claude で文案（数値は JSON のみ引用）</li>
+              <li>LINE 等へ通知</li>
+            </ul>
+            <p class="mt-3"><a href="sales-report-mvp-tool-ui.html" class="text-xs font-semibold text-violet-700 underline decoration-violet-300 underline-offset-2">MVP ツール UI モック →</a></p>
+          </div>
+          <div class="rounded-xl border-2 border-sky-200 bg-sky-50/90 p-4 shadow-sm">
+            <p class="text-[10px] font-bold text-sky-800 uppercase tracking-wide mb-2">面 B · 売上まとめ</p>
+            <ul class="text-xs text-sky-950/90 space-y-2 text-left list-disc list-inside">
+              <li>同じ行から KPI・推移を集計</li>
+              <li>年次・得意先・材質などのビュー</li>
+              <li>ブラウザで長期トレンドを確認</li>
+            </ul>
+            <p class="mt-3"><a href="sales-report-bundle/sales-insight-mockup.html" class="text-xs font-semibold text-sky-700 underline decoration-sky-300 underline-offset-2">SalesInsight モック →</a></p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6 shadow-sm" aria-labelledby="rules-title">
+      <h2 id="rules-title" class="font-display font-bold text-slate-900 text-base mb-3">揃えておくとよいこと</h2>
+      <ul class="space-y-2 text-slate-600 text-sm">
+        <li class="flex gap-2"><span class="text-emerald-600 font-bold shrink-0">✓</span> CSV の列定義を週次・バッチで<strong class="text-slate-800">共通マッピング</strong>に寄せる</li>
+        <li class="flex gap-2"><span class="text-emerald-600 font-bold shrink-0">✓</span> ストア上の「出荷日・顧客・金額」などが、レポート集計とダッシュボード集計で<strong class="text-slate-800">同じ定義</strong>になること</li>
+        <li class="flex gap-2"><span class="text-emerald-600 font-bold shrink-0">✓</span> 週次ジョブは <strong class="text-slate-800">増分取り込み</strong>、初回だけ全量、など取り込み方針を一本化</li>
+      </ul>
+    </section>
+
+    <p class="text-xs text-slate-400 text-center font-mono">sales-report-unified-source-mock.html</p>
+  </main>
+</body>
+</html>

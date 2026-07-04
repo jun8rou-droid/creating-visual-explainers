@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex">
+  <title>年次売上の推移 — SalesInsight</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            ads: {
+              bg: '#FFFFFF', surface: '#F8FAFC', hover: '#F1F5F9', border: '#E2E8F0',
+              accent: '#3B82F6', 'accent-light': '#2563EB', text: '#1E293B',
+              muted: '#64748B', dim: '#94A3B8', positive: '#10B981', negative: '#EF4444', warning: '#F59E0B',
+            }
+          },
+          fontFamily: {
+            sans: ['"Noto Sans JP"', '"Yu Gothic UI"', 'sans-serif'],
+            display: ['"Plus Jakarta Sans"', '"Noto Sans JP"', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    @media print {
+      .no-print { display: none !important; }
+      body { border-top: none !important; }
+      .si-mesh { background: #fff !important; }
+    }
+    .si-mesh {
+      background-color: #eef2f9;
+      background-image:
+        radial-gradient(ellipse 120% 80% at 50% -30%, rgba(59, 130, 246, 0.14), transparent 52%),
+        radial-gradient(ellipse 90% 60% at 100% 0%, rgba(139, 92, 246, 0.08), transparent 48%),
+        radial-gradient(ellipse 70% 50% at 0% 80%, rgba(16, 185, 129, 0.06), transparent 50%);
+    }
+    a:focus-visible,
+    button:focus-visible {
+      outline: 2px solid #2563eb;
+      outline-offset: 2px;
+    }
+    .year-bars > div:nth-child(odd) { background: rgba(255, 255, 255, 0.65); }
+    .year-bars > div:nth-child(even) { background: rgba(248, 250, 252, 0.9); }
+  </style>
+</head>
+<body class="si-mesh min-h-screen text-slate-600 antialiased leading-relaxed">
+  <div class="no-print h-[3px] bg-gradient-to-r from-sky-500 via-indigo-500 to-violet-500" aria-hidden="true"></div>
+  <div class="no-print max-w-6xl mx-auto px-4 sm:px-6 pt-4 flex flex-wrap items-center justify-between gap-3">
+    <p class="text-xs text-slate-500">
+      <span class="font-display font-semibold tracking-tight text-slate-800">SalesInsight</span>
+      <span class="text-slate-400 mx-1.5">·</span>
+      年次売上推移
+    </p>
+    <button type="button" onclick="window.print()" aria-label="ブラウザの印刷ダイアログを開く" class="inline-flex items-center gap-2 rounded-full border border-slate-200/80 bg-white/90 px-3.5 py-1.5 text-xs font-medium text-slate-600 shadow-sm shadow-slate-900/5 backdrop-blur-sm transition hover:border-slate-300 hover:bg-white hover:text-slate-900 cursor-pointer">
+      <i data-lucide="printer" class="w-3.5 h-3.5 opacity-70" aria-hidden="true"></i> 印刷
+    </button>
+  </div>
+
+  <main class="max-w-6xl mx-auto px-4 sm:px-6 py-8 md:py-12">
+    <nav class="no-print flex flex-wrap items-center gap-1.5 mb-8 rounded-2xl border border-white/70 bg-white/65 p-1.5 text-sm shadow-lg shadow-slate-900/[0.06] backdrop-blur-md ring-1 ring-slate-900/[0.04]" aria-label="主要ページ">
+      <a href="sales-insight-mockup.html" class="rounded-xl border border-transparent px-3.5 py-2 text-slate-600 transition hover:border-slate-200 hover:bg-white/90 hover:text-slate-900">ダッシュボード</a>
+      <span class="rounded-xl border border-blue-300/60 bg-gradient-to-b from-blue-50 to-blue-100/80 px-3.5 py-2 font-display font-semibold text-blue-800 shadow-sm">年次売上推移</span>
+      <a href="sales-insight-customers.html" class="rounded-xl border border-transparent px-3.5 py-2 text-slate-600 transition hover:border-slate-200 hover:bg-white/90 hover:text-slate-900">得意先ごとの売上</a>
+    </nav>
+
+    <div class="no-print flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5 rounded-2xl bg-gradient-to-r from-emerald-50/95 via-teal-50/50 to-emerald-50/95 border border-emerald-200/70 text-xs text-emerald-900 mb-8 shadow-sm shadow-emerald-900/5">
+      <span class="flex items-center gap-1.5 font-medium">
+        <i data-lucide="database" class="w-3.5 h-3.5 shrink-0"></i>
+        いちばん新しい取り込み: 2026/04/07 07:15
+      </span>
+      <span class="text-emerald-800/75">ダッシュボードと同じ日時を表示（どの画面も同じくらい新しい情報に）</span>
+    </div>
+
+    <div class="rounded-[1.35rem] border border-slate-200/80 bg-white/95 shadow-[0_24px_60px_-12px_rgba(15,23,42,0.14)] ring-1 ring-slate-900/[0.04] overflow-hidden backdrop-blur-sm">
+      <header class="px-5 md:px-8 pt-7 md:pt-9 pb-6 border-b border-slate-100 bg-gradient-to-br from-white via-slate-50/40 to-indigo-50/30">
+        <div class="flex flex-wrap items-center gap-2 mb-3">
+          <span class="text-[11px] font-semibold uppercase tracking-wide text-ads-dim">SalesInsight</span>
+          <span class="text-[11px] rounded-full border border-ads-border bg-slate-100 px-2.5 py-0.5 text-slate-600">単位: 年ごと（長い年の流れ）</span>
+          <span class="text-[11px] rounded-full border border-blue-200 bg-blue-50 px-2.5 py-0.5 text-blue-800">今月との比較はダッシュボードへ</span>
+        </div>
+        <h1 class="font-display text-2xl md:text-[1.75rem] font-extrabold text-slate-900 tracking-tight mb-2 flex items-center gap-3">
+          <span class="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500/15 to-indigo-600/10 text-violet-600 ring-1 ring-violet-500/15">
+            <i data-lucide="trending-up" class="w-6 h-6"></i>
+          </span>
+          年次売上の推移
+        </h1>
+        <p class="text-sm text-ads-muted max-w-2xl">会社全体の売上を、年ごとに足したものです（売上に数える日は出荷した日）。ダッシュボードと同じアプリの、別の画面というイメージです。</p>
+      </header>
+
+      <div class="p-4 md:p-6 md:px-8 bg-gradient-to-b from-white to-slate-50/40">
+      <div class="rounded-xl bg-gradient-to-br from-slate-50 to-indigo-50/40 border border-slate-200/80 px-4 py-4 mb-6 shadow-inner shadow-slate-900/[0.03]">
+        <p class="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+          <i data-lucide="calendar-plus" class="w-3.5 h-3.5 text-blue-600"></i>
+          見方の単位（これから足す予定も書いてあります）
+        </p>
+        <p class="text-[11px] text-slate-600 mt-2 leading-relaxed">
+          <strong>月ごと</strong>・<strong>3か月ごと</strong>は、あとから画面に足す予定です。いまこの画面にあるのは<strong>年ごとだけ</strong>です。「まだ」と分かるように、予定のラベルで示しています。
+        </p>
+        <div class="mt-3 grid sm:grid-cols-2 gap-3">
+          <div class="rounded-lg border-2 border-dashed border-slate-300 bg-slate-50/80 p-3">
+            <p class="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-2">まだこの画面にはない</p>
+            <div class="flex flex-wrap gap-2">
+              <span class="text-xs rounded-md bg-white border border-slate-200 px-2 py-1 text-slate-600">月ごと</span>
+              <span class="text-xs rounded-md bg-white border border-slate-200 px-2 py-1 text-slate-600">3か月ごと</span>
+            </div>
+          </div>
+          <div class="rounded-lg border-2 border-blue-400 bg-gradient-to-br from-blue-50 to-indigo-50 p-3 shadow-sm ring-2 ring-blue-200/60">
+            <p class="text-[10px] font-bold text-blue-800 uppercase tracking-wide mb-2">いま表示している</p>
+            <span class="text-sm font-extrabold text-blue-900">年ごと（1年＝1本の棒）</span>
+          </div>
+        </div>
+      </div>
+      <div class="flex flex-wrap items-start justify-between gap-2 mb-4">
+        <h2 class="text-sm font-bold text-slate-900 font-display">年次売上（2019〜2025）</h2>
+        <span class="text-[11px] text-slate-500 bg-white/80 border border-slate-200/80 rounded-full px-2.5 py-0.5 shadow-sm">1年＝売上も注文件数もその年の合計（サンプル）</span>
+      </div>
+      <div class="rounded-xl border-2 border-slate-200 bg-gradient-to-b from-slate-50/90 to-white px-1 sm:px-2 pt-4 pb-2">
+      <p class="text-[10px] text-slate-500 text-center mb-2 font-medium">棒の高さ＝その年の売上合計 · 金額の下に<strong class="text-slate-600">注文件数</strong>（年内の注文の件数・1注文＝1件・サンプル） · 「前年比」は売上の伸び</p>
+      <div class="year-bars flex items-end justify-between gap-0.5 sm:gap-1 min-h-[15rem] h-64 px-0.5 border-b-2 border-slate-200 rounded-t-lg overflow-hidden">
+        <div class="flex flex-col items-center flex-1 min-w-0 gap-0.5 py-2 rounded-t border border-transparent">
+          <div class="w-full max-w-[52px] mx-auto rounded-t bg-gradient-to-t from-blue-400 to-sky-300 h-[38%] shadow-sm shadow-blue-900/10"></div>
+          <span class="text-[11px] text-slate-800 font-bold">2019</span>
+          <span class="text-[10px] text-slate-600 tabular-nums leading-tight text-center font-semibold">¥118M</span>
+          <span class="text-[9px] text-violet-700 font-semibold tabular-nums leading-tight">118万件</span>
+          <span class="text-[9px] text-slate-400">基準年</span>
+        </div>
+        <div class="flex flex-col items-center flex-1 min-w-0 gap-0.5 py-2 rounded-t border border-transparent">
+          <div class="w-full max-w-[52px] mx-auto rounded-t bg-gradient-to-t from-blue-500 to-sky-400 h-[44%] shadow-sm shadow-blue-900/10"></div>
+          <span class="text-[11px] text-slate-800 font-bold">2020</span>
+          <span class="text-[10px] text-slate-600 tabular-nums leading-tight text-center font-semibold">¥138M</span>
+          <span class="text-[9px] text-violet-700 font-semibold tabular-nums leading-tight">138万件</span>
+          <span class="text-[9px] text-emerald-700 font-semibold">前年比 +17%</span>
+        </div>
+        <div class="flex flex-col items-center flex-1 min-w-0 gap-0.5 py-2 rounded-t border border-transparent">
+          <div class="w-full max-w-[52px] mx-auto rounded-t bg-gradient-to-t from-blue-600 to-blue-400 h-[41%] shadow-sm shadow-blue-900/10"></div>
+          <span class="text-[11px] text-slate-800 font-bold">2021</span>
+          <span class="text-[10px] text-slate-600 tabular-nums leading-tight text-center font-semibold">¥128M</span>
+          <span class="text-[9px] text-violet-700 font-semibold tabular-nums leading-tight">128万件</span>
+          <span class="text-[9px] text-rose-700 font-semibold">前年比 −7%</span>
+        </div>
+        <div class="flex flex-col items-center flex-1 min-w-0 gap-0.5 py-2 rounded-t border border-transparent">
+          <div class="w-full max-w-[52px] mx-auto rounded-t bg-gradient-to-t from-indigo-600 to-blue-500 h-[58%] shadow-sm shadow-indigo-900/15"></div>
+          <span class="text-[11px] text-slate-800 font-bold">2022</span>
+          <span class="text-[10px] text-slate-600 tabular-nums leading-tight text-center font-semibold">¥182M</span>
+          <span class="text-[9px] text-violet-700 font-semibold tabular-nums leading-tight">182万件</span>
+          <span class="text-[9px] text-emerald-700 font-semibold">前年比 +42%</span>
+        </div>
+        <div class="flex flex-col items-center flex-1 min-w-0 gap-0.5 py-2 rounded-t border border-transparent">
+          <div class="w-full max-w-[52px] mx-auto rounded-t bg-gradient-to-t from-indigo-600 to-indigo-400 h-[52%] shadow-sm shadow-indigo-900/15"></div>
+          <span class="text-[11px] text-slate-800 font-bold">2023</span>
+          <span class="text-[10px] text-slate-600 tabular-nums leading-tight text-center font-semibold">¥162M</span>
+          <span class="text-[9px] text-violet-700 font-semibold tabular-nums leading-tight">162万件</span>
+          <span class="text-[9px] text-rose-700 font-semibold">前年比 −11%</span>
+        </div>
+        <div class="flex flex-col items-center flex-1 min-w-0 gap-0.5 py-2 rounded-t border border-slate-200 ring-2 ring-violet-300/80 bg-violet-50/40">
+          <div class="w-full max-w-[52px] mx-auto rounded-t bg-gradient-to-t from-violet-600 to-indigo-500 h-[68%] shadow-md shadow-violet-900/20"></div>
+          <span class="text-[11px] text-violet-900 font-bold">2024</span>
+          <span class="text-[10px] text-slate-700 tabular-nums leading-tight text-center font-semibold">¥214M</span>
+          <span class="text-[9px] text-violet-800 font-semibold tabular-nums leading-tight">214万件</span>
+          <span class="text-[9px] text-emerald-700 font-semibold">前年比 +32%</span>
+        </div>
+        <div class="flex flex-col items-center flex-1 min-w-0 gap-0.5 py-2 rounded-t border-2 border-violet-400 bg-gradient-to-b from-violet-100/60 to-white shadow-inner">
+          <div class="w-full max-w-[52px] mx-auto rounded-t bg-gradient-to-t from-violet-700 to-fuchsia-500 h-[72%] shadow-md shadow-violet-900/25 ring-1 ring-violet-400/50"></div>
+          <span class="text-[11px] text-violet-900 font-extrabold">2025</span>
+          <span class="text-[10px] text-violet-900 tabular-nums leading-tight text-center font-bold">¥226M</span>
+          <span class="text-[9px] text-violet-900 font-bold tabular-nums leading-tight">226万件</span>
+          <span class="text-[9px] text-emerald-700 font-bold">前年比 +6%</span>
+          <span class="text-[8px] text-violet-700 font-semibold uppercase tracking-wide">最新</span>
+        </div>
+      </div>
+      </div>
+      <p class="text-[11px] text-slate-500 mt-4">ダッシュボードの<strong>「先月と比べて」「去年の同じ月と比べて」</strong>は今月の話です。ここは<strong>何年かの流れ</strong>を見るための画面です。</p>
+      </div>
+    </div>
+  </main>
+
+  <footer class="max-w-6xl mx-auto px-4 sm:px-6 pb-10 pt-6 border-t border-slate-200/60">
+    <p class="text-xs text-slate-400 text-center">sales-insight-yearly.html — レビュー反映版（画面イメージ）</p>
+  </footer>
+  <script src="https://cdn.jsdelivr.net/npm/lucide@0.469.0/dist/umd/lucide.min.js" crossorigin="anonymous"></script>
+  <script>if (typeof lucide !== 'undefined') lucide.createIcons();</script>
+</body>
+</html>

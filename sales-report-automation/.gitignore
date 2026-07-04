@@ -1,0 +1,7 @@
+.DS_Store
+.env
+*.sqlite
+*.sqlite-journal
+__pycache__/
+.venv/
+venv/

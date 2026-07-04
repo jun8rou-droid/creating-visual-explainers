@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <title>売上自動報告 — 全体の流れ（整理用図解）</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Noto Sans JP"', 'sans-serif'],
+            display: ['"Plus Jakarta Sans"', '"Noto Sans JP"', 'sans-serif'],
+          },
+        }
+      }
+    }
+  </script>
+  <style>
+    .flow-arrow { flex-shrink: 0; color: #94a3b8; }
+    a:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
+  </style>
+</head>
+<body class="min-h-screen bg-slate-50 text-slate-700 antialiased">
+  <header class="border-b border-slate-200 bg-white">
+    <div class="max-w-3xl mx-auto px-5 py-10">
+      <p class="text-xs font-semibold text-blue-700 uppercase tracking-wider mb-2">整理用 · 仕組みの地図</p>
+      <h1 class="font-display text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">売上推移の自動報告</h1>
+      <p class="text-sm text-slate-500 mt-3 leading-relaxed">データの出どころから届け先までを一枚にまとめたものです。処理の中核は <strong class="text-slate-700">Anthropic API（Claude）</strong> での要約・通知文生成。数値の集計はAPIに渡す前のジョブで確定させる想定です。</p>
+    </div>
+  </header>
+
+  <main class="max-w-3xl mx-auto px-5 py-10 space-y-10 pb-16">
+    <!-- 目的 -->
+    <section aria-labelledby="goal">
+      <h2 id="goal" class="font-display text-sm font-bold text-slate-900 mb-3 flex items-center gap-2">
+        <span class="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-100 text-blue-700 text-xs font-black">1</span>
+        目的
+      </h2>
+      <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-3 text-sm leading-relaxed">
+        <p><strong class="text-slate-900">売上推移を自動で報告</strong>し、<strong class="text-slate-900">自分用にいつでも確認</strong>できるようにする。</p>
+        <p class="text-slate-600">そこから得られる情報を、<strong class="text-slate-800">いまの動き</strong>と<strong class="text-slate-800">これからの動き</strong>（優先順位・先読み・問い合わせ先など）に活かす。</p>
+      </div>
+    </section>
+
+    <!-- データの源 -->
+    <section aria-labelledby="source">
+      <h2 id="source" class="font-display text-sm font-bold text-slate-900 mb-3 flex items-center gap-2">
+        <span class="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-200 text-slate-700 text-xs font-black">2</span>
+        データの源
+      </h2>
+      <div class="rounded-2xl border-2 border-slate-300 bg-slate-50 p-5 text-sm">
+        <p class="font-semibold text-slate-900">社内の受注管理ツール</p>
+        <p class="text-slate-600 mt-1 text-xs">受注・出荷・金額・得意先・材質・寸法・数量・納期など、ツールが持つ項目をCSVに落とせる想定。</p>
+      </div>
+    </section>
+
+    <!-- 流れ -->
+    <section aria-labelledby="pipeline">
+      <h2 id="pipeline" class="font-display text-sm font-bold text-slate-900 mb-4 flex items-center gap-2">
+        <span class="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-100 text-emerald-800 text-xs font-black">3</span>
+        流れ（週次）
+      </h2>
+
+      <div class="flex flex-col md:flex-row md:items-stretch gap-2 md:gap-0">
+        <div class="flex-1 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1">ソース</p>
+          <p class="font-semibold text-slate-900 text-sm">受注管理ツール</p>
+          <p class="text-xs text-slate-500 mt-2">マスタの正</p>
+        </div>
+        <div class="flow-arrow hidden md:flex items-center justify-center px-1" aria-hidden="true">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+        </div>
+        <div class="md:hidden flex justify-center py-0.5 text-slate-300" aria-hidden="true">↓</div>
+
+        <div class="flex-1 rounded-xl border border-amber-200 bg-amber-50/80 p-4 shadow-sm ring-1 ring-amber-100">
+          <p class="text-[10px] font-bold text-amber-800 uppercase tracking-wide mb-1">トリガー</p>
+          <p class="font-semibold text-slate-900 text-sm">毎週月曜 8:00（JST）· 自動送信</p>
+          <p class="text-xs text-amber-900/80 mt-2">外部が<strong class="text-amber-950">ツールへ CSV を週 1 回</strong>送る。<strong class="text-amber-950">ツールは受信で起動</strong>。1 週間は <strong class="text-amber-950">月 08:00:00 〜 翌週月 07:59:59（JST）</strong>。</p>
+        </div>
+        <div class="flow-arrow hidden md:flex items-center justify-center px-1" aria-hidden="true">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+        </div>
+        <div class="md:hidden flex justify-center py-0.5 text-slate-300" aria-hidden="true">↓</div>
+
+        <div class="flex-1 rounded-xl border-2 border-violet-200 bg-violet-50/80 p-4 shadow-sm ring-1 ring-violet-100">
+          <p class="text-[10px] font-bold text-violet-700 uppercase tracking-wide mb-1">処理</p>
+          <p class="font-semibold text-slate-900 text-sm">Anthropic API（Claude）</p>
+          <p class="text-xs text-violet-900/80 mt-2">要約・週次レポート文・LINE用テキストの生成。呼び出しはクラウド関数／社内ジョブなどから。集計済みデータを入力に渡す。</p>
+        </div>
+        <div class="flow-arrow hidden md:flex items-center justify-center px-1" aria-hidden="true">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+        </div>
+        <div class="md:hidden flex justify-center py-0.5 text-slate-300" aria-hidden="true">↓</div>
+
+        <div class="flex-1 rounded-xl border border-green-200 bg-green-50/90 p-4 shadow-sm">
+          <p class="text-[10px] font-bold text-green-800 uppercase tracking-wide mb-1">届け先（予定）</p>
+          <p class="font-semibold text-slate-900 text-sm">LINE</p>
+          <p class="text-xs text-green-900/80 mt-2">通知・要約の受け取り口</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ツールの顔 → 保存ファイルへジャンプ -->
+    <section aria-labelledby="face">
+      <h2 id="face" class="font-display text-sm font-bold text-slate-900 mb-3 flex flex-wrap items-center gap-2">
+        <span class="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-100 text-indigo-800 text-xs font-black shrink-0">4</span>
+        <a href="sales-insight-mockup.html" target="_blank" rel="noopener noreferrer" class="text-inherit hover:text-indigo-700 underline decoration-indigo-300 decoration-2 underline-offset-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 rounded">
+          ツールの顔（ブラウザ）— 受注〜請求の売上まとめを開く
+        </a>
+      </h2>
+      <a href="sales-insight-mockup.html" target="_blank" rel="noopener noreferrer" class="block rounded-2xl border-2 border-indigo-200 bg-indigo-50/40 p-5 shadow-sm hover:border-indigo-400 hover:bg-indigo-50/70 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 no-underline">
+        <p class="text-sm text-slate-700 leading-relaxed">LINEとは別に、<strong class="text-slate-900">じっくり見る用のブラウザ画面</strong>として <strong class="text-slate-900">受注〜請求の売上まとめ</strong>（SalesInsight ダッシュボードのモック）を置いています。編集する場合は <code class="text-xs bg-white/80 px-1 rounded border border-indigo-100">sales-insight-mockup.html</code> を開きます。</p>
+        <p class="text-sm text-indigo-900 font-medium mt-3"><span class="font-mono text-xs bg-white/80 px-1.5 py-0.5 rounded border border-indigo-200">sales-insight-mockup.html</span> — この枠全体をクリックで開きます。</p>
+        <span class="mt-4 inline-flex items-center gap-2 rounded-xl bg-indigo-600 text-white text-sm font-semibold px-4 py-2.5 shadow-sm pointer-events-none" aria-hidden="true">
+          別タブで開く
+          <span>→</span>
+        </span>
+      </a>
+    </section>
+
+    <!-- ループ -->
+    <section aria-labelledby="loop" class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <h2 id="loop" class="font-display text-sm font-bold text-slate-900 mb-3">情報の使い道（ループ）</h2>
+      <div class="text-sm text-slate-600 space-y-2 leading-relaxed">
+        <p class="flex gap-2 flex-wrap"><span class="text-slate-400 shrink-0">①</span> 報告を読む（LINE または <a href="sales-insight-mockup.html" target="_blank" rel="noopener noreferrer" class="text-indigo-600 font-medium underline decoration-indigo-300 underline-offset-2 hover:text-indigo-800">売上まとめ画面</a>）</p>
+        <p class="flex gap-2"><span class="text-slate-400 shrink-0">②</span> 気になる点をメモ・次の確認項目にする</p>
+        <p class="flex gap-2"><span class="text-slate-400 shrink-0">③</span> 翌週のCSVで差分を見て仮説を更新する</p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="max-w-3xl mx-auto px-5 pb-12 text-center text-xs text-slate-400">
+    sales-report-flow.html — ツールの顔:
+    <a href="sales-insight-mockup.html" target="_blank" rel="noopener noreferrer" class="text-indigo-600 underline decoration-indigo-300 underline-offset-2 hover:text-indigo-800 font-mono">sales-insight-mockup.html</a>
+    <span class="text-slate-400 mx-1">·</span>
+    <span class="text-slate-500">レイアウト素片:</span>
+    <a href="sales-report-tool-face.html" target="_blank" rel="noopener noreferrer" class="text-slate-500 underline decoration-slate-300 underline-offset-2 hover:text-slate-700 font-mono">sales-report-tool-face.html</a>
+  </footer>
+</body>
+</html>

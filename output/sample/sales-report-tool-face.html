@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<!-- レイアウト素片 · mockup / sales-report-flow.html と併用 -->
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <title>sales-report-tool-face</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Noto Sans JP"', 'sans-serif'],
+            display: ['"Plus Jakarta Sans"', '"Noto Sans JP"', 'sans-serif'],
+          },
+          colors: {
+            surface: {
+              deep: '#08090d',
+              panel: '#0f1117',
+              raised: '#161922',
+              input: '#1c1f2a',
+            },
+          },
+          boxShadow: {
+            'glow-sm': '0 0 40px -12px rgba(99, 102, 241, 0.35)',
+            'panel': '0 24px 80px -20px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255,255,255,0.04)',
+          },
+        }
+      }
+    }
+  </script>
+  <style>
+    html { color-scheme: dark; }
+    .u-container { max-width: 72rem; margin-left: auto; margin-right: auto; }
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+    a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+      outline: 2px solid #a5b4fc;
+      outline-offset: 2px;
+    }
+    .mesh-bg {
+      background-color: #08090d;
+      background-image:
+        radial-gradient(ellipse 120% 80% at 50% -30%, rgba(99, 102, 241, 0.18), transparent 55%),
+        radial-gradient(ellipse 60% 50% at 100% 0%, rgba(34, 211, 238, 0.06), transparent 45%),
+        radial-gradient(ellipse 50% 40% at 0% 100%, rgba(167, 139, 250, 0.08), transparent 50%);
+    }
+  </style>
+</head>
+<body class="min-h-screen mesh-bg text-zinc-300 antialiased selection:bg-indigo-500/30 selection:text-white">
+  <div class="no-print border-b border-white/[0.06] bg-zinc-950/90 backdrop-blur-md text-zinc-500 text-[11px] sm:text-xs px-4 py-2.5 flex flex-wrap items-center justify-between gap-3">
+    <code class="text-zinc-500 font-mono tracking-tight">sales-report-tool-face.html</code>
+    <nav class="flex flex-wrap items-center gap-x-4 gap-y-1 font-medium">
+      <a href="sales-report-mvp-tool-ui.html" class="text-indigo-400 hover:text-indigo-300 transition-colors">MVP UI</a>
+      <a href="sales-report-onboarding-flow.html" class="text-zinc-400 hover:text-indigo-300 transition-colors">進め方</a>
+      <a href="sales-report-bundle/sales-insight-mockup.html" class="text-indigo-400 hover:text-indigo-300 transition-colors">mockup</a>
+      <a href="sales-report-flow.html" class="text-indigo-400 hover:text-indigo-300 transition-colors">flow</a>
+      <a href="sales-report-build-steps.html" class="text-zinc-500 hover:text-zinc-300 transition-colors">図解</a>
+    </nav>
+  </div>
+
+  <header class="relative overflow-hidden border-b border-white/[0.05]">
+    <div class="absolute inset-0 bg-gradient-to-b from-indigo-950/40 to-transparent pointer-events-none" aria-hidden="true"></div>
+    <div class="u-container relative px-4 sm:px-6 py-12 sm:py-14">
+      <div class="max-w-2xl">
+        <h1 class="font-display text-3xl sm:text-[2.5rem] font-bold tracking-tight text-white leading-tight">近接 · 整列 · 反復 · 対比</h1>
+        <p class="mt-3 text-sm sm:text-base text-zinc-400 leading-relaxed">営業レポート系UIのレイアウト素片。4原則をそのまま画面の骨格に落としたデモです。</p>
+      </div>
+    </div>
+  </header>
+
+  <main class="u-container px-4 sm:px-6 py-10 sm:py-12 -mt-4 sm:-mt-6 relative z-10">
+    <div class="rounded-2xl sm:rounded-3xl border border-white/[0.08] bg-surface-panel/95 backdrop-blur-xl shadow-panel shadow-glow-sm overflow-hidden ring-1 ring-white/[0.03]">
+      <div class="border-b border-white/[0.06] px-5 sm:px-8 py-5 sm:py-6 flex flex-wrap items-center justify-between gap-4 bg-gradient-to-r from-surface-raised/60 via-surface-raised/30 to-transparent">
+        <div class="min-w-0">
+          <p class="text-[10px] font-bold uppercase tracking-widest text-zinc-500 mb-1">ダッシュボード</p>
+          <p class="font-display font-bold text-white text-lg sm:text-xl tracking-tight">今週のまとめ</p>
+        </div>
+        <div class="flex items-center gap-2 shrink-0">
+          <button type="button" class="h-10 px-4 rounded-xl border border-white/[0.1] text-sm font-medium text-zinc-300 bg-white/[0.04] hover:bg-white/[0.08] hover:border-white/[0.16] active:scale-[0.98] transition-all">書き出し</button>
+          <button type="button" class="h-10 px-5 rounded-xl bg-gradient-to-b from-indigo-500 to-indigo-600 text-sm font-semibold text-white shadow-lg shadow-indigo-950/50 border border-indigo-400/25 hover:from-indigo-400 hover:to-indigo-500 active:scale-[0.98] transition-all">レポート作成</button>
+        </div>
+      </div>
+
+      <div class="p-5 sm:p-8 sm:pb-12 space-y-10 sm:space-y-12 bg-surface-panel">
+        <section aria-labelledby="metrics-heading">
+          <h2 id="metrics-heading" class="sr-only">主要指標</h2>
+          <div class="grid sm:grid-cols-3 gap-4 sm:gap-5">
+            <div class="rounded-xl border border-white/[0.06] bg-surface-raised/80 p-5 ring-1 ring-inset ring-white/[0.02] hover:border-white/[0.1] hover:bg-surface-raised transition-colors duration-200">
+              <p class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2">完了タスク</p>
+              <p class="font-display text-3xl font-bold text-white tabular-nums tracking-tight">24</p>
+              <p class="text-xs text-zinc-500 mt-2.5 tabular-nums">先週比 <span class="font-semibold text-emerald-400">+12%</span></p>
+            </div>
+            <div class="rounded-xl border border-white/[0.06] bg-surface-raised/80 p-5 ring-1 ring-inset ring-white/[0.02] hover:border-white/[0.1] hover:bg-surface-raised transition-colors duration-200">
+              <p class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2">レビュー待ち</p>
+              <p class="font-display text-3xl font-bold text-white tabular-nums tracking-tight">7</p>
+              <p class="text-xs text-zinc-500 mt-2.5"><span class="font-semibold text-amber-400">3件</span></p>
+            </div>
+            <div class="rounded-xl border border-indigo-500/35 bg-indigo-500/[0.08] p-5 ring-1 ring-inset ring-indigo-400/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] hover:border-indigo-400/50 transition-colors duration-200">
+              <p class="text-[10px] font-bold text-indigo-300/90 uppercase tracking-widest mb-2">ブロッカー</p>
+              <p class="font-display text-3xl font-bold text-white tabular-nums tracking-tight">2</p>
+              <p class="text-xs text-indigo-200/50 mt-2.5">今日</p>
+            </div>
+          </div>
+        </section>
+
+        <div class="grid lg:grid-cols-12 gap-8 lg:gap-10 items-start">
+          <section class="lg:col-span-7 space-y-5" aria-labelledby="form-heading">
+            <div class="flex items-center gap-3">
+              <span class="h-8 w-1 rounded-full bg-gradient-to-b from-indigo-400 to-indigo-600 shrink-0 shadow-[0_0_12px_rgba(99,102,241,0.5)]" aria-hidden="true"></span>
+              <h2 id="form-heading" class="font-display font-bold text-white tracking-tight">タスクを追加</h2>
+            </div>
+            <form class="space-y-6" action="#" method="get" onsubmit="return false;">
+              <div class="space-y-5 rounded-xl border border-white/[0.06] bg-surface-raised/60 p-5 sm:p-6 ring-1 ring-inset ring-white/[0.02]">
+                <div>
+                  <label for="title" class="block text-sm font-semibold text-zinc-300 mb-1.5">タイトル</label>
+                  <input id="title" type="text" placeholder="タイトル" class="w-full h-11 rounded-lg border border-white/[0.08] bg-surface-input px-3 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-indigo-500/60 focus:ring-1 focus:ring-indigo-500/40 transition-colors">
+                </div>
+                <div class="grid sm:grid-cols-2 gap-5">
+                  <div>
+                    <label for="owner" class="block text-sm font-semibold text-zinc-300 mb-1.5">担当</label>
+                    <select id="owner" class="w-full h-11 rounded-lg border border-white/[0.08] bg-surface-input px-3 text-sm text-zinc-100 focus:border-indigo-500/60 focus:ring-1 focus:ring-indigo-500/40 transition-colors">
+                      <option>未選択</option>
+                      <option>佐藤</option>
+                      <option>鈴木</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label for="due" class="block text-sm font-semibold text-zinc-300 mb-1.5">期限</label>
+                    <input id="due" type="date" class="w-full h-11 rounded-lg border border-white/[0.08] bg-surface-input px-3 text-sm text-zinc-100 focus:border-indigo-500/60 focus:ring-1 focus:ring-indigo-500/40 transition-colors">
+                  </div>
+                </div>
+                <div>
+                  <label for="note" class="block text-sm font-semibold text-zinc-300 mb-1.5">メモ</label>
+                  <textarea id="note" rows="3" class="w-full rounded-lg border border-white/[0.08] bg-surface-input px-3 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-700 focus:border-indigo-500/60 focus:ring-1 focus:ring-indigo-500/40 transition-colors resize-y min-h-[5.5rem]" placeholder=""></textarea>
+                </div>
+              </div>
+              <div class="flex flex-wrap items-center gap-3 justify-end">
+                <button type="button" class="h-10 px-4 text-sm font-medium text-zinc-500 hover:text-zinc-300 transition-colors">破棄</button>
+                <button type="submit" class="h-10 px-6 rounded-lg bg-zinc-100 text-sm font-semibold text-zinc-900 hover:bg-white transition-colors shadow-lg shadow-black/20">保存</button>
+              </div>
+            </form>
+          </section>
+
+          <section class="lg:col-span-5 space-y-3" aria-labelledby="list-heading">
+            <div class="flex items-center gap-3">
+              <span class="h-8 w-1 rounded-full bg-zinc-600 shrink-0" aria-hidden="true"></span>
+              <h2 id="list-heading" class="font-display font-bold text-white tracking-tight">アクティビティ</h2>
+            </div>
+            <ul class="rounded-xl border border-white/[0.06] divide-y divide-white/[0.05] bg-surface-raised/40 overflow-hidden ring-1 ring-inset ring-white/[0.02]">
+              <li class="flex items-center justify-between gap-4 px-4 sm:px-5 py-3.5 hover:bg-white/[0.04] transition-colors">
+                <span class="flex items-center gap-3 min-w-0"><span class="h-2 w-2 shrink-0 rounded-full bg-emerald-400/90 ring-2 ring-emerald-400/20" aria-hidden="true"></span><p class="font-medium text-zinc-200 truncate">デザインレビュー</p></span>
+                <time class="text-xs text-zinc-500 tabular-nums shrink-0" datetime="2026-04-05">4/05</time>
+              </li>
+              <li class="flex items-center justify-between gap-4 px-4 sm:px-5 py-3.5 hover:bg-white/[0.04] transition-colors">
+                <span class="flex items-center gap-3 min-w-0"><span class="h-2 w-2 shrink-0 rounded-full bg-amber-400/90 ring-2 ring-amber-400/20" aria-hidden="true"></span><p class="font-medium text-zinc-200 truncate">API 負荷試験</p></span>
+                <time class="text-xs text-zinc-500 tabular-nums shrink-0" datetime="2026-04-04">4/04</time>
+              </li>
+              <li class="flex items-center justify-between gap-4 px-4 sm:px-5 py-3.5 hover:bg-white/[0.04] transition-colors">
+                <span class="flex items-center gap-3 min-w-0"><span class="h-2 w-2 shrink-0 rounded-full bg-zinc-500 ring-2 ring-zinc-500/20" aria-hidden="true"></span><p class="font-medium text-zinc-200 truncate">リリースノート草案</p></span>
+                <time class="text-xs text-zinc-500 tabular-nums shrink-0" datetime="2026-04-03">4/03</time>
+              </li>
+            </ul>
+          </section>
+        </div>
+
+        <section aria-labelledby="cards-heading">
+          <h2 id="cards-heading" class="font-display font-bold text-white mb-4 tracking-tight">優先度</h2>
+          <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+            <article class="rounded-xl border border-white/[0.06] bg-surface-raised/50 p-4 ring-1 ring-inset ring-white/[0.02] hover:border-white/[0.1] transition-colors">
+              <p class="text-[10px] font-bold uppercase tracking-widest text-zinc-600 mb-2">低</p>
+              <p class="text-sm font-semibold text-zinc-200">バックログ整理</p>
+            </article>
+            <article class="rounded-xl border border-white/[0.06] bg-surface-raised/50 p-4 ring-1 ring-inset ring-white/[0.02] hover:border-white/[0.1] transition-colors">
+              <p class="text-[10px] font-bold uppercase tracking-widest text-zinc-600 mb-2">中</p>
+              <p class="text-sm font-semibold text-zinc-200">アクセシビリティ監査</p>
+            </article>
+            <article class="rounded-xl border border-white/[0.06] bg-surface-raised/50 p-4 ring-1 ring-inset ring-white/[0.02] hover:border-white/[0.1] transition-colors">
+              <p class="text-[10px] font-bold uppercase tracking-widest text-zinc-600 mb-2">中</p>
+              <p class="text-sm font-semibold text-zinc-200">顧客インタビュー</p>
+            </article>
+            <article class="rounded-xl border border-amber-500/40 bg-amber-500/[0.07] p-4 ring-1 ring-inset ring-amber-400/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
+              <p class="text-[10px] font-bold uppercase tracking-widest text-amber-400/90 mb-2">高</p>
+              <p class="text-sm font-semibold text-zinc-100">セキュリティパッチ適用</p>
+            </article>
+          </div>
+        </section>
+      </div>
+    </div>
+
+  </main>
+
+  <footer class="u-container px-4 sm:px-6 pb-10 pt-4">
+    <p class="text-center text-[10px] text-zinc-600"><a href="sales-report-bundle/sales-insight-mockup.html" class="text-zinc-500 hover:text-indigo-400 transition-colors">sales-insight-mockup.html</a></p>
+  </footer>
+</body>
+</html>

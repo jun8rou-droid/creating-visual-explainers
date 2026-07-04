@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  setup-auto-watcher.command がこのテンプレートを ~/Library/LaunchAgents/ に複製して使います。
+  __PROJECT_DIR__ は実行時に絶対パスへ置き換えられます。
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.junichiro.sales-report.watcher</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>__PROJECT_DIR__/.venv/bin/python3</string>
+    <string>-m</string>
+    <string>sales_report_automation.watcher</string>
+    <string>--inbox</string>
+    <string>__PROJECT_DIR__/data/inbox</string>
+    <string>--db</string>
+    <string>__PROJECT_DIR__/data/report_store.sqlite</string>
+    <string>--week</string>
+    <string>auto</string>
+  </array>
+
+  <key>WorkingDirectory</key>
+  <string>__PROJECT_DIR__</string>
+
+  <key>RunAtLoad</key>
+  <true/>
+
+  <key>KeepAlive</key>
+  <true/>
+
+  <key>ThrottleInterval</key>
+  <integer>30</integer>
+
+  <key>StandardOutPath</key>
+  <string>__PROJECT_DIR__/auto-watcher/watcher.log</string>
+
+  <key>StandardErrorPath</key>
+  <string>__PROJECT_DIR__/auto-watcher/watcher.err.log</string>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+  </dict>
+
+  <key>ProcessType</key>
+  <string>Background</string>
+</dict>
+</plist>

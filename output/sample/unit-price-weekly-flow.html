@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <title>単価サポート付き週次取込 — 流れと必要なこと（図解）</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Noto Sans JP"', 'sans-serif'],
+            display: ['"Plus Jakarta Sans"', '"Noto Sans JP"', 'sans-serif'],
+          },
+        }
+      }
+    }
+  </script>
+  <style>
+    a:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
+  </style>
+</head>
+<body class="min-h-screen bg-slate-50 text-slate-800 antialiased">
+  <header class="bg-white border-b border-slate-200">
+    <div class="max-w-3xl mx-auto px-5 py-10">
+      <p class="text-xs font-semibold text-violet-700 tracking-wide mb-2">CSV週次取込 × 見える化 × 単価サポート</p>
+      <h1 class="font-display text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">単価未入力のチェックと候補提示までの流れ</h1>
+      <p class="text-slate-600 mt-3 text-sm leading-relaxed">材質・数量・寸法・単価のCSVを週ごとに取り込み、画面で把握する。単価は月末まとめで空欄になり得るので、<strong class="text-slate-800">同じ得意先×同じ商品とみなせる過去行</strong>から候補単価を出し、週次レポートで知らせる——という仕組みが<strong class="text-slate-800">技術的には可能</strong>です。ここでは流れと、ツールを作るために決めておくこと・用意するものを図解します。</p>
+    </div>
+  </header>
+
+  <main class="max-w-3xl mx-auto px-5 py-10 space-y-12 pb-16">
+
+    <!-- できるか -->
+    <section aria-labelledby="q" class="rounded-2xl border-2 border-emerald-200 bg-emerald-50/80 p-5 shadow-sm">
+      <h2 id="q" class="font-display text-sm font-bold text-emerald-900 mb-2">結論：できる？</h2>
+      <p class="text-sm text-emerald-950/90 leading-relaxed"><strong>できます。</strong>条件は「過去データがどこかに溜まっていること」と「“同一商品”を機械が判定するためのルール（品番、または材質＋寸法の組み合わせなど）を決めること」です。候補は<strong>推奨</strong>であり、最終的な単価確定は人が確認する想定が安全です。</p>
+    </section>
+
+    <!-- CSVの中身 -->
+    <section aria-labelledby="csv">
+      <h2 id="csv" class="font-display text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+        <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-200 text-slate-800 text-sm font-black">A</span>
+        入ってくるデータ（週次CSV）
+      </h2>
+      <div class="rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-sm">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="bg-slate-100 text-left text-xs font-bold text-slate-600 uppercase tracking-wide">
+              <th class="px-4 py-3">列の例</th>
+              <th class="px-4 py-3">週次での注意</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            <tr><td class="px-4 py-3 font-medium">材質</td><td class="px-4 py-3 text-slate-600">表記ゆれを揃えるルールがあるとマッチしやすい</td></tr>
+            <tr><td class="px-4 py-3 font-medium">数量</td><td class="px-4 py-3 text-slate-600">単価×数量との整合チェックに使える</td></tr>
+            <tr><td class="px-4 py-3 font-medium">寸法</td><td class="px-4 py-3 text-slate-600">「同一商品」判定のキーになりやすい</td></tr>
+            <tr><td class="px-4 py-3 font-medium">単価</td><td class="px-4 py-3 text-slate-600"><strong class="text-amber-800">空欄あり得る</strong>（月末一括入力のため）</td></tr>
+            <tr class="bg-violet-50/50"><td class="px-4 py-3 font-medium text-violet-900">得意先</td><td class="px-4 py-3 text-violet-900/90">候補検索の<strong>絞り込み条件</strong>（同一客先）</td></tr>
+          </tbody>
+        </table>
+        <p class="text-xs text-slate-500 px-4 py-3 border-t border-slate-100">※ 実際のCSVに「得意先名」「受注番号」「品番」などがあるなら、設計に組み込むと精度が上がります。</p>
+      </div>
+    </section>
+
+    <!-- メインフロー -->
+    <section aria-labelledby="flow">
+      <h2 id="flow" class="font-display text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+        <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-100 text-blue-800 text-sm font-black">B</span>
+        週次の流れ（全体）
+      </h2>
+      <div class="space-y-2">
+        <div class="flex flex-col sm:flex-row sm:items-stretch gap-2">
+          <div class="flex-1 rounded-xl border-2 border-slate-200 bg-white p-4 shadow-sm">
+            <p class="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1">1</p>
+            <p class="font-semibold text-slate-900">CSV取り込み</p>
+            <p class="text-xs text-slate-600 mt-1">週1・トリガー（手動でも自動でも可）</p>
+          </div>
+          <div class="hidden sm:flex items-center justify-center text-slate-300 font-bold px-1">→</div>
+          <div class="flex sm:hidden justify-center text-slate-300 py-0.5">↓</div>
+          <div class="flex-1 rounded-xl border-2 border-slate-200 bg-white p-4 shadow-sm">
+            <p class="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1">2</p>
+            <p class="font-semibold text-slate-900">蓄積・正規化</p>
+            <p class="text-xs text-slate-600 mt-1">履歴DBに追加、表記を統一</p>
+          </div>
+          <div class="hidden sm:flex items-center justify-center text-slate-300 font-bold px-1">→</div>
+          <div class="flex sm:hidden justify-center text-slate-300 py-0.5">↓</div>
+          <div class="flex-1 rounded-xl border-2 border-amber-300 bg-amber-50 p-4 shadow-sm ring-1 ring-amber-100">
+            <p class="text-[10px] font-bold text-amber-800 uppercase tracking-wide mb-1">3</p>
+            <p class="font-semibold text-slate-900">単価チェック</p>
+            <p class="text-xs text-amber-900/80 mt-1">未入力行をリスト化</p>
+          </div>
+        </div>
+        <div class="flex flex-col sm:flex-row sm:items-stretch gap-2">
+          <div class="hidden sm:block w-8 shrink-0"></div>
+          <div class="flex-1 rounded-xl border-2 border-violet-300 bg-violet-50 p-4 shadow-sm">
+            <p class="text-[10px] font-bold text-violet-800 uppercase tracking-wide mb-1">4</p>
+            <p class="font-semibold text-slate-900">候補単価の検索</p>
+            <p class="text-xs text-violet-900/85 mt-1">同一得意先 かつ 同一商品キーで過去行を検索し、単価が入っている行から候補を算出（例：直近・最頻値）</p>
+          </div>
+          <div class="hidden sm:flex items-center justify-center text-slate-300 font-bold px-1">→</div>
+          <div class="flex sm:hidden justify-center text-slate-300 py-0.5">↓</div>
+          <div class="flex-1 rounded-xl border-2 border-slate-200 bg-white p-4 shadow-sm">
+            <p class="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1">5</p>
+            <p class="font-semibold text-slate-900">見える化</p>
+            <p class="text-xs text-slate-600 mt-1">ダッシュボード・一覧・フィルタ</p>
+          </div>
+          <div class="hidden sm:flex items-center justify-center text-slate-300 font-bold px-1">→</div>
+          <div class="flex sm:hidden justify-center text-slate-300 py-0.5">↓</div>
+          <div class="flex-1 rounded-xl border-2 border-green-200 bg-green-50/90 p-4 shadow-sm">
+            <p class="text-[10px] font-bold text-green-800 uppercase tracking-wide mb-1">6</p>
+            <p class="font-semibold text-slate-900">週次レポート</p>
+            <p class="text-xs text-green-900/80 mt-1">未入力件数・行の要約・候補単価を文章で通知（LINE等）</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 候補ロジック拡大 -->
+    <section aria-labelledby="logic">
+      <h2 id="logic" class="font-display text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+        <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-100 text-violet-800 text-sm font-black">C</span>
+        「候補単価」を出す考え方（中身）
+      </h2>
+      <div class="rounded-2xl border border-violet-200 bg-white p-5 shadow-sm space-y-4 text-sm">
+        <div class="flex gap-3">
+          <span class="shrink-0 w-8 h-8 rounded-full bg-violet-100 text-violet-800 font-bold flex items-center justify-center text-xs">1</span>
+          <div>
+            <p class="font-semibold text-slate-900">今週の行で単価が空（または0扱い）か判定</p>
+            <p class="text-slate-600 mt-1 text-xs">ルールを決める（空文字、NULL、0のどれを「未入力」とするか）</p>
+          </div>
+        </div>
+        <div class="flex gap-3">
+          <span class="shrink-0 w-8 h-8 rounded-full bg-violet-100 text-violet-800 font-bold flex items-center justify-center text-xs">2</span>
+          <div>
+            <p class="font-semibold text-slate-900">「同一商品」のキーを作る</p>
+            <p class="text-slate-600 mt-1 text-xs">例：品番があれば品番。なければ <strong class="text-slate-800">材質＋寸法</strong> を正規化して連結。必要なら数量丸めは使わない方が安全。</p>
+          </div>
+        </div>
+        <div class="flex gap-3">
+          <span class="shrink-0 w-8 h-8 rounded-full bg-violet-100 text-violet-800 font-bold flex items-center justify-center text-xs">3</span>
+          <div>
+            <p class="font-semibold text-slate-900">過去データから「同一得意先」かつ「同一キー」で検索</p>
+            <p class="text-slate-600 mt-1 text-xs">単価が入っている行だけを対象に、<strong class="text-slate-800">直近1件</strong>や<strong class="text-slate-800">最頻値</strong>、<strong class="text-slate-800">中央値</strong>などを候補として返す（複数候補＋根拠日付があると人が判断しやすい）</p>
+          </div>
+        </div>
+        <div class="flex gap-3">
+          <span class="shrink-0 w-8 h-8 rounded-full bg-amber-100 text-amber-900 font-bold flex items-center justify-center text-xs">!</span>
+          <div>
+            <p class="font-semibold text-slate-900">過去にも単価が無い場合</p>
+            <p class="text-slate-600 mt-1 text-xs">レポートでは「候補なし・要手入力」とだけ出す。無理に推測しない方がよい。</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ツールを作るために必要なこと -->
+    <section aria-labelledby="need">
+      <h2 id="need" class="font-display text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+        <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-800 text-white text-sm font-black">D</span>
+        ツールを作るために必要なこと（チェックリスト）
+      </h2>
+      <div class="grid sm:grid-cols-2 gap-3">
+        <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          <p class="text-xs font-bold text-blue-800 uppercase tracking-wide mb-2">データ・ルール</p>
+          <ul class="text-xs text-slate-600 space-y-2 list-disc list-inside leading-relaxed">
+            <li>CSVの<strong>列名と文字コード</strong>を固定</li>
+            <li><strong>得意先</strong>の列（名前 or コード）</li>
+            <li><strong>同一商品キー</strong>の定義（品番 or 材質＋寸法）</li>
+            <li>材質・寸法の<strong>正規化</strong>（全角半角、スペース）</li>
+            <li>「単価未入力」の<strong>判定条件</strong></li>
+          </ul>
+        </div>
+        <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          <p class="text-xs font-bold text-emerald-800 uppercase tracking-wide mb-2">保存・処理</p>
+          <ul class="text-xs text-slate-600 space-y-2 list-disc list-inside leading-relaxed">
+            <li><strong>履歴を溜める場所</strong>（DB or スプレッドシート等）</li>
+            <li>同じ週の<strong>二重取り込み</strong>の扱い</li>
+            <li>週次ジョブ（サーバ or PC）</li>
+            <li>候補算出の<strong>式</strong>（直近／最頻など）</li>
+          </ul>
+        </div>
+        <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          <p class="text-xs font-bold text-violet-800 uppercase tracking-wide mb-2">画面（見える化）</p>
+          <ul class="text-xs text-slate-600 space-y-2 list-disc list-inside leading-relaxed">
+            <li><strong>未入力一覧</strong>と候補単価の並列表示</li>
+            <li>候補を<strong>採用／却下</strong>する操作（任意・第2段階）</li>
+            <li>既存の売上ダッシュボードとの<strong>導線</strong></li>
+          </ul>
+        </div>
+        <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          <p class="text-xs font-bold text-amber-800 uppercase tracking-wide mb-2">レポート・API</p>
+          <ul class="text-xs text-slate-600 space-y-2 list-disc list-inside leading-relaxed">
+            <li>週次で送る<strong>文章テンプレ</strong>（件数・上位例）</li>
+            <li><strong>LINE送信</strong>なら Messaging API 等</li>
+            <li>文章の整形に<strong>LLMを使うか</strong>（使うなら要約済みファクトを渡す）</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- 関連リンク -->
+    <section class="rounded-xl border border-dashed border-slate-300 bg-slate-100/80 p-4 text-sm text-slate-600">
+      <p class="font-semibold text-slate-800 mb-2">関連図解</p>
+      <ul class="space-y-1">
+        <li><a href="sales-report-flow.html" class="text-blue-700 underline hover:text-blue-900">全体の流れ（CSV → 処理 → LINE）</a></li>
+        <li><a href="api-plain-guide.html" class="text-blue-700 underline hover:text-blue-900">APIって何？（やさしい説明）</a></li>
+        <li><a href="sales-report-bundle/sales-insight-mockup.html" class="text-blue-700 underline hover:text-blue-900">売上まとめの画面イメージ（sales-insight-mockup.html）</a></li>
+      </ul>
+    </section>
+  </main>
+
+  <footer class="max-w-3xl mx-auto px-5 pb-12 text-center text-xs text-slate-400">
+    unit-price-weekly-flow.html
+  </footer>
+</body>
+</html>

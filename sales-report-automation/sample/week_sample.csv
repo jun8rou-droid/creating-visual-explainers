@@ -1,0 +1,4 @@
+customer_code,product_code,quantity,unit_price,amount,ship_date
+C001,P-SS400,10,1200,12000,2026-04-01
+C001,P-SUS,5,,45000,2026-04-02
+C002,P-SS400,2,1100,2200,2026-04-03

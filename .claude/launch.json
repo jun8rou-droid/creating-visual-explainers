@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "inventory-tool",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["serve", "-p", "3030", "/Users/yamadajunichirou/src/creating-visual-explainers/output"],
+      "port": 3030
+    },
+    {
+      "name": "my-closet",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "/Users/yamadajunichirou/src/my-closet", "run", "dev"],
+      "port": 5173
+    }
+  ]
+}

@@ -1,0 +1,907 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>工具費くらべ — 工具価格管理</title>
+<!-- Tesseract.js: 端末内/オフラインOCR（品番読み取り）。CDN1本のみ依存 -->
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<style>
+  :root{
+    --bg:#f4f6f8; --card:#fff; --ink:#1c2530; --sub:#64748b;
+    --line:#e2e8f0; --pri:#2563eb; --pri-d:#1d4ed8;
+    --up:#dc2626; --down:#16a34a; --warn:#f59e0b;
+    --r:14px; --shadow:0 1px 3px rgba(15,23,42,.08),0 1px 2px rgba(15,23,42,.04);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Hiragino Kaku Gothic ProN","Noto Sans JP",sans-serif;
+    background:var(--bg); color:var(--ink); line-height:1.6;
+    padding-bottom:78px; -webkit-text-size-adjust:100%;
+  }
+  header.appbar{
+    position:sticky;top:0;z-index:30;background:var(--pri);color:#fff;
+    padding:12px 16px;display:flex;align-items:center;gap:10px;
+    box-shadow:0 2px 8px rgba(37,99,235,.25);
+  }
+  header.appbar .logo{font-weight:800;font-size:18px;letter-spacing:.02em}
+  header.appbar .spacer{flex:1}
+  .wrap{max-width:920px;margin:0 auto;padding:16px}
+  h2.section{font-size:15px;color:var(--sub);margin:22px 4px 10px;font-weight:700}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow)}
+  .pad{padding:16px}
+
+  /* buttons */
+  button{font-family:inherit;cursor:pointer;border:none;border-radius:12px;font-weight:700}
+  .btn{padding:13px 18px;font-size:16px;background:var(--pri);color:#fff;transition:.15s}
+  .btn:active{transform:scale(.98)}
+  .btn.ghost{background:#fff;color:var(--pri);border:1.5px solid var(--pri)}
+  .btn.gray{background:#eef2f7;color:var(--ink)}
+  .btn.sm{padding:8px 12px;font-size:14px;border-radius:10px}
+  .btn.block{width:100%;display:block}
+  .btn.hero{
+    width:100%;padding:22px;font-size:20px;border-radius:18px;
+    background:linear-gradient(135deg,#2563eb,#1d4ed8);
+    box-shadow:0 8px 20px rgba(37,99,235,.35);
+    display:flex;align-items:center;justify-content:center;gap:10px;
+  }
+  .btn.hero .ic{font-size:28px}
+
+  /* fields */
+  label.f{display:block;font-size:13px;color:var(--sub);font-weight:700;margin:14px 0 6px}
+  input,select,textarea{
+    width:100%;padding:13px 14px;border:1.5px solid var(--line);border-radius:12px;
+    font-size:16px;font-family:inherit;background:#fff;color:var(--ink)
+  }
+  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--pri)}
+  .req::after{content:" 必須";color:var(--up);font-size:11px}
+
+  /* chips */
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+  .chip{padding:9px 14px;border-radius:999px;background:#eef2f7;border:1.5px solid var(--line);font-size:15px;font-weight:700}
+  .chip.on{background:var(--pri);color:#fff;border-color:var(--pri)}
+  .chip.cand{background:#fff7ed;border-color:#fed7aa;color:#9a3412}
+  /* 品番らしい候補=青 / 数字だけの候補=グレー */
+  .chip.cand-pn{background:#eff6ff;border-color:#93c5fd;color:#1d4ed8}
+  .chip.cand-num{background:#f1f5f9;border-color:#cbd5e1;color:#475569}
+  .chip.picked{background:var(--pri);color:#fff;border-color:var(--pri)}
+  .cand-legend{display:flex;gap:14px;width:100%;margin:2px 0 2px;font-size:12px;color:var(--sub)}
+  .cand-legend span{display:inline-flex;align-items:center;gap:5px}
+  .cand-legend .dot{width:11px;height:11px;border-radius:3px;display:inline-block}
+  .cand-legend .dot.pn{background:#93c5fd} .cand-legend .dot.num{background:#cbd5e1}
+
+  /* list rows */
+  .row{display:flex;align-items:center;gap:12px;padding:13px 16px;border-bottom:1px solid var(--line)}
+  .row:last-child{border-bottom:none}
+  .row .thumb{width:48px;height:48px;border-radius:10px;object-fit:cover;background:#e2e8f0;flex:none}
+  .row .grow{flex:1;min-width:0}
+  .row .pn{font-weight:800;font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .row .meta{font-size:12px;color:var(--sub)}
+  .row .price{font-weight:800;font-size:16px;text-align:right;white-space:nowrap}
+  .delta{font-size:12px;font-weight:800}
+  .delta.up{color:var(--up)} .delta.down{color:var(--down)} .delta.flat{color:var(--sub)}
+
+  .badge{display:inline-block;padding:2px 9px;border-radius:999px;font-size:11px;font-weight:800;background:#eef2f7;color:var(--sub)}
+  .pill{display:inline-flex;align-items:center;gap:5px;padding:6px 11px;border-radius:999px;background:#eef2f7;font-size:13px;font-weight:700;margin:0 6px 6px 0}
+
+  /* stats grid */
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+  .stat{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px;text-align:center}
+  .stat .v{font-size:19px;font-weight:800} .stat .k{font-size:11px;color:var(--sub)}
+
+  .cat-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+  .cat-tile{background:#fff;border:1px solid var(--line);border-radius:14px;padding:16px;box-shadow:var(--shadow)}
+  .cat-tile .n{font-weight:800;font-size:16px} .cat-tile .c{font-size:12px;color:var(--sub)}
+
+  details.opt{margin-top:16px;border:1px dashed var(--line);border-radius:12px;padding:4px 14px;background:#fafbfc}
+  details.opt summary{padding:11px 0;font-weight:700;color:var(--pri);cursor:pointer;list-style:none}
+  details.opt summary::-webkit-details-marker{display:none}
+  details.opt summary::before{content:"＋ ";font-weight:800}
+  details.opt[open] summary::before{content:"− "}
+
+  .empty{text-align:center;color:var(--sub);padding:40px 20px}
+  .empty .em{font-size:42px}
+
+  /* bottom tab */
+  nav.tabs{
+    position:fixed;left:0;right:0;bottom:0;z-index:40;background:#fff;border-top:1px solid var(--line);
+    display:flex;justify-content:space-around;padding:6px 0 max(6px,env(safe-area-inset-bottom))
+  }
+  nav.tabs a{flex:1;text-align:center;text-decoration:none;color:var(--sub);font-size:11px;font-weight:700;padding:4px}
+  nav.tabs a .ic{display:block;font-size:21px;line-height:1.2}
+  nav.tabs a.on{color:var(--pri)}
+
+  /* fab */
+  .fab{position:fixed;right:18px;bottom:74px;z-index:41;width:62px;height:62px;border-radius:50%;
+    background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;font-size:28px;
+    box-shadow:0 8px 22px rgba(37,99,235,.45);display:flex;align-items:center;justify-content:center}
+
+  .photo-preview{width:100%;border-radius:14px;border:1px solid var(--line);display:block;margin-top:10px}
+  /* 写真上のOCR候補オーバーレイ */
+  .photo-wrap{position:relative;display:block;width:100%;margin-top:10px;line-height:0}
+  .photo-wrap .photo-preview{margin-top:0}
+  .ocr-box{position:absolute;border:2.5px solid;border-radius:5px;cursor:pointer;box-sizing:border-box;line-height:1}
+  .ocr-box.pn{border-color:#2563eb;background:rgba(37,99,235,.16)}
+  .ocr-box.num{border-color:#64748b;background:rgba(100,116,139,.14)}
+  .ocr-box.picked{border-color:#16a34a;background:rgba(22,163,74,.26);border-width:3px;z-index:5}
+  .ocr-box .tag{position:absolute;top:-15px;left:-2px;font-size:11px;font-weight:800;
+    padding:1px 5px;border-radius:5px;color:#fff;white-space:nowrap}
+  .ocr-box.pn .tag{background:#2563eb} .ocr-box.num .tag{background:#64748b} .ocr-box.picked .tag{background:#16a34a}
+  .thumbs{display:flex;gap:8px;flex-wrap:wrap}
+  .thumbs img{width:88px;height:88px;object-fit:cover;border-radius:10px;border:1px solid var(--line)}
+
+  .bars .bar-row{display:flex;align-items:center;gap:10px;margin:8px 0}
+  .bars .bar-name{width:96px;font-size:13px;font-weight:700;flex:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .bars .bar-track{flex:1;background:#eef2f7;border-radius:8px;height:22px;overflow:hidden}
+  .bars .bar-fill{height:100%;background:linear-gradient(90deg,#60a5fa,#2563eb);border-radius:8px}
+  .bars .bar-val{width:78px;text-align:right;font-size:13px;font-weight:800;flex:none}
+
+  .toast{position:fixed;left:50%;bottom:96px;transform:translateX(-50%);background:#1c2530;color:#fff;
+    padding:11px 18px;border-radius:999px;font-weight:700;z-index:60;opacity:0;transition:.25s;pointer-events:none}
+  .toast.show{opacity:1}
+
+  .ocr-status{font-size:13px;color:var(--sub);margin-top:8px;display:flex;align-items:center;gap:8px}
+  .spin{width:15px;height:15px;border:2px solid var(--line);border-top-color:var(--pri);border-radius:50%;animation:sp 1s linear infinite}
+  @keyframes sp{to{transform:rotate(360deg)}}
+
+  .link{color:var(--pri);font-weight:700;text-decoration:none}
+  .topnote{font-size:12px;color:var(--sub);background:#eef6ff;border:1px solid #cfe2ff;border-radius:10px;padding:8px 12px;margin-bottom:8px}
+
+  @media(min-width:760px){
+    .two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
+    .cat-grid{grid-template-columns:repeat(3,1fr)}
+  }
+</style>
+</head>
+<body>
+
+<header class="appbar">
+  <span class="logo">🔧 工具費くらべ</span>
+  <span class="spacer"></span>
+  <button class="btn sm gray" onclick="location.hash='#/search'">🔍</button>
+</header>
+
+<main id="view" class="wrap"><!-- 画面はJSで描画 --></main>
+
+<a class="fab" href="#/register" title="写真で登録">📷</a>
+
+<nav class="tabs">
+  <a data-tab="home" href="#/home"><span class="ic">🏠</span>ホーム</a>
+  <a data-tab="category" href="#/category"><span class="ic">📂</span>カテゴリ</a>
+  <a data-tab="search" href="#/search"><span class="ic">🔍</span>検索</a>
+</nav>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* =========================================================================
+ * 工具費くらべ — 単一HTML / IndexedDB / Tesseract.js
+ * すべて端末内（オフライン動作）。サーバー不要。
+ * ========================================================================= */
+
+const DEFAULT_CATEGORIES = ['ドリル','チップ','タップ','エンドミル','ホルダー','測定具','その他'];
+
+/* ---------- IndexedDB 薄ラッパ ---------- */
+const DB = (() => {
+  let db;
+  function open(){
+    return new Promise((res,rej)=>{
+      const r = indexedDB.open('toolPriceDB', 1);
+      r.onupgradeneeded = e => {
+        const d = e.target.result;
+        if(!d.objectStoreNames.contains('tools'))
+          d.createObjectStore('tools',{keyPath:'partNumber'});
+        if(!d.objectStoreNames.contains('prices')){
+          const s = d.createObjectStore('prices',{keyPath:'id',autoIncrement:true});
+          s.createIndex('by_partNumber','partNumber',{unique:false});
+          s.createIndex('by_category','category',{unique:false});
+          s.createIndex('by_shop','shop',{unique:false});
+        }
+        if(!d.objectStoreNames.contains('images'))
+          d.createObjectStore('images',{keyPath:'id',autoIncrement:true});
+        if(!d.objectStoreNames.contains('meta'))
+          d.createObjectStore('meta',{keyPath:'name'});
+      };
+      r.onsuccess = e => { db = e.target.result; res(db); };
+      r.onerror = e => rej(e.target.error);
+    });
+  }
+  function tx(store,mode='readonly'){ return db.transaction(store,mode).objectStore(store); }
+  function reqP(req){ return new Promise((res,rej)=>{ req.onsuccess=()=>res(req.result); req.onerror=()=>rej(req.error); }); }
+  function getAll(store){ return reqP(tx(store).getAll()); }
+  function get(store,key){ return reqP(tx(store).get(key)); }
+  function put(store,val){ return reqP(tx(store,'readwrite').put(val)); }
+  function del(store,key){ return reqP(tx(store,'readwrite').delete(key)); }
+  return {open,getAll,get,put,del};
+})();
+
+/* ---------- メタ（カテゴリ・候補値） ---------- */
+async function getMeta(name, fallback){
+  const m = await DB.get('meta', name);
+  return m ? m.value : fallback;
+}
+async function setMeta(name, value){ await DB.put('meta', {name, value}); }
+async function getCategories(){ return await getMeta('categories', DEFAULT_CATEGORIES.slice()); }
+async function rememberSuggestion(name, val){
+  if(!val) return;
+  const list = await getMeta('sug_'+name, []);
+  if(!list.includes(val)){ list.unshift(val); await setMeta('sug_'+name, list.slice(0,30)); }
+}
+async function getSuggestions(name){ return await getMeta('sug_'+name, []); }
+
+/* ---------- 画像: リサイズして保存 ---------- */
+function resizeImage(file, max=1280){
+  return new Promise((res)=>{
+    const img = new Image();
+    img.onload = ()=>{
+      let {width:w, height:h} = img;
+      if(Math.max(w,h) > max){ const s = max/Math.max(w,h); w=Math.round(w*s); h=Math.round(h*s); }
+      const c = document.createElement('canvas'); c.width=w; c.height=h;
+      c.getContext('2d').drawImage(img,0,0,w,h);
+      c.toBlob(b=>res(b), 'image/jpeg', 0.82);
+    };
+    img.src = URL.createObjectURL(file);
+  });
+}
+const _urlCache = new Map();
+async function imageUrl(imageId){
+  if(imageId==null) return null;
+  if(_urlCache.has(imageId)) return _urlCache.get(imageId);
+  const rec = await DB.get('images', imageId);
+  if(!rec) return null;
+  const url = URL.createObjectURL(rec.blob);
+  _urlCache.set(imageId, url);
+  return url;
+}
+
+/* ---------- 集計（純粋関数） ---------- */
+const yen = n => '¥' + Math.round(n).toLocaleString('ja-JP');
+function sortByDate(arr){ return arr.slice().sort((a,b)=> (a.purchaseDate||a.createdAt).localeCompare(b.purchaseDate||b.createdAt)); }
+function stats(prices){ // ある品番の価格配列
+  const s = sortByDate(prices);
+  const vals = s.map(p=>p.price);
+  const latest = s[s.length-1];
+  const prev = s[s.length-2];
+  return {
+    count: s.length,
+    latest: latest ? latest.price : null,
+    min: vals.length ? Math.min(...vals) : null,
+    max: vals.length ? Math.max(...vals) : null,
+    prevDelta: (latest && prev) ? latest.price - prev.price : null,
+    sorted: s
+  };
+}
+function deltaHtml(d){
+  if(d==null) return '<span class="delta flat">—</span>';
+  if(d>0) return `<span class="delta up">▲ +${yen(d).slice(1)}</span>`;
+  if(d<0) return `<span class="delta down">▼ -${yen(-d).slice(1)}</span>`;
+  return '<span class="delta flat">±0</span>';
+}
+
+/* グローバルにロードした全データをまとめる */
+async function loadAll(){
+  const [tools, prices, cats] = await Promise.all([DB.getAll('tools'), DB.getAll('prices'), getCategories()]);
+  // 品番ごとに集約
+  const byPn = {};
+  prices.forEach(p=>{ (byPn[p.partNumber] = byPn[p.partNumber]||[]).push(p); });
+  return {tools, prices, cats, byPn};
+}
+
+/* ---------- ルーター ---------- */
+const view = document.getElementById('view');
+function parseHash(){
+  const h = location.hash.replace(/^#\//,'') || 'home';
+  const [path, qs] = h.split('?');
+  const q = {}; new URLSearchParams(qs||'').forEach((v,k)=>q[k]=v);
+  return {path, q};
+}
+async function render(){
+  const {path,q} = parseHash();
+  document.querySelectorAll('nav.tabs a').forEach(a=>a.classList.toggle('on', a.dataset.tab===path));
+  try{
+    if(path==='home') await Home();
+    else if(path==='register') await Register();
+    else if(path==='tool') await ToolDetail(q.pn);
+    else if(path==='edit') await EditPrice(q.id);
+    else if(path==='category') await q.name ? CategoryDetail(q.name) : Category();
+    else if(path==='search') await Search(q);
+    else await Home();
+  }catch(err){ view.innerHTML = `<div class="empty"><div class="em">⚠️</div>${err.message}</div>`; console.error(err); }
+  window.scrollTo(0,0);
+}
+window.addEventListener('hashchange', render);
+
+/* ---------- toast ---------- */
+let toastT;
+function toast(msg){
+  const t = document.getElementById('toast'); t.textContent=msg; t.classList.add('show');
+  clearTimeout(toastT); toastT = setTimeout(()=>t.classList.remove('show'),1900);
+}
+
+/* ===================== 画面: ホーム ===================== */
+async function Home(){
+  const {prices, cats, byPn} = await loadAll();
+  if(prices.length===0){
+    view.innerHTML = `
+      <div class="card pad" style="text-align:center">
+        <div style="font-size:46px">📷</div>
+        <h3 style="margin:6px 0">工具を写真で登録しよう</h3>
+        <p style="color:var(--sub);font-size:14px">ラベルや納品書を撮るだけ。品番と価格を保存して、次回から価格をくらべられます。</p>
+        <a class="btn hero" href="#/register"><span class="ic">📷</span>写真で登録</a>
+        <button class="btn gray block" style="margin-top:12px" onclick="seedSample()">サンプルデータを入れて試す</button>
+      </div>`;
+    return;
+  }
+  // 最近登録（pricesを新しい順 createdAt）
+  const recent = prices.slice().sort((a,b)=>b.createdAt.localeCompare(a.createdAt)).slice(0,5);
+  // 値上がり: 前回比プラスの品番
+  const rising = Object.entries(byPn).map(([pn,ps])=>({pn, st:stats(ps)}))
+      .filter(x=>x.st.prevDelta!=null && x.st.prevDelta>0)
+      .sort((a,b)=>b.st.prevDelta-a.st.prevDelta).slice(0,5);
+
+  view.innerHTML = `
+    <a class="btn hero" href="#/register"><span class="ic">📷</span>写真で登録</a>
+
+    <h2 class="section">最近登録した工具</h2>
+    <div class="card" id="recent"></div>
+
+    ${rising.length? `<h2 class="section">📈 値上がりしている工具</h2>
+    <div class="card" id="rising"></div>`:''}
+
+    <h2 class="section">カテゴリ</h2>
+    <div class="cat-grid">
+      ${cats.map(c=>{
+        const n = prices.filter(p=>p.category===c).length;
+        return `<a class="cat-tile" style="text-decoration:none;color:inherit" href="#/category?name=${encodeURIComponent(c)}">
+          <div class="n">${esc(c)}</div><div class="c">${n}件</div></a>`;
+      }).join('')}
+    </div>`;
+
+  await fillRows('recent', recent.map(p=>({p, st:stats(byPn[p.partNumber])})));
+  if(rising.length){
+    document.getElementById('rising').innerHTML='';
+    await fillRows('rising', rising.map(x=>({p:x.st.sorted[x.st.sorted.length-1], st:x.st})));
+  }
+}
+
+/* 行リスト描画（写真サムネ込み） */
+async function fillRows(elId, items){
+  const el = document.getElementById(elId);
+  el.innerHTML = items.map(()=>'').join('');
+  const html = await Promise.all(items.map(async ({p,st})=>{
+    const url = await imageUrl(p.imageId);
+    const thumb = url? `<img class="thumb" src="${url}">` : `<div class="thumb"></div>`;
+    return `<a class="row" style="text-decoration:none;color:inherit" href="#/tool?pn=${encodeURIComponent(p.partNumber)}">
+      ${thumb}
+      <div class="grow">
+        <div class="pn">${esc(p.partNumber)}</div>
+        <div class="meta">${esc(p.category||'未分類')}${p.maker?' ・ '+esc(p.maker):''}${p.shop?' ・ '+esc(p.shop):''}</div>
+      </div>
+      <div>
+        <div class="price">${yen(st.latest)}</div>
+        <div style="text-align:right">${deltaHtml(st.prevDelta)}</div>
+      </div>
+    </a>`;
+  }));
+  el.innerHTML = html.join('') || '<div class="empty">データなし</div>';
+}
+
+/* ===================== 画面: 登録 ===================== */
+let regState = {};
+async function Register(){
+  regState = {imageBlob:null, partNumber:'', candidates:[]};
+  const cats = await getCategories();
+  const sugShop = await getSuggestions('shop');
+  const sugMaker = await getSuggestions('maker');
+  const today = new Date().toISOString().slice(0,10);
+
+  view.innerHTML = `
+    <div class="topnote">📷 写真を撮る → 品番を確認 → 価格を入れる → 保存。これだけで完了します。</div>
+
+    <div class="card pad">
+      <label class="f">① 写真<span class="req"></span></label>
+      <button class="btn block" onclick="document.getElementById('file').click()">📷 写真を撮る / 選ぶ</button>
+      <input id="file" type="file" accept="image/*" capture="environment" style="display:none" onchange="onPhoto(this)">
+      <div id="photoArea"></div>
+      <div id="ocrArea"></div>
+
+      <label class="f">② 品番<span class="req"></span></label>
+      <input id="pn" placeholder="例: A1234-5  （候補をタップ、または手入力）" oninput="regState.partNumber=this.value">
+      <div id="cands" class="chips"></div>
+
+      <label class="f">③ 価格（税抜・円）<span class="req"></span></label>
+      <input id="price" type="number" inputmode="numeric" placeholder="例: 1980">
+
+      <details class="opt">
+        <summary>任意項目（工具屋・メーカー・カテゴリ・購入日・メモ）</summary>
+        <label class="f">工具屋</label>
+        <input id="shop" list="dl-shop" placeholder="例: ○○工具店">
+        <datalist id="dl-shop">${sugShop.map(s=>`<option value="${esc(s)}">`).join('')}</datalist>
+
+        <label class="f">メーカー</label>
+        <input id="maker" list="dl-maker" placeholder="例: 三菱 / OSG など">
+        <datalist id="dl-maker">${sugMaker.map(s=>`<option value="${esc(s)}">`).join('')}</datalist>
+
+        <label class="f">カテゴリ</label>
+        <select id="category"><option value="">未分類</option>${cats.map(c=>`<option>${esc(c)}</option>`).join('')}</select>
+
+        <label class="f">購入日（未入力なら今日: ${today}）</label>
+        <input id="purchaseDate" type="date">
+
+        <label class="f">メモ</label>
+        <textarea id="memo" rows="2" placeholder="数量・規格などのメモ"></textarea>
+      </details>
+
+      <button class="btn hero" style="margin-top:18px" onclick="saveRegister()">💾 保存する</button>
+    </div>`;
+}
+
+async function onPhoto(input){
+  const file = input.files[0]; if(!file) return;
+  const blob = await resizeImage(file);
+  regState.imageBlob = blob;
+  const url = URL.createObjectURL(blob);
+  document.getElementById('photoArea').innerHTML =
+    `<div class="photo-wrap" id="photoWrap"><img class="photo-preview" id="photoImg" src="${url}"></div>`;
+  const img = document.getElementById('photoImg');
+  img.onload = ()=>{ regState.imgW = img.naturalWidth; regState.imgH = img.naturalHeight; };
+  await runOcr();
+}
+
+/* OCRワーカーは1度だけ作って使い回す（2枚目以降は辞書ダウンロード不要で速い）。
+   品番は英数字中心なので 'eng' のみ＝軽量・確実。日本語辞書(数MB)は読み込まない。 */
+let _ocrWorker = null;
+async function getOcrWorker(onProgress){
+  if(_ocrWorker) return _ocrWorker;
+  _ocrWorker = await Tesseract.createWorker('eng', 1, { logger: onProgress });
+  return _ocrWorker;
+}
+async function runOcr(){
+  const ocr = document.getElementById('ocrArea');
+  if(!regState.imageBlob){ return; }
+  if(typeof Tesseract === 'undefined'){
+    ocr.innerHTML = `<div class="ocr-status">⚠️ 通信できないため自動読み取りは使えません。品番を手入力してください。</div>`;
+    return;
+  }
+  const setStatus = (txt, spin=true)=>{ ocr.innerHTML = `<div class="ocr-status">${spin?'<span class="spin"></span>':''}${txt}</div>`; };
+  setStatus('読み取りの準備中…（初回のみ辞書を取得します）');
+  try{
+    const worker = await getOcrWorker(m=>{
+      if(m.status==='recognizing text') setStatus(`品番を読み取り中… ${Math.round(m.progress*100)}%`);
+      else if(m.status && m.progress!=null) setStatus(`準備中… ${Math.round(m.progress*100)}%（${m.status}）`);
+    });
+    setStatus('品番を読み取り中…');
+    const {data} = await worker.recognize(regState.imageBlob, {}, { blocks: true });
+    const cands = extractCandidates(data);
+    regState.candidates = cands;
+    if(cands.length){
+      setStatus('✅ 候補が見つかりました。写真の枠かチップをタップ →', false);
+      renderCandidates(cands);
+      renderBoxes(cands);
+    }else{
+      document.querySelectorAll('.ocr-box').forEach(b=>b.remove());
+      ocr.innerHTML = `<div class="ocr-status">品番候補は見つかりませんでした。手入力してください。 <button class="btn sm gray" onclick="runOcr()">🔄 もう一度読み取る</button></div>`;
+    }
+  }catch(e){
+    console.error(e);
+    ocr.innerHTML = `<div class="ocr-status">⚠️ 読み取りに失敗しました。手入力するか、もう一度お試しください。 <button class="btn sm gray" onclick="_ocrWorker=null;runOcr()">🔄 再試行</button></div>`;
+  }
+}
+function renderCandidates(cands){
+  // 種類で色分け: 品番らしい=青(cand-pn) / 数字だけ=グレー(cand-num)
+  const sorted = cands.slice().sort((a,b)=> (a.type==='pn'?0:1) - (b.type==='pn'?0:1));
+  document.getElementById('cands').innerHTML =
+    `<div class="cand-legend">
+       <span><span class="dot pn"></span>品番らしい</span>
+       <span><span class="dot num"></span>数字（価格・数量かも）</span>
+     </div>` +
+    sorted.map(c=>{
+      const cls = c.type==='pn' ? 'cand-pn' : 'cand-num';
+      const v = esc(c.text).replace(/'/g,'');
+      return `<span class="chip ${cls}" data-cand="${v}" onclick="pickCandidate('${v}')">${esc(c.text)}</span>`;
+    }).join('');
+}
+/* 写真の上に、読み取った位置へ色付き枠を重ねる（枠タップで確定） */
+function renderBoxes(cands){
+  const wrap = document.getElementById('photoWrap');
+  if(!wrap) return;
+  wrap.querySelectorAll('.ocr-box').forEach(b=>b.remove());
+  const W = regState.imgW, H = regState.imgH;
+  if(!W || !H) return;
+  cands.filter(c=>c.bbox).forEach(c=>{
+    const {x0,y0,x1,y1} = c.bbox;
+    const v = esc(c.text).replace(/'/g,'');
+    const box = document.createElement('div');
+    box.className = 'ocr-box ' + (c.type==='pn'?'pn':'num');
+    box.setAttribute('data-cand', v);
+    box.style.left   = (x0/W*100)+'%';
+    box.style.top    = (y0/H*100)+'%';
+    box.style.width  = ((x1-x0)/W*100)+'%';
+    box.style.height = ((y1-y0)/H*100)+'%';
+    box.onclick = ()=>pickCandidate(c.text);
+    box.innerHTML = `<span class="tag">${esc(c.text)}</span>`;
+    wrap.appendChild(box);
+  });
+}
+function pickCandidate(v){
+  document.getElementById('pn').value = v; regState.partNumber = v;
+  // チップ・写真の枠の両方で、選んだものをハイライト
+  document.querySelectorAll('[data-cand]').forEach(e=>
+    e.classList.toggle('picked', e.getAttribute('data-cand')===v));
+}
+/* OCR結果(blocks)から単語＋座標を集めて候補化。種類を判定。
+   type: 'pn'=品番らしい（英字+数字 or ハイフン/スラッシュ入り） / 'num'=数字だけ */
+function collectWords(data){
+  const words = [];
+  (data.blocks||[]).forEach(b=>(b.paragraphs||[]).forEach(p=>(p.lines||[]).forEach(l=>
+    (l.words||[]).forEach(w=>words.push(w)))));
+  if(!words.length && Array.isArray(data.words)) data.words.forEach(w=>words.push(w));
+  return words;
+}
+function extractCandidates(data){
+  const words = collectWords(data);
+  const seen = new Set(); const out = [];
+  // 単語が取れない場合はテキスト分割にフォールバック（座標なし）
+  const items = words.length
+    ? words.map(w=>({text:w.text||'', bbox:w.bbox}))
+    : String(data.text||'').split(/[\s\n\r、，,]+/).map(t=>({text:t, bbox:null}));
+  for(const it of items){
+    const cleaned = (it.text||'').trim().replace(/[^0-9A-Za-z\-\/.]/g,'');
+    if(cleaned.length<3 || cleaned.length>24) continue;
+    if(!/[0-9]/.test(cleaned)) continue;          // 数字を含む
+    if(!/[0-9A-Za-z]/.test(cleaned)) continue;
+    if(/^\d{1,3}$/.test(cleaned)) continue;        // 短い純数字（価格・個数）は除外
+    if(seen.has(cleaned)) continue; seen.add(cleaned);
+    const type = (/[A-Za-z]/.test(cleaned) || /[\-\/]/.test(cleaned)) ? 'pn' : 'num';
+    out.push({text: cleaned, type, bbox: it.bbox || null});
+    if(out.length>=10) break;
+  }
+  return out;
+}
+
+async function saveRegister(){
+  const pn = (document.getElementById('pn').value||'').trim();
+  const price = parseFloat(document.getElementById('price').value);
+  if(!pn){ toast('品番を入力してください'); return; }
+  if(!(price>=0)){ toast('価格を入力してください'); return; }
+  if(!regState.imageBlob){ toast('写真を選んでください'); return; }
+
+  const shop = val('shop'), maker = val('maker'), category = val('category'),
+        memo = val('memo');
+  const purchaseDate = val('purchaseDate') || new Date().toISOString().slice(0,10);
+  const createdAt = new Date().toISOString();
+
+  const imageId = await DB.put('images', {blob: regState.imageBlob});
+  // 品番マスタ（無ければ作成 / メーカー・カテゴリを補完）
+  const existing = await DB.get('tools', pn);
+  await DB.put('tools', {
+    partNumber: pn,
+    maker: maker || (existing&&existing.maker) || '',
+    category: category || (existing&&existing.category) || '',
+    memo: memo || (existing&&existing.memo) || '',
+    createdAt: existing ? existing.createdAt : createdAt
+  });
+  await DB.put('prices', {partNumber:pn, price, shop, maker, category, memo, purchaseDate, imageId, createdAt});
+  await rememberSuggestion('shop', shop);
+  await rememberSuggestion('maker', maker);
+
+  toast('保存しました ✅');
+  location.hash = '#/tool?pn='+encodeURIComponent(pn);
+}
+function val(id){ const e=document.getElementById(id); return e? (e.value||'').trim() : ''; }
+
+/* ===================== 画面: 品番詳細 ===================== */
+async function ToolDetail(pn){
+  pn = decodeURIComponent(pn||'');
+  const prices = (await DB.getAll('prices')).filter(p=>p.partNumber===pn);
+  if(prices.length===0){ view.innerHTML = `<div class="empty"><div class="em">🤷</div>「${esc(pn)}」のデータがありません</div>`; return; }
+  const tool = await DB.get('tools', pn);
+  const st = stats(prices);
+
+  // 工具屋別の最新価格
+  const byShop = {};
+  sortByDate(prices).forEach(p=>{ const k=p.shop||'(不明)'; byShop[k]=p.price; });
+  const shopMax = Math.max(...Object.values(byShop));
+
+  view.innerHTML = `
+    <a class="link" href="#/home">← ホーム</a>
+    <div class="card pad" style="margin-top:10px">
+      <h2 style="margin:0 0 4px;font-size:22px">${esc(pn)}</h2>
+      <div style="color:var(--sub);font-size:13px">
+        ${tool&&tool.category?`<span class="badge">${esc(tool.category)}</span> `:''}
+        ${tool&&tool.maker?esc(tool.maker):''}
+      </div>
+
+      <div class="stats" style="margin-top:14px">
+        <div class="stat"><div class="v">${yen(st.latest)}</div><div class="k">最新価格</div></div>
+        <div class="stat"><div class="v" style="color:var(--down)">${yen(st.min)}</div><div class="k">最安価格</div></div>
+        <div class="stat"><div class="v" style="color:var(--up)">${yen(st.max)}</div><div class="k">最高価格</div></div>
+      </div>
+      <div style="text-align:center;margin-top:12px">前回比：${deltaHtml(st.prevDelta)}</div>
+    </div>
+
+    <h2 class="section">🏪 工具屋別（最新価格）</h2>
+    <div class="card pad bars">
+      ${Object.entries(byShop).sort((a,b)=>a[1]-b[1]).map(([s,v])=>`
+        <div class="bar-row">
+          <div class="bar-name">${esc(s)}</div>
+          <div class="bar-track"><div class="bar-fill" style="width:${Math.max(8,v/shopMax*100)}%"></div></div>
+          <div class="bar-val">${yen(v)}</div>
+        </div>`).join('')}
+    </div>
+
+    <h2 class="section">📅 価格履歴 <span style="font-weight:400;color:var(--sub)">（行をタップで編集・削除）</span></h2>
+    <div class="card" id="hist"></div>
+
+    <h2 class="section">🖼 登録写真</h2>
+    <div class="thumbs" id="photos"></div>
+    <div style="height:24px"></div>`;
+
+  // 履歴（新しい順）
+  const histEl = document.getElementById('hist');
+  const sorted = st.sorted.slice().reverse();
+  histEl.innerHTML = sorted.map((p,i)=>{
+    const prev = st.sorted[st.sorted.length-1-i-1];
+    const d = prev ? p.price - prev.price : null;
+    return `<a class="row" style="text-decoration:none;color:inherit" href="#/edit?id=${p.id}">
+      <div class="grow"><div class="pn" style="font-size:14px">${esc(p.purchaseDate)}</div>
+        <div class="meta">${esc(p.shop||'(工具屋不明)')}</div></div>
+      <div><div class="price">${yen(p.price)}</div><div style="text-align:right">${deltaHtml(d)} <span style="color:var(--sub)">✏️</span></div></div>
+    </a>`;
+  }).join('');
+
+  // 写真
+  const photoEl = document.getElementById('photos');
+  const ids = [...new Set(prices.map(p=>p.imageId).filter(x=>x!=null))];
+  const urls = await Promise.all(ids.map(imageUrl));
+  photoEl.innerHTML = urls.filter(Boolean).map(u=>`<img src="${u}">`).join('') || '<div class="empty">写真なし</div>';
+}
+
+/* ===================== 画面: 登録内容の編集・削除 ===================== */
+async function EditPrice(id){
+  id = parseInt(id,10);
+  const rec = await DB.get('prices', id);
+  if(!rec){ view.innerHTML = `<div class="empty"><div class="em">🤷</div>データが見つかりません</div>`; return; }
+  const cats = await getCategories();
+  const sugShop = await getSuggestions('shop');
+  const sugMaker = await getSuggestions('maker');
+  const url = await imageUrl(rec.imageId);
+  const sel = v => cats.includes(v)?'':'';
+
+  view.innerHTML = `
+    <a class="link" href="#/tool?pn=${encodeURIComponent(rec.partNumber)}">← 戻る</a>
+    <div class="card pad" style="margin-top:10px">
+      <h2 style="margin:0 0 6px;font-size:20px">登録内容の編集</h2>
+      ${url?`<img class="photo-preview" src="${url}">`:''}
+
+      <label class="f">品番<span class="req"></span></label>
+      <input id="e_pn" value="${esc(rec.partNumber)}">
+
+      <label class="f">価格（円）<span class="req"></span></label>
+      <input id="e_price" type="number" inputmode="numeric" value="${rec.price}">
+
+      <label class="f">工具屋</label>
+      <input id="e_shop" list="dl-shop" value="${esc(rec.shop||'')}">
+      <datalist id="dl-shop">${sugShop.map(s=>`<option value="${esc(s)}">`).join('')}</datalist>
+
+      <label class="f">メーカー</label>
+      <input id="e_maker" list="dl-maker" value="${esc(rec.maker||'')}">
+      <datalist id="dl-maker">${sugMaker.map(s=>`<option value="${esc(s)}">`).join('')}</datalist>
+
+      <label class="f">カテゴリ</label>
+      <select id="e_category"><option value="">未分類</option>${cats.map(c=>`<option ${c===rec.category?'selected':''}>${esc(c)}</option>`).join('')}</select>
+
+      <label class="f">購入日</label>
+      <input id="e_purchaseDate" type="date" value="${esc(rec.purchaseDate||'')}">
+
+      <label class="f">メモ</label>
+      <textarea id="e_memo" rows="2">${esc(rec.memo||'')}</textarea>
+
+      <button class="btn hero" style="margin-top:18px" onclick="saveEdit(${id})">💾 変更を保存</button>
+      <button class="btn block" style="margin-top:10px;background:var(--up)" onclick="deletePrice(${id})">🗑 この登録を削除</button>
+    </div>
+    <div style="height:24px"></div>`;
+}
+
+async function saveEdit(id){
+  const rec = await DB.get('prices', id);
+  if(!rec) return;
+  const pn = val('e_pn');
+  const price = parseFloat(document.getElementById('e_price').value);
+  if(!pn){ toast('品番を入力してください'); return; }
+  if(!(price>=0)){ toast('価格を入力してください'); return; }
+  const shop = val('e_shop'), maker = val('e_maker'), category = val('e_category'), memo = val('e_memo');
+  const purchaseDate = val('e_purchaseDate') || rec.purchaseDate || new Date().toISOString().slice(0,10);
+
+  // 品番が変わった場合: 旧マスタはそのまま、新マスタを用意
+  await DB.put('prices', {...rec, partNumber:pn, price, shop, maker, category, memo, purchaseDate});
+  const existing = await DB.get('tools', pn);
+  await DB.put('tools', {
+    partNumber: pn,
+    maker: maker || (existing&&existing.maker) || '',
+    category: category || (existing&&existing.category) || '',
+    memo: (existing&&existing.memo) || '',
+    createdAt: existing ? existing.createdAt : (rec.createdAt||new Date().toISOString())
+  });
+  await rememberSuggestion('shop', shop);
+  await rememberSuggestion('maker', maker);
+  await cleanupTool(rec.partNumber);
+  toast('変更を保存しました ✅');
+  location.hash = '#/tool?pn='+encodeURIComponent(pn);
+}
+
+async function deletePrice(id){
+  if(!confirm('この登録（1件）を削除します。よろしいですか？')) return;
+  const rec = await DB.get('prices', id);
+  if(!rec) return;
+  await DB.del('prices', id);
+  if(rec.imageId!=null) await DB.del('images', rec.imageId).catch(()=>{});
+  const pn = rec.partNumber;
+  await cleanupTool(pn);
+  toast('削除しました');
+  const remain = (await DB.getAll('prices')).filter(p=>p.partNumber===pn);
+  location.hash = remain.length ? '#/tool?pn='+encodeURIComponent(pn) : '#/home';
+}
+
+/* 品番にひも付く価格が0件になったらマスタも削除 */
+async function cleanupTool(pn){
+  const remain = (await DB.getAll('prices')).filter(p=>p.partNumber===pn);
+  if(remain.length===0) await DB.del('tools', pn).catch(()=>{});
+}
+
+/* ===================== 画面: カテゴリ一覧 ===================== */
+async function Category(){
+  const {prices, cats} = await loadAll();
+  view.innerHTML = `
+    <h2 class="section">カテゴリ</h2>
+    <div class="cat-grid">
+      ${cats.map(c=>{
+        const ps = prices.filter(p=>p.category===c);
+        const sum = ps.reduce((a,p)=>a+p.price,0);
+        return `<a class="cat-tile" style="text-decoration:none;color:inherit" href="#/category?name=${encodeURIComponent(c)}">
+          <div class="n">${esc(c)}</div>
+          <div class="c">${ps.length}件 ・ 合計${yen(sum)}</div></a>`;
+      }).join('')}
+    </div>
+    <div class="card pad" style="margin-top:16px">
+      <label class="f">カテゴリを追加</label>
+      <div style="display:flex;gap:8px">
+        <input id="newCat" placeholder="新しいカテゴリ名">
+        <button class="btn" onclick="addCategory()">追加</button>
+      </div>
+      <p style="font-size:12px;color:var(--sub);margin-top:10px">既存カテゴリはタップして詳細・価格比較を表示します。</p>
+    </div>`;
+}
+async function addCategory(){
+  const v = (document.getElementById('newCat').value||'').trim();
+  if(!v) return;
+  const cats = await getCategories();
+  if(cats.includes(v)){ toast('すでにあります'); return; }
+  cats.push(v); await setMeta('categories', cats);
+  toast('追加しました'); render();
+}
+
+/* ===================== 画面: カテゴリ詳細（比較） ===================== */
+async function CategoryDetail(name){
+  name = decodeURIComponent(name);
+  const all = await DB.getAll('prices');
+  const ps = all.filter(p=>p.category===name);
+  // 品番ごと集約
+  const byPn = {}; ps.forEach(p=>{ (byPn[p.partNumber]=byPn[p.partNumber]||[]).push(p); });
+  const pnList = Object.entries(byPn).map(([pn,arr])=>({pn, st:stats(arr), buys:arr.length}));
+  const sum = ps.reduce((a,p)=>a+p.price,0);
+  const avg = ps.length? sum/ps.length : 0;
+  const frequent = pnList.slice().sort((a,b)=>b.buys-a.buys).slice(0,5);
+  const rising = pnList.filter(x=>x.st.prevDelta!=null && x.st.prevDelta>0).sort((a,b)=>b.st.prevDelta-a.st.prevDelta);
+
+  view.innerHTML = `
+    <a class="link" href="#/category">← カテゴリ</a>
+    <h2 style="margin:8px 4px 4px">${esc(name)}</h2>
+    <div class="stats">
+      <div class="stat"><div class="v">${ps.length}</div><div class="k">登録件数</div></div>
+      <div class="stat"><div class="v">${yen(sum)}</div><div class="k">合計金額</div></div>
+      <div class="stat"><div class="v">${ps.length?yen(avg):'—'}</div><div class="k">平均価格</div></div>
+    </div>
+
+    ${frequent.length?`<h2 class="section">🔁 よく買う品番</h2>
+    <div style="padding:0 4px">${frequent.map(f=>`<span class="pill">${esc(f.pn)} ×${f.buys}</span>`).join('')}</div>`:''}
+
+    ${rising.length?`<h2 class="section">📈 値上がりしている品番</h2>
+    <div class="card">${rising.map(r=>`
+      <a class="row" style="text-decoration:none;color:inherit" href="#/tool?pn=${encodeURIComponent(r.pn)}">
+        <div class="grow"><div class="pn">${esc(r.pn)}</div><div class="meta">最新 ${yen(r.st.latest)}</div></div>
+        <div style="text-align:right">${deltaHtml(r.st.prevDelta)}</div>
+      </a>`).join('')}</div>`:''}
+
+    <h2 class="section">品番一覧</h2>
+    <div class="card" id="catList"></div>`;
+
+  const el = document.getElementById('catList');
+  if(pnList.length===0){ el.innerHTML='<div class="empty">この カテゴリの登録はありません</div>'; return; }
+  el.innerHTML = pnList.sort((a,b)=>a.pn.localeCompare(b.pn)).map(x=>`
+    <a class="row" style="text-decoration:none;color:inherit" href="#/tool?pn=${encodeURIComponent(x.pn)}">
+      <div class="grow"><div class="pn">${esc(x.pn)}</div><div class="meta">${x.buys}件</div></div>
+      <div><div class="price">${yen(x.st.latest)}</div><div style="text-align:right">${deltaHtml(x.st.prevDelta)}</div></div>
+    </a>`).join('');
+}
+
+/* ===================== 画面: 検索 ===================== */
+async function Search(q){
+  const cats = await getCategories();
+  view.innerHTML = `
+    <div class="card pad">
+      <label class="f">キーワード（品番・メーカー・工具屋）</label>
+      <input id="kw" placeholder="文字を入力" value="${esc(q.kw||'')}" oninput="doSearch()">
+      <label class="f">カテゴリで絞り込み</label>
+      <select id="fcat" onchange="doSearch()">
+        <option value="">すべて</option>${cats.map(c=>`<option ${q.cat===c?'selected':''}>${esc(c)}</option>`).join('')}
+      </select>
+    </div>
+    <div id="results"></div>`;
+  doSearch();
+}
+async function doSearch(){
+  const kw = (document.getElementById('kw').value||'').trim().toLowerCase();
+  const cat = document.getElementById('fcat').value;
+  const all = await DB.getAll('prices');
+  let res = all.filter(p=>{
+    if(cat && p.category!==cat) return false;
+    if(!kw) return true;
+    return [p.partNumber,p.maker,p.shop].some(f=>(f||'').toLowerCase().includes(kw));
+  });
+  // 品番ごとに集約して1件に
+  const byPn={}; res.forEach(p=>{(byPn[p.partNumber]=byPn[p.partNumber]||[]).push(p);});
+  const items = Object.entries(byPn).map(([pn,arr])=>{ const st=stats(arr); return {p:st.sorted[st.sorted.length-1], st}; });
+  const el = document.getElementById('results');
+  if(items.length===0){ el.innerHTML='<div class="empty"><div class="em">🔍</div>該当なし</div>'; return; }
+  el.innerHTML = `<h2 class="section">${items.length}件</h2><div class="card" id="srows"></div>`;
+  await fillRows('srows', items);
+}
+
+/* ---------- util ---------- */
+function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+/* ---------- サンプルデータ ---------- */
+async function seedSample(){
+  const today = new Date();
+  const d = off => new Date(today.getTime()-off*86400000).toISOString().slice(0,10);
+  const samples = [
+    // partNumber, category, maker, shop, price, dayOffset
+    ['A640-2',  'ドリル','三菱マテリアル','山田工具', 1200, 90],
+    ['A640-2',  'ドリル','三菱マテリアル','本田商会', 1280, 40],
+    ['A640-2',  'ドリル','三菱マテリアル','山田工具', 1450, 5],
+    ['CCMT09T308','チップ','住友電工','本田商会', 880, 70],
+    ['CCMT09T308','チップ','住友電工','山田工具', 920, 30],
+    ['CCMT09T308','チップ','住友電工','本田商会', 1050, 3],
+    ['EX-SUS-M8','タップ','OSG','ミスミ', 1650, 60],
+    ['EX-SUS-M8','タップ','OSG','ミスミ', 1620, 10],
+    ['VQMHZVD0800','エンドミル','三菱マテリアル','山田工具', 5400, 50],
+    ['VQMHZVD0800','エンドミル','三菱マテリアル','本田商会', 5950, 8],
+    ['BT40-SLA12','ホルダー','BIG','ミスミ', 8800, 45],
+    ['CD-15','測定具','ミツトヨ','山田工具', 14800, 20],
+  ];
+  for(const [pn,category,maker,shop,price,offset] of samples){
+    // 1x1 透明pngをダミー画像に
+    const blob = await (await fetch('data:image/svg+xml;base64,'+btoa(
+      `<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200"><rect width="200" height="200" fill="#cbd5e1"/><text x="100" y="105" font-size="22" text-anchor="middle" fill="#475569">${pn}</text></svg>`))).blob();
+    const imageId = await DB.put('images', {blob});
+    const createdAt = new Date(today.getTime()-offset*86400000).toISOString();
+    await DB.put('tools', {partNumber:pn, maker, category, memo:'', createdAt});
+    await DB.put('prices', {partNumber:pn, price, shop, maker, category, memo:'', purchaseDate:d(offset), imageId, createdAt});
+    await rememberSuggestion('shop', shop);
+    await rememberSuggestion('maker', maker);
+  }
+  toast('サンプルを入れました ✅');
+  location.hash = '#/home'; render();
+}
+
+/* ---------- 起動 ---------- */
+(async function init(){
+  await DB.open();
+  if(!location.hash) location.hash = '#/home';
+  render();
+})();
+</script>
+</body>
+</html>

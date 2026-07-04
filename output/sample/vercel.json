@@ -1,0 +1,19 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "version": 2,
+  "installCommand": "npm install",
+  "buildCommand": "",
+  "redirects": [
+    {
+      "source": "/",
+      "destination": "/machining-quote-4pane-mock.html",
+      "permanent": false
+    }
+  ],
+  "functions": {
+    "api/index.mjs": {
+      "maxDuration": 60,
+      "memory": 1024
+    }
+  }
+}

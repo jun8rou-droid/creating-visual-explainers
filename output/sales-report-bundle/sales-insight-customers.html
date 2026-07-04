@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex">
+  <title>得意先ごとの売上 — SalesInsight</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            ads: {
+              bg: '#FFFFFF', surface: '#F8FAFC', hover: '#F1F5F9', border: '#E2E8F0',
+              accent: '#3B82F6', 'accent-light': '#2563EB', text: '#1E293B',
+              muted: '#64748B', dim: '#94A3B8', positive: '#10B981', negative: '#EF4444', warning: '#F59E0B',
+            }
+          },
+          fontFamily: {
+            sans: ['"Noto Sans JP"', '"Yu Gothic UI"', 'sans-serif'],
+            display: ['"Plus Jakarta Sans"', '"Noto Sans JP"', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    @media print {
+      .no-print { display: none !important; }
+      body { border-top: none !important; }
+      .si-mesh { background: #fff !important; }
+      .cust-tab-head { display: none !important; }
+      .cust-panels .panel-week,
+      .cust-panels .panel-month { display: block !important; }
+      .panel-month { margin-top: 1.5rem; page-break-inside: avoid; }
+      .print-only-heading { display: block !important; }
+      .print-caption { display: block !important; }
+    }
+    .print-only-heading { display: none; }
+    .print-caption { display: none; }
+    .si-mesh {
+      background-color: #eef2f9;
+      background-image:
+        radial-gradient(ellipse 120% 80% at 50% -30%, rgba(59, 130, 246, 0.14), transparent 52%),
+        radial-gradient(ellipse 90% 60% at 100% 0%, rgba(139, 92, 246, 0.08), transparent 48%),
+        radial-gradient(ellipse 70% 50% at 0% 80%, rgba(16, 185, 129, 0.06), transparent 50%);
+    }
+    #cust-tab-week:checked ~ .cust-tab-head label[for="cust-tab-week"],
+    #cust-tab-month:checked ~ .cust-tab-head label[for="cust-tab-month"] {
+      border-bottom-color: transparent;
+      font-weight: 700;
+      color: #1d4ed8;
+      margin-bottom: -1px;
+      background: linear-gradient(180deg, rgba(239, 246, 255, 0.95), rgba(255, 255, 255, 0.6));
+      border: 1px solid rgba(59, 130, 246, 0.25);
+      border-bottom: none;
+      border-radius: 0.75rem 0.75rem 0 0;
+      box-shadow: 0 -2px 12px rgba(37, 99, 235, 0.08);
+    }
+    .panel-week, .panel-month { display: none; }
+    #cust-tab-week:checked ~ .cust-panels .panel-week { display: block; }
+    #cust-tab-month:checked ~ .cust-panels .panel-month { display: block; }
+    a:focus-visible,
+    button:focus-visible,
+    label[role="tab"]:focus-visible {
+      outline: 2px solid #2563eb;
+      outline-offset: 2px;
+    }
+  </style>
+</head>
+<body class="si-mesh min-h-screen text-slate-600 antialiased leading-relaxed">
+  <div class="no-print h-[3px] bg-gradient-to-r from-sky-500 via-indigo-500 to-violet-500" aria-hidden="true"></div>
+  <div class="no-print max-w-6xl mx-auto px-4 sm:px-6 pt-4 flex flex-wrap items-center justify-between gap-3">
+    <p class="text-xs text-slate-500">
+      <span class="font-display font-semibold tracking-tight text-slate-800">SalesInsight</span>
+      <span class="text-slate-400 mx-1.5">·</span>
+      得意先ごとの売上
+    </p>
+    <button type="button" onclick="window.print()" aria-label="ブラウザの印刷ダイアログを開く" class="inline-flex items-center gap-2 rounded-full border border-slate-200/80 bg-white/90 px-3.5 py-1.5 text-xs font-medium text-slate-600 shadow-sm shadow-slate-900/5 backdrop-blur-sm transition hover:border-slate-300 hover:bg-white hover:text-slate-900 cursor-pointer">
+      <i data-lucide="printer" class="w-3.5 h-3.5 opacity-70" aria-hidden="true"></i> 印刷
+    </button>
+  </div>
+
+  <main class="max-w-6xl mx-auto px-4 sm:px-6 py-8 md:py-12">
+    <nav class="no-print flex flex-wrap items-center gap-1.5 mb-8 rounded-2xl border border-white/70 bg-white/65 p-1.5 text-sm shadow-lg shadow-slate-900/[0.06] backdrop-blur-md ring-1 ring-slate-900/[0.04]" aria-label="主要ページ">
+      <a href="sales-insight-mockup.html" class="rounded-xl border border-transparent px-3.5 py-2 text-slate-600 transition hover:border-slate-200 hover:bg-white/90 hover:text-slate-900">ダッシュボード</a>
+      <a href="sales-insight-yearly.html" class="rounded-xl border border-transparent px-3.5 py-2 text-slate-600 transition hover:border-slate-200 hover:bg-white/90 hover:text-slate-900">年次売上推移</a>
+      <span class="rounded-xl border border-blue-300/60 bg-gradient-to-b from-blue-50 to-blue-100/80 px-3.5 py-2 font-display font-semibold text-blue-800 shadow-sm">得意先ごとの売上</span>
+    </nav>
+
+    <div class="no-print flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5 rounded-2xl bg-gradient-to-r from-emerald-50/95 via-teal-50/50 to-emerald-50/95 border border-emerald-200/70 text-xs text-emerald-900 mb-8 shadow-sm shadow-emerald-900/5">
+      <span class="flex items-center gap-1.5 font-medium">
+        <i data-lucide="database" class="w-3.5 h-3.5 shrink-0"></i>
+        最終同期: 2026/04/07 07:15
+      </span>
+      <span class="text-emerald-800/75">本番では、サーバーから返る1つの項目の値でグラフを作る想定（このモックは同じ説明）</span>
+    </div>
+
+    <div class="rounded-[1.35rem] border border-slate-200/80 bg-white/95 shadow-[0_24px_60px_-12px_rgba(15,23,42,0.14)] ring-1 ring-slate-900/[0.04] overflow-hidden backdrop-blur-sm">
+      <header class="px-5 md:px-8 pt-7 md:pt-9 pb-6 border-b border-slate-100 bg-gradient-to-br from-white via-slate-50/40 to-amber-50/20">
+        <div class="flex flex-wrap items-center gap-2 mb-3">
+          <span class="text-[11px] font-semibold uppercase tracking-wide text-ads-dim">SalesInsight</span>
+          <span class="text-[11px] rounded-full border border-ads-border bg-slate-100 px-2.5 py-0.5 text-slate-600">見方: 週か月かをタブで切り替え</span>
+          <span class="text-[11px] rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-slate-700">得意先の色は週と月で同じ</span>
+        </div>
+        <h1 class="font-display text-2xl md:text-[1.75rem] font-extrabold text-slate-900 tracking-tight mb-2 flex items-center gap-3">
+          <span class="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-400/25 to-orange-500/15 text-amber-700 ring-1 ring-amber-500/20">
+            <i data-lucide="users" class="w-6 h-6"></i>
+          </span>
+          得意先ごとの売上
+        </h1>
+        <p class="text-sm text-ads-muted max-w-2xl">売上の多い順に5社と、そのほかをまとめて表示します。グラフの下に<strong class="text-slate-700">注文件数</strong>（注文の件数・1注文＝1件・サンプル）も載せ、金額だけ見たときと違う動きが分かるようにしています。上のタブで週と月を切り替え（本番では画面の住所に <code class="text-xs bg-slate-100 px-1 rounded">?view=week</code> か <code class="text-xs bg-slate-100 px-1 rounded">month</code> を付ける想定）。売上に数える日は出荷日。月の合計はダッシュボードの「今月」と同じになる想定です。</p>
+      </header>
+
+      <div class="p-4 md:p-6 md:px-8">
+        <!-- 凡例: 画面・印刷の両方で表示 -->
+        <div class="mb-6 pb-5 border-b-2 border-slate-100 -mx-1">
+          <p class="font-display font-semibold text-slate-800 text-sm mb-2 px-1">棒の色と得意先の対応（週・月で同じ）</p>
+          <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 text-[11px]">
+            <div class="flex items-center gap-2 rounded-lg border-2 border-blue-200 bg-white pl-2 pr-2 py-2 shadow-sm border-t-[5px] border-t-blue-600">
+              <span class="font-bold text-slate-800">A商事</span>
+            </div>
+            <div class="flex items-center gap-2 rounded-lg border-2 border-sky-200 bg-white pl-2 pr-2 py-2 shadow-sm border-t-[5px] border-t-sky-500">
+              <span class="font-bold text-slate-800">B工業</span>
+            </div>
+            <div class="flex items-center gap-2 rounded-lg border-2 border-emerald-200 bg-white pl-2 pr-2 py-2 shadow-sm border-t-[5px] border-t-emerald-500">
+              <span class="font-bold text-slate-800">C製作所</span>
+            </div>
+            <div class="flex items-center gap-2 rounded-lg border-2 border-amber-200 bg-white pl-2 pr-2 py-2 shadow-sm border-t-[5px] border-t-amber-500">
+              <span class="font-bold text-slate-800">D金属</span>
+            </div>
+            <div class="flex items-center gap-2 rounded-lg border-2 border-violet-200 bg-white pl-2 pr-2 py-2 shadow-sm border-t-[5px] border-t-violet-500">
+              <span class="font-bold text-slate-800">E機材</span>
+            </div>
+            <div class="flex items-center gap-2 rounded-lg border-2 border-slate-200 bg-slate-50 pl-2 pr-2 py-2 shadow-sm border-t-[5px] border-t-slate-400">
+              <span class="font-bold text-slate-700">その他</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="no-print grid sm:grid-cols-2 gap-3 mb-5">
+          <div class="rounded-xl border-2 border-emerald-300 bg-emerald-50/70 p-4 shadow-sm">
+            <p class="text-[10px] font-bold text-emerald-900 uppercase tracking-wide mb-1">タブ「週次」</p>
+            <p class="text-sm font-bold text-slate-900 mb-1">先週（月〜金）だけ</p>
+            <p class="text-[11px] text-emerald-900/85 leading-relaxed">直近の営業週に絞った売上。ダッシュボードの「先週の数字」と同じイメージです。</p>
+          </div>
+          <div class="rounded-xl border-2 border-indigo-300 bg-indigo-50/60 p-4 shadow-sm">
+            <p class="text-[10px] font-bold text-indigo-900 uppercase tracking-wide mb-1">タブ「月次」</p>
+            <p class="text-sm font-bold text-slate-900 mb-1">カレンダー通りの1か月</p>
+            <p class="text-[11px] text-indigo-900/85 leading-relaxed">月の合計はダッシュボードの「今月」と揃える想定。週タブとは<strong class="text-indigo-950">足し方が違います</strong>。</p>
+          </div>
+        </div>
+
+        <input type="radio" name="custtab" id="cust-tab-week" class="sr-only" checked />
+        <input type="radio" name="custtab" id="cust-tab-month" class="sr-only" />
+
+        <div class="cust-tab-head flex gap-1 border-b border-slate-200/90 mb-5 -mx-1 px-1 bg-gradient-to-b from-slate-50/80 to-transparent rounded-t-xl pt-1" role="tablist" aria-label="売上グラフの表示期間">
+          <label for="cust-tab-week" id="tab-label-week" role="tab" aria-controls="cust-panel-week" aria-selected="true" tabindex="0" class="cursor-pointer px-4 py-3 text-sm border-b-2 border-transparent text-slate-600 hover:bg-white/90 rounded-t-lg transition-colors">
+            週次 · 先週（月〜金）
+          </label>
+          <label for="cust-tab-month" id="tab-label-month" role="tab" aria-controls="cust-panel-month" aria-selected="false" tabindex="-1" class="cursor-pointer px-4 py-3 text-sm border-b-2 border-transparent text-slate-600 hover:bg-white/90 rounded-t-lg transition-colors">
+            月次 · 2026年3月
+          </label>
+        </div>
+
+        <div class="cust-panels">
+          <div id="cust-panel-week" role="tabpanel" aria-labelledby="tab-label-week" aria-hidden="false" class="panel-week">
+            <h2 class="print-only-heading text-base font-bold text-slate-900 mb-3 pb-2 border-b border-ads-border">週次 · 先週（月〜金）</h2>
+            <div class="flex flex-wrap justify-between gap-2 mb-4 no-print">
+              <span class="text-xs font-medium text-slate-800">対象: 2026/3/31〜4/4 · 上位5社＋その他</span>
+              <span class="text-[11px] text-ads-dim">印刷するときは、下に月のグラフも続けて出ます</span>
+            </div>
+            <p class="print-caption text-[11px] text-ads-dim mb-3">対象: 2026/3/31〜4/4 · 上位5社＋その他</p>
+            <p class="text-[10px] text-slate-500 mb-2 text-center no-print">棒＝売上の大きさ · 下の<strong class="text-slate-600">件</strong>は注文件数（サンプル）</p>
+            <div class="flex items-end justify-between gap-1.5 min-h-[11rem] h-48 px-1 pb-1 border-b-2 border-slate-200 rounded-b-lg bg-gradient-to-b from-slate-50/50 to-white">
+              <div class="flex flex-col items-center flex-1 gap-0.5 min-w-0 rounded-t-lg border border-slate-200 border-t-[5px] border-t-blue-600 bg-white pt-1 px-0.5">
+                <div class="w-full max-w-14 rounded-t bg-gradient-to-t from-blue-700 to-blue-500 h-[72%] shadow-sm shadow-blue-900/15"></div>
+                <span class="text-[11px] text-center text-slate-800 leading-tight font-bold">A商事</span>
+                <span class="text-[9px] text-violet-700 font-bold tabular-nums">120件</span>
+              </div>
+              <div class="flex flex-col items-center flex-1 gap-0.5 min-w-0 rounded-t-lg border border-slate-200 border-t-[5px] border-t-sky-500 bg-white pt-1 px-0.5">
+                <div class="w-full max-w-14 rounded-t bg-gradient-to-t from-blue-600 to-sky-400 h-[55%] shadow-sm shadow-blue-900/15"></div>
+                <span class="text-[11px] text-center text-slate-800 leading-tight font-bold">B工業</span>
+                <span class="text-[9px] text-violet-700 font-bold tabular-nums">95件</span>
+              </div>
+              <div class="flex flex-col items-center flex-1 gap-0.5 min-w-0 rounded-t-lg border border-slate-200 border-t-[5px] border-t-emerald-500 bg-white pt-1 px-0.5">
+                <div class="w-full max-w-14 rounded-t bg-gradient-to-t from-emerald-600 to-emerald-400 h-[48%] shadow-sm shadow-emerald-900/15"></div>
+                <span class="text-[11px] text-center text-slate-800 leading-tight font-bold">C製作所</span>
+                <span class="text-[9px] text-violet-700 font-bold tabular-nums">82件</span>
+              </div>
+              <div class="flex flex-col items-center flex-1 gap-0.5 min-w-0 rounded-t-lg border border-slate-200 border-t-[5px] border-t-amber-500 bg-white pt-1 px-0.5">
+                <div class="w-full max-w-14 rounded-t bg-gradient-to-t from-amber-600 to-amber-400 h-[38%] shadow-sm shadow-amber-900/15"></div>
+                <span class="text-[11px] text-center text-slate-800 leading-tight font-bold">D金属</span>
+                <span class="text-[9px] text-violet-700 font-bold tabular-nums">64件</span>
+              </div>
+              <div class="flex flex-col items-center flex-1 gap-0.5 min-w-0 rounded-t-lg border border-slate-200 border-t-[5px] border-t-violet-500 bg-white pt-1 px-0.5">
+                <div class="w-full max-w-14 rounded-t bg-gradient-to-t from-violet-600 to-violet-400 h-[32%] shadow-sm shadow-violet-900/15"></div>
+                <span class="text-[11px] text-center text-slate-800 leading-tight font-bold">E機材</span>
+                <span class="text-[9px] text-violet-700 font-bold tabular-nums">52件</span>
+              </div>
+              <div class="flex flex-col items-center flex-1 gap-0.5 min-w-0 rounded-t-lg border border-slate-200 border-t-[5px] border-t-slate-400 bg-slate-50/80 pt-1 px-0.5">
+                <div class="w-full max-w-14 rounded-t bg-gradient-to-t from-slate-500 to-slate-400 h-[22%] shadow-sm"></div>
+                <span class="text-[11px] text-center text-slate-700 leading-tight font-bold">その他</span>
+                <span class="text-[9px] text-violet-700 font-bold tabular-nums">39件</span>
+              </div>
+            </div>
+          </div>
+
+          <div id="cust-panel-month" role="tabpanel" aria-labelledby="tab-label-month" aria-hidden="true" class="panel-month">
+            <h2 class="print-only-heading text-base font-bold text-slate-900 mb-3 pb-2 border-b border-ads-border">月次 · 2026年3月</h2>
+            <div class="flex flex-wrap justify-between gap-2 mb-4 no-print">
+              <span class="text-xs font-medium text-slate-800">カレンダー通りの1か月 · ダッシュボードの「今月」と合わせる想定</span>
+            </div>
+            <p class="print-caption text-[11px] text-ads-dim mb-3">カレンダー通りの1か月 · ダッシュボードの「今月」と合わせる想定</p>
+            <p class="text-[10px] text-slate-500 mb-2 text-center no-print">週タブより<strong class="text-slate-600">注文件数</strong>が多いのが普通です（対象期間が長いため）</p>
+            <div class="flex items-end justify-between gap-1.5 min-h-[11rem] h-52 px-1 pb-1 border-b-2 border-slate-200 rounded-b-lg bg-gradient-to-b from-indigo-50/30 to-white">
+              <div class="flex flex-col items-center flex-1 gap-0.5 min-w-0 rounded-t-lg border border-indigo-100 border-t-[5px] border-t-blue-600 bg-white pt-1 px-0.5 shadow-sm">
+                <div class="w-full max-w-14 rounded-t bg-gradient-to-t from-blue-700 to-blue-500 h-[85%] shadow-sm shadow-blue-900/15"></div>
+                <span class="text-[11px] text-center text-slate-800 leading-tight font-bold">A商事</span>
+                <span class="text-[9px] text-violet-700 font-bold tabular-nums">504件</span>
+              </div>
+              <div class="flex flex-col items-center flex-1 gap-0.5 min-w-0 rounded-t-lg border border-indigo-100 border-t-[5px] border-t-sky-500 bg-white pt-1 px-0.5 shadow-sm">
+                <div class="w-full max-w-14 rounded-t bg-gradient-to-t from-blue-600 to-sky-400 h-[62%] shadow-sm shadow-blue-900/15"></div>
+                <span class="text-[11px] text-center text-slate-800 leading-tight font-bold">B工業</span>
+                <span class="text-[9px] text-violet-700 font-bold tabular-nums">399件</span>
+              </div>
+              <div class="flex flex-col items-center flex-1 gap-0.5 min-w-0 rounded-t-lg border border-indigo-100 border-t-[5px] border-t-emerald-500 bg-white pt-1 px-0.5 shadow-sm">
+                <div class="w-full max-w-14 rounded-t bg-gradient-to-t from-emerald-600 to-emerald-400 h-[52%] shadow-sm shadow-emerald-900/15"></div>
+                <span class="text-[11px] text-center text-slate-800 leading-tight font-bold">C製作所</span>
+                <span class="text-[9px] text-violet-700 font-bold tabular-nums">344件</span>
+              </div>
+              <div class="flex flex-col items-center flex-1 gap-0.5 min-w-0 rounded-t-lg border border-indigo-100 border-t-[5px] border-t-amber-500 bg-white pt-1 px-0.5 shadow-sm">
+                <div class="w-full max-w-14 rounded-t bg-gradient-to-t from-amber-600 to-amber-400 h-[40%] shadow-sm shadow-amber-900/15"></div>
+                <span class="text-[11px] text-center text-slate-800 leading-tight font-bold">D金属</span>
+                <span class="text-[9px] text-violet-700 font-bold tabular-nums">268件</span>
+              </div>
+              <div class="flex flex-col items-center flex-1 gap-0.5 min-w-0 rounded-t-lg border border-indigo-100 border-t-[5px] border-t-violet-500 bg-white pt-1 px-0.5 shadow-sm">
+                <div class="w-full max-w-14 rounded-t bg-gradient-to-t from-violet-600 to-violet-400 h-[35%] shadow-sm shadow-violet-900/15"></div>
+                <span class="text-[11px] text-center text-slate-800 leading-tight font-bold">E機材</span>
+                <span class="text-[9px] text-violet-700 font-bold tabular-nums">218件</span>
+              </div>
+              <div class="flex flex-col items-center flex-1 gap-0.5 min-w-0 rounded-t-lg border border-indigo-100 border-t-[5px] border-t-slate-400 bg-slate-50/80 pt-1 px-0.5 shadow-sm">
+                <div class="w-full max-w-14 rounded-t bg-gradient-to-t from-slate-500 to-slate-400 h-[28%] shadow-sm"></div>
+                <span class="text-[11px] text-center text-slate-700 leading-tight font-bold">その他</span>
+                <span class="text-[9px] text-violet-700 font-bold tabular-nums">164件</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <p class="text-[11px] text-ads-dim mt-4">本番では、どのタブを開いているかを画面の住所に合わせる想定です。必要なら、いつ切り替えたかも記録に残せます。キーボードの左右の矢印でも切り替えできます。</p>
+      </div>
+    </div>
+  </main>
+
+  <footer class="max-w-6xl mx-auto px-4 sm:px-6 pb-10 pt-6 border-t border-slate-200/60">
+    <p class="text-xs text-slate-400 text-center">sales-insight-customers.html — レビュー反映版（画面イメージ）</p>
+  </footer>
+  <script src="https://cdn.jsdelivr.net/npm/lucide@0.469.0/dist/umd/lucide.min.js" crossorigin="anonymous"></script>
+  <script>
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+    (function () {
+      var w = document.getElementById('cust-tab-week');
+      var m = document.getElementById('cust-tab-month');
+      var lw = document.getElementById('tab-label-week');
+      var lm = document.getElementById('tab-label-month');
+      var pw = document.getElementById('cust-panel-week');
+      var pm = document.getElementById('cust-panel-month');
+      if (!w || !m || !lw || !lm) return;
+      function syncAria() {
+        var weekOn = w.checked;
+        lw.setAttribute('aria-selected', weekOn ? 'true' : 'false');
+        lm.setAttribute('aria-selected', weekOn ? 'false' : 'true');
+        lw.setAttribute('tabindex', weekOn ? '0' : '-1');
+        lm.setAttribute('tabindex', weekOn ? '-1' : '0');
+        if (pw) pw.setAttribute('aria-hidden', weekOn ? 'false' : 'true');
+        if (pm) pm.setAttribute('aria-hidden', weekOn ? 'true' : 'false');
+      }
+      w.addEventListener('change', syncAria);
+      m.addEventListener('change', syncAria);
+      syncAria();
+      lw.addEventListener('keydown', function (e) {
+        if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+          e.preventDefault();
+          m.checked = true;
+          syncAria();
+          lm.focus();
+        }
+      });
+      lm.addEventListener('keydown', function (e) {
+        if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+          e.preventDefault();
+          w.checked = true;
+          syncAria();
+          lw.focus();
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

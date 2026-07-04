@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<!--
+  4原則ベースのレイアウト素片（ダッシュボードのたたき台）
+  ツールの顔（受注〜請求の売上まとめ）の正本: sales-insight-mockup.html
+  全体の流れ: sales-report-flow.html
+-->
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <title>売上報告ツール · 画面イメージ（編集用）</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Noto Sans JP"', 'sans-serif'],
+            display: ['"Plus Jakarta Sans"', '"Noto Sans JP"', 'sans-serif'],
+          },
+        }
+      }
+    }
+  </script>
+  <style>
+    .u-container { max-width: 72rem; margin-left: auto; margin-right: auto; }
+    a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+      outline: 2px solid #4f46e5;
+      outline-offset: 2px;
+    }
+  </style>
+</head>
+<body class="min-h-screen bg-slate-100 text-slate-700 antialiased">
+  <div class="no-print border-b border-slate-200 bg-white text-slate-500 text-xs px-4 py-2 flex flex-wrap items-center justify-between gap-2">
+    <span class="flex flex-wrap items-center gap-x-3 gap-y-1">
+      <span>レイアウト素片 · <code class="text-slate-700">sales-report-tool-face.html</code></span>
+      <a href="sales-insight-mockup.html" class="text-indigo-600 font-medium hover:underline">受注〜請求の売上まとめ（ツールの顔）</a>
+    </span>
+    <a href="index.html" class="text-indigo-600 font-medium hover:underline shrink-0">全体の流れ</a>
+  </div>
+  <header class="bg-slate-900 text-white">
+    <div class="u-container px-4 sm:px-6 py-10 sm:py-12">
+      <div class="max-w-2xl">
+        <h1 class="font-display text-3xl sm:text-4xl font-bold tracking-tight text-white">近接・整列・反復・対比</h1>
+        <p class="text-slate-400 text-sm mt-2">レイアウトのデモ（売上報告ツールの「顔」として使うたたき台）</p>
+      </div>
+    </div>
+  </header>
+
+  <main class="u-container px-4 sm:px-6 py-8 sm:py-10 -mt-6 sm:-mt-8 relative z-10">
+    <div class="rounded-2xl border border-slate-200/90 bg-white shadow-xl shadow-slate-900/5 overflow-hidden">
+      <div class="border-b border-slate-100 px-5 sm:px-8 py-4 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p class="font-display font-bold text-slate-900 text-lg">今週のまとめ</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <button type="button" class="h-10 px-4 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 bg-white hover:bg-slate-50 transition-colors">書き出し</button>
+          <button type="button" class="h-10 px-5 rounded-lg bg-indigo-600 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 transition-colors">レポート作成</button>
+        </div>
+      </div>
+
+      <div class="p-5 sm:p-8 space-y-8">
+        <section aria-labelledby="metrics-heading">
+          <h2 id="metrics-heading" class="sr-only">主要指標</h2>
+          <div class="grid sm:grid-cols-3 gap-6 sm:gap-8">
+            <div class="rounded-xl border border-slate-200 bg-slate-50/80 p-5">
+              <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">完了タスク</p>
+              <p class="font-display text-3xl font-bold text-slate-900 tabular-nums">24</p>
+              <p class="text-xs text-slate-500 mt-2">先週比 <span class="font-semibold text-emerald-600">+12%</span></p>
+            </div>
+            <div class="rounded-xl border border-slate-200 bg-slate-50/80 p-5">
+              <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">レビュー待ち</p>
+              <p class="font-display text-3xl font-bold text-slate-900 tabular-nums">7</p>
+              <p class="text-xs text-slate-500 mt-2">期限が近い <span class="font-semibold text-amber-700">3件</span></p>
+            </div>
+            <div class="rounded-xl border-2 border-indigo-200 bg-indigo-50/60 p-5 ring-1 ring-indigo-100">
+              <p class="text-xs font-semibold text-indigo-800 uppercase tracking-wide mb-1">ブロッカー</p>
+              <p class="font-display text-3xl font-bold text-indigo-950 tabular-nums">2</p>
+              <p class="text-xs text-indigo-800/70 mt-2">本日中</p>
+            </div>
+          </div>
+        </section>
+
+        <div class="grid lg:grid-cols-12 gap-8 lg:gap-10 items-start">
+          <section class="lg:col-span-7 space-y-5" aria-labelledby="form-heading">
+            <div class="flex items-center gap-3">
+              <span class="h-8 w-1 rounded-full bg-indigo-500 shrink-0" aria-hidden="true"></span>
+              <h2 id="form-heading" class="font-display font-bold text-slate-900">タスクを追加</h2>
+            </div>
+            <form class="space-y-6" action="#" method="get" onsubmit="return false;">
+              <div class="space-y-5 rounded-xl border border-slate-200 bg-white p-5 sm:p-6">
+                <div>
+                  <label for="title" class="block text-sm font-semibold text-slate-800 mb-1.5">タイトル</label>
+                  <input id="title" type="text" placeholder="タイトル" class="w-full h-11 rounded-lg border border-slate-200 px-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500">
+                </div>
+                <div class="grid sm:grid-cols-2 gap-5">
+                  <div>
+                    <label for="owner" class="block text-sm font-semibold text-slate-800 mb-1.5">担当</label>
+                    <select id="owner" class="w-full h-11 rounded-lg border border-slate-200 px-3 text-sm text-slate-900 bg-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500">
+                      <option>未選択</option>
+                      <option>佐藤</option>
+                      <option>鈴木</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label for="due" class="block text-sm font-semibold text-slate-800 mb-1.5">期限</label>
+                    <input id="due" type="date" class="w-full h-11 rounded-lg border border-slate-200 px-3 text-sm text-slate-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500">
+                  </div>
+                </div>
+                <div>
+                  <label for="note" class="block text-sm font-semibold text-slate-800 mb-1.5">メモ</label>
+                  <textarea id="note" rows="3" class="w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" placeholder="任意"></textarea>
+                </div>
+              </div>
+              <div class="flex flex-wrap items-center gap-3 justify-end">
+                <button type="button" class="h-10 px-4 text-sm font-medium text-slate-500 hover:text-slate-800 transition-colors">破棄</button>
+                <button type="submit" class="h-10 px-6 rounded-lg bg-slate-900 text-sm font-semibold text-white hover:bg-slate-800 transition-colors">保存</button>
+              </div>
+            </form>
+          </section>
+
+          <section class="lg:col-span-5 space-y-3" aria-labelledby="list-heading">
+            <div class="flex items-center gap-3">
+              <span class="h-8 w-1 rounded-full bg-slate-300 shrink-0" aria-hidden="true"></span>
+              <h2 id="list-heading" class="font-display font-bold text-slate-900">アクティビティ</h2>
+            </div>
+            <ul class="rounded-xl border border-slate-200 divide-y divide-slate-100 bg-white overflow-hidden">
+              <li class="flex items-center justify-between gap-4 px-4 sm:px-5 py-3.5 hover:bg-slate-50/80 transition-colors">
+                <p class="font-medium text-slate-900 truncate min-w-0">デザインレビュー</p>
+                <time class="text-xs text-slate-400 tabular-nums shrink-0" datetime="2026-04-05">4/05</time>
+              </li>
+              <li class="flex items-center justify-between gap-4 px-4 sm:px-5 py-3.5 hover:bg-slate-50/80 transition-colors">
+                <p class="font-medium text-slate-900 truncate min-w-0">API 負荷試験</p>
+                <time class="text-xs text-slate-400 tabular-nums shrink-0" datetime="2026-04-04">4/04</time>
+              </li>
+              <li class="flex items-center justify-between gap-4 px-4 sm:px-5 py-3.5 hover:bg-slate-50/80 transition-colors">
+                <p class="font-medium text-slate-900 truncate min-w-0">リリースノート草案</p>
+                <time class="text-xs text-slate-400 tabular-nums shrink-0" datetime="2026-04-03">4/03</time>
+              </li>
+            </ul>
+          </section>
+        </div>
+
+        <section aria-labelledby="cards-heading">
+          <h2 id="cards-heading" class="font-display font-bold text-slate-900 mb-3">優先度</h2>
+          <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <article class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+              <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">低</p>
+              <p class="text-sm font-semibold text-slate-800">バックログ整理</p>
+            </article>
+            <article class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+              <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">中</p>
+              <p class="text-sm font-semibold text-slate-800">アクセシビリティ監査</p>
+            </article>
+            <article class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+              <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">中</p>
+              <p class="text-sm font-semibold text-slate-800">顧客インタビュー</p>
+            </article>
+            <article class="rounded-xl border-2 border-amber-400 bg-amber-50 p-4 shadow-md">
+              <p class="text-[10px] font-bold uppercase tracking-wider text-amber-800 mb-2">高</p>
+              <p class="text-sm font-semibold text-slate-900">セキュリティパッチ適用</p>
+            </article>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <div class="mt-8 rounded-xl border border-slate-200 bg-white/90 px-4 sm:px-6 py-4 shadow-sm">
+      <p class="text-xs text-slate-500 leading-relaxed text-center sm:text-left">
+        <span class="text-slate-700 font-semibold">近接</span> まとまり ·
+        <span class="text-slate-700 font-semibold">整列</span> 軸 ·
+        <span class="text-slate-700 font-semibold">反復</span> パターン ·
+        <span class="text-slate-700 font-semibold">対比</span> 強弱
+      </p>
+    </div>
+  </main>
+
+  <footer class="u-container px-4 sm:px-6 pb-12 pt-4">
+    <p class="text-center text-xs text-slate-400">4原則デモ · 顔は <a href="sales-insight-mockup.html" class="text-indigo-600 underline decoration-indigo-200">sales-insight-mockup.html</a></p>
+  </footer>
+</body>
+</html>

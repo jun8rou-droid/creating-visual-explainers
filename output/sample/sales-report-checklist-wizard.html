@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <title>週次売上レポート — チェックリスト質問ウィザード</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Noto Sans JP"', 'sans-serif'],
+            display: ['"Plus Jakarta Sans"', '"Noto Sans JP"', 'sans-serif'],
+          },
+          colors: { brand: { 50: '#f5f3ff', 100: '#ede9fe', 500: '#8b5cf6', 600: '#7c3aed', 700: '#6d28d9' } },
+          boxShadow: {
+            card: '0 1px 2px rgba(15,23,42,0.04), 0 8px 24px rgba(99,102,241,0.08)',
+          },
+        },
+      },
+    };
+  </script>
+  <style>
+    .mesh-bg {
+      background: #f6f7fb;
+      background-image: radial-gradient(ellipse 90% 60% at 100% 0%, rgba(124,58,237,0.08), transparent 50%),
+        radial-gradient(ellipse 70% 50% at 0% 100%, rgba(99,102,241,0.06), transparent 45%);
+    }
+    .bar-fill { transition: width 0.25s ease; }
+  </style>
+</head>
+<body class="mesh-bg min-h-screen text-slate-800 antialiased text-[15px]">
+  <div class="mx-auto max-w-2xl px-4 py-8 sm:py-12">
+    <header class="mb-8 text-center">
+      <p class="text-xs font-bold uppercase tracking-wider text-brand-600">チェックリストから始める</p>
+      <h1 class="mt-2 font-display text-2xl font-bold tracking-tight text-slate-900 sm:text-[1.65rem]">社内打ち合わせ用 · 質問ウィザード</h1>
+      <p class="mt-3 text-sm leading-relaxed text-slate-600">
+        <a href="sales-report-automation-checklist.md" class="font-medium text-brand-700 underline-offset-2 hover:underline">sales-report-automation-checklist.md</a>
+        の論点を、<strong class="text-slate-800">画面の質問</strong>に並べ替えました。後半は <strong class="text-slate-800">追補</strong>（前回まで未カバーだった項目）です。答えはこのブラウザにだけ保存されます（サーバには送りません）。
+      </p>
+      <p class="mt-2 text-xs text-slate-500">
+        <strong class="text-slate-600">正本</strong>＝公式に信じる一次データ／<strong class="text-slate-600">冪等</strong>＝同じ操作を繰り返しても壊れないこと／<strong class="text-slate-600">LLM</strong>＝文章生成などの AI（ここでは Claude の想定）
+      </p>
+    </header>
+
+    <div class="mb-4 rounded-2xl border border-brand-100 bg-white/90 p-4 shadow-card">
+      <div class="flex items-center justify-between gap-2 text-xs font-semibold text-slate-500">
+        <span id="step-label">質問 1 / —</span>
+        <span id="section-tag" class="rounded-full bg-brand-50 px-2.5 py-0.5 text-brand-700">A</span>
+      </div>
+      <div class="mt-2 h-2 overflow-hidden rounded-full bg-slate-100">
+        <div id="progress-bar" class="bar-fill h-full w-0 rounded-full bg-gradient-to-r from-brand-500 to-indigo-600" style="width:0%"></div>
+      </div>
+    </div>
+
+    <article class="rounded-2xl border border-slate-200/90 bg-white p-6 shadow-card sm:p-8" aria-live="polite">
+      <h2 id="q-title" class="font-display text-lg font-bold leading-snug text-slate-900 sm:text-xl"></h2>
+      <p id="q-ref" class="mt-2 text-xs font-medium text-slate-400"></p>
+      <p id="q-hint" class="mt-4 text-sm leading-relaxed text-slate-600"></p>
+
+      <div id="q-options" class="mt-6 space-y-2"></div>
+
+      <div class="mt-6">
+        <label for="q-note" class="block text-xs font-bold uppercase tracking-wider text-slate-400">メモ・補足（任意）</label>
+        <textarea id="q-note" rows="3" class="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2.5 text-sm text-slate-800 shadow-inner placeholder:text-slate-400 focus:border-brand-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-200" placeholder="会議で決めたこと・次に聞く人・保留理由など"></textarea>
+      </div>
+    </article>
+
+    <div class="mt-6 flex flex-wrap items-center justify-between gap-3">
+      <button type="button" id="btn-prev" class="rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-300">戻る</button>
+      <div class="flex flex-wrap gap-2">
+        <button type="button" id="btn-clear" class="rounded-xl px-4 py-2.5 text-sm font-medium text-slate-500 hover:bg-slate-100">保存を消す</button>
+        <button type="button" id="btn-next" class="rounded-xl bg-gradient-to-r from-brand-600 to-indigo-600 px-6 py-2.5 text-sm font-bold text-white shadow-md shadow-brand-600/25 transition hover:opacity-95">次へ</button>
+      </div>
+    </div>
+
+    <section id="finish-panel" class="mt-10 hidden rounded-2xl border border-emerald-200 bg-emerald-50/80 p-6 shadow-card">
+      <h2 class="font-display text-lg font-bold text-emerald-950">一通り終わりました</h2>
+      <p class="mt-2 text-sm text-emerald-900/90">以下をコピーして、会議メモやチェックリストの下に貼ると整理しやすいです。</p>
+      <textarea id="export-md" readonly rows="14" class="mt-4 w-full rounded-xl border border-emerald-200/80 bg-white p-3 font-mono text-xs leading-relaxed text-slate-800"></textarea>
+      <button type="button" id="btn-copy" class="mt-3 rounded-xl bg-emerald-700 px-5 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-emerald-800">コピーする</button>
+      <p class="mt-4 text-center text-sm">
+        <a href="sales-report-automation-checklist.md" class="font-medium text-brand-700 underline-offset-2 hover:underline">チェックリスト（Markdown）に戻る</a>
+        ·
+        <a href="sales-report-mocks-index.html" class="font-medium text-slate-600 underline-offset-2 hover:underline">モック一覧</a>
+      </p>
+    </section>
+
+    <p class="mt-10 text-center text-xs text-slate-400">sales-report-checklist-wizard.html</p>
+  </div>
+
+  <script>
+(function () {
+  const STORAGE_KEY = 'sales-report-checklist-wizard-v2';
+  const STORAGE_KEY_LEGACY = 'sales-report-checklist-wizard-v1';
+
+  const STEPS = [
+    {
+      section: 'はじめに',
+      ref: '—',
+      title: 'このウィザードの使い方で合っていますか？',
+      hint: '上司・現場・エンジニアが同じ画面を見ながら話す想定です。分からない項目は「未定」で進めてよく、あとからメモを足してください。',
+      options: [
+        { v: 'yes', label: 'はい、打ち合わせの下準備として使う' },
+        { v: 'solo', label: 'ひとりで頭出ししてから会議に持ち込む' },
+      ],
+    },
+    {
+      section: 'A',
+      ref: 'チェックリスト A · トリガー',
+      title: '取り込みは「毎日」と「週次まとめ」の二段にしますか？それとも週次 CSV のみにしますか？',
+      hint: 'いまの設計メモは「週次のみ」の想定です。毎日取り込むと、整合やダッシュボードの意味づけが変わります。',
+      options: [
+        { v: 'weekly-only', label: '週次 CSV のみ（月曜の一括送信）' },
+        { v: 'two-stage', label: '毎日取り込み ＋ 週次でまとめ通知' },
+        { v: 'undecided', label: 'まだ決められない（メモに条件を書く）' },
+      ],
+    },
+    {
+      section: 'A',
+      ref: 'チェックリスト A · ソース',
+      title: '数値の「正本（一次ソース）」はどこに置きますか？',
+      hint: '正本＝公式に信じるデータの出どころ。ツール内の SQLite は二次データ（コピー）です。',
+      options: [
+        { v: 'order-csv', label: '受注管理ツールから出す CSV' },
+        { v: 'db-direct', label: 'データベースを直接読む（CSV 以外）' },
+        { v: 'other', label: 'その他・複数ソース' },
+        { v: 'undecided', label: '未定（誰に決定権があるかメモ）' },
+      ],
+    },
+    {
+      section: 'A',
+      ref: 'チェックリスト A · ソース',
+      title: '週次 CSV は「どこに」「どんな名前で」「誰が」届けますか？',
+      hint: '自動送信の場合も、届き口（共有フォルダ・メール・API など）と命名規則を一言で揃えると実装が楽です。',
+      options: [
+        { v: 'auto-named', label: '自動送信で、ファイル名のルールはある／決める予定' },
+        { v: 'manual', label: '手動で置く運用（誰が・いつまでに）' },
+        { v: 'undecided', label: '未定' },
+      ],
+    },
+    {
+      section: 'A',
+      ref: 'チェックリスト A · 処理',
+      title: '数値の集計・検証は「どこで」「何で」動かす前提にしますか？',
+      hint: 'API に渡す前に数値を確定させる場所です（例: 社内サーバの Python、クラウドの関数など）。',
+      options: [
+        { v: 'python-internal', label: '社内サーバまたは担当 PC 上の Python（いまの CLI 系）' },
+        { v: 'cloud-fn', label: 'クラウドのサーバレス（関数）' },
+        { v: 'undecided', label: '未定・情シスと相談' },
+      ],
+    },
+    {
+      section: 'A',
+      ref: 'チェックリスト A · 処理',
+      title: 'Claude（Anthropic API）はどこから呼び出し、API キーは誰がどこで保管しますか？',
+      hint: 'API キー＝クラウドの AI に「本人です」と示す秘密情報。リポジトリやチャットに貼らない運用を決めます。',
+      options: [
+        { v: 'server-secret', label: '社内サーバから呼ぶ。キーは環境変数・秘密管理ツールに限定' },
+        { v: 'cloud-secret', label: 'クラウドの秘密ストアから呼ぶ' },
+        { v: 'undecided', label: '未定（情シス・セキュリティと相談）' },
+      ],
+    },
+    {
+      section: 'A',
+      ref: 'チェックリスト A · 届け先',
+      title: '通知のチャネルはどれを「正」にしますか？（一本化）',
+      hint: 'LINE / LINE WORKS / Slack / メールなど。複数使う場合でも「公式はどれか」を決めると運用が楽です。',
+      options: [
+        { v: 'slack', label: 'Slack（または Teams 等のチャット）' },
+        { v: 'line', label: 'LINE / LINE WORKS' },
+        { v: 'email', label: 'メール' },
+        { v: 'undecided', label: '未定' },
+      ],
+    },
+    {
+      section: 'A',
+      ref: 'チェックリスト A · 届け先',
+      title: 'ブラウザのダッシュボードと、チャット・メール通知の役割はどう分けますか？',
+      hint: 'ダッシュボード＝数字を眺める画面。通知＝「週が終わった」と知らせる短文。重複させすぎないと読まれます。',
+      options: [
+        { v: 'dash-detail', label: 'ダッシュで詳細、通知は要約＋リンクだけ' },
+        { v: 'notify-main', label: '通知を主にし、ダッシュは補助' },
+        { v: 'undecided', label: '未定' },
+      ],
+    },
+    {
+      section: 'B',
+      ref: 'チェックリスト B',
+      title: '同じ週の CSV が二回届いたら、どうしたいですか？',
+      hint: '冪等＝同じファイルをもう一度流しても壊れないこと。上書き・拒否・アラートのどれを正にするかです。',
+      options: [
+        { v: 'replace', label: '新しい方で上書き（いまの --replace-week に近い）' },
+        { v: 'reject', label: '二回目は拒否して人に通知' },
+        { v: 'alert', label: '両方保持せず、差分確認が必要なら止める' },
+        { v: 'undecided', label: '未定' },
+      ],
+    },
+    {
+      section: 'B',
+      ref: 'チェックリスト B',
+      title: '売上は「出荷日」を正にしますか？例外や別基準はありますか？',
+      hint: '受注日ベースにすると数字の意味が変わります。受注管理のエクスポート条件と揃えるのが安全です。',
+      options: [
+        { v: 'ship', label: '出荷日ベースで固定' },
+        { v: 'mixed', label: '例外あり（メモに列挙する）' },
+        { v: 'undecided', label: '未定・経理/現場と要確認' },
+      ],
+    },
+    {
+      section: 'B',
+      ref: 'チェックリスト B',
+      title: '前週比や先月比など「比べる相手」のルールは固定できますか？',
+      hint: 'ダッシュボードの前週比が意味を持つには、前週データが揃っている必要があります。',
+      options: [
+        { v: 'wow-fixed', label: '前週同条件で固定したい' },
+        { v: 'custom', label: '別ルール（メモに書く）' },
+        { v: 'undecided', label: '未定' },
+      ],
+    },
+    {
+      section: 'C',
+      ref: 'チェックリスト C',
+      title: '必須列が欠けていたり、明らかに違うファイルが来たときは？',
+      hint: 'スキーマ検証＝形式が合っているかのチェック。隔離＝別フォルダに退ける、など。',
+      options: [
+        { v: 'reject-notify', label: '取り込まず、担当者に通知' },
+        { v: 'quarantine', label: '隔離フォルダに移して調査' },
+        { v: 'undecided', label: '未定' },
+      ],
+    },
+    {
+      section: 'C',
+      ref: 'チェックリスト C',
+      title: '得意先コードが欠けている行があったら？',
+      options: [
+        { v: 'block', label: 'その週は失敗として止める' },
+        { v: 'skip-row', label: '行だけスキップ（リスクをメモ）' },
+        { v: 'undecided', label: '未定' },
+      ],
+    },
+    {
+      section: 'D',
+      ref: 'チェックリスト D · LLM',
+      title: 'AI（LLM）に渡していい情報の範囲は、上司・法務と話せますか？',
+      hint: '得意先名や金額の粒度は、会社の個人情報・取引先ポリシーとセットで決めます（PII＝個人や取引先を特定しうる情報）。',
+      options: [
+        { v: 'aggregates-only', label: '集計と注意書き程度に限定したい' },
+        { v: 'with-names', label: 'コードに加え名称も載せたい（承認済み前提）' },
+        { v: 'undecided', label: '未相談' },
+      ],
+    },
+    {
+      section: 'D',
+      ref: 'チェックリスト D',
+      title: 'ログにプロンプト全文を残しますか？',
+      hint: '残さない方が漏えいリスクは下がりやすいです。運用でどこまで追えるかのトレードオフです。',
+      options: [
+        { v: 'no-full', label: '全文は残さない（要約・メタのみ）' },
+        { v: 'restricted', label: '限定的な環境だけ全文（アクセス管理あり）' },
+        { v: 'undecided', label: '未定' },
+      ],
+    },
+    {
+      section: 'D',
+      ref: 'チェックリスト D · フォールバック',
+      title: 'AI が失敗したときは？',
+      hint: 'フォールバック＝本体が動かないときの予備の動き。',
+      options: [
+        { v: 'template', label: '定型文だけ送る／画面に出す' },
+        { v: 'abort', label: '送信中止して人が対応' },
+        { v: 'undecided', label: '未定' },
+      ],
+    },
+    {
+      section: 'E',
+      ref: 'チェックリスト E',
+      title: '配信先リストと「広げるときの承認」は決まっていますか？',
+      options: [
+        { v: 'fixed-list', label: 'リストは固定し、追加は承認フローあり' },
+        { v: 'small', label: '当面は少人数のみ' },
+        { v: 'undecided', label: '未定' },
+      ],
+    },
+    {
+      section: 'E',
+      ref: 'チェックリスト E',
+      title: '取り込み失敗・API 失敗・送信失敗のとき、誰にどう知らせますか？',
+      options: [
+        { v: 'oncall', label: '当番・担当チャンネルに通知' },
+        { v: 'email-manager', label: 'メールで上司／情シス' },
+        { v: 'undecided', label: '未定' },
+      ],
+    },
+    {
+      section: 'E',
+      ref: 'チェックリスト E · 監査',
+      title: '監査ログ（いつ誰が何をしたか）はどこまで必要ですか？',
+      hint: '監査ログ＝あとから説明できるよう、処理・送信の記録を残す仕組みです。',
+      options: [
+        { v: 'minimal', label: '取り込み・送信の成否と時刻だけでよい' },
+        { v: 'detailed', label: '承認者・差分まで残したい' },
+        { v: 'undecided', label: '未定' },
+      ],
+    },
+
+    /* ——— 追補（チェックリストでまだ聞いていなかった論点） ——— */
+    {
+      section: '追補 · パイプライン',
+      ref: 'チェックリスト · パイプライン確認',
+      title: '「正本は受注 CSV、ツール内は二次データ」と一方向（エクスポート → ツール）を、社内ドキュメントに明記しますか？',
+      hint: 'Wiki・Notion・手順書のどれでもよいです。**明記する場所と更新担当**が決まると、[x] にしやすくなります。',
+      options: [
+        { v: 'doc-scheduled', label: '明記する。担当・期限（メモ欄に書く）まで決めた／決める予定' },
+        { v: 'verbal-only', label: '当面は口頭合意のみ（文書化は後）' },
+        { v: 'undecided', label: '未定' },
+      ],
+    },
+    {
+      section: '追補 · B',
+      ref: 'チェックリスト B · 指標説明',
+      title: 'モックにある「材質（直近12か月）」など、期間が違う指標を利用者向けに説明できますか？',
+      hint: '週次レポートに載せない・別ダッシュボードで説明する、など方針があれば十分です。',
+      options: [
+        { v: 'separate-doc', label: '別紙・別画面で説明する（週次通知には載せない）' },
+        { v: 'in-report', label: '週次でも短く触れる（定義を添える）' },
+        { v: 'undecided', label: '未定' },
+      ],
+    },
+    {
+      section: '追補 · C',
+      ref: 'チェックリスト C · スキーマ／誤ファイル',
+      title: '「過去データと比較して通知」「単価は過去から推測提案」案を、正式ルールとしてどうしますか？',
+      hint: '以前のウィザードでメモにあった案の続きです。採用するなら **誤ファイル判定** と **候補単価** の責任分界を一文で書けると実装しやすいです。',
+      options: [
+        { v: 'adopt-full', label: '採用し、設計書・手順書に書く' },
+        { v: 'adopt-partial', label: '通知だけ／単価候補だけなど縮小して採用' },
+        { v: 'reject', label: '採用しない（別案にする）' },
+        { v: 'undecided', label: '未定（メモに条件）' },
+      ],
+    },
+    {
+      section: '追補 · C',
+      ref: 'チェックリスト C · システム境界',
+      title: '「CSV 取り込み・集計」と「週次レポート生成（通知文・配信）」の境目は、誰が図や一覧で説明できますか？',
+      hint: 'システム境界＝CSVが届いてからメールが出るまでの途中で、「どのプログラム（または人）がどこまでやるか」の線です。例:「PythonがSQLite取り込み〜集計〜LLM用JSONまで」「別スクリプトがメール送信のみ」「人が単価候補だけ承認」など、箱と矢印が1枚で描ければ十分です。チェックリストのC節の直後にも同じ説明を書いてあります。',
+      options: [
+        { v: 'engineer-doc', label: 'エンジニアが図で説明できる（またはすでに説明資料がある）' },
+        { v: 'mixed', label: '複数部署で分担（メモに列挙）' },
+        { v: 'undecided', label: '未定' },
+      ],
+    },
+    {
+      section: '追補 · C',
+      ref: 'チェックリスト C · スキーマ検証',
+      title: '取り込み前のスキーマ検証（必須列・型・件数の上下限）はどこまで厳しくしますか？',
+      hint: '厳しすぎると現場の CSV がよく止まります。緩すぎると誤データが入ります。',
+      options: [
+        { v: 'strict', label: '必須列＋型＋件数の下限/上限まで決める' },
+        { v: 'columns-only', label: '必須列と日付形式だけまず入れる' },
+        { v: 'undecided', label: '未定（情シス・現場と要相談）' },
+      ],
+    },
+    {
+      section: '追補 · D',
+      ref: 'チェックリスト D · 法務',
+      title: 'マスキング・匿名化の要否は、法務または情シスとすり合わせ済みですか？',
+      hint: '「名称もプロンプトに」と決めた場合でも、**記録に残る合意**があると安全です。',
+      options: [
+        { v: 'scheduled', label: '打ち合わせ日程が決まっている／済み' },
+        { v: 'requested', label: 'これから依頼する（メモに担当）' },
+        { v: 'undecided', label: '未定' },
+      ],
+    },
+    {
+      section: '追補 · D',
+      ref: 'チェックリスト D · 信頼性',
+      title: 'Anthropic API のタイムアウト・リトライ・レート制限の目安はどうしますか？',
+      hint: 'レート制限＝短時間に送りすぎると API 側が一時拒否すること。リトライ＝失敗したら少し待って再試行すること。',
+      options: [
+        { v: 'defaults', label: 'まずはライブラリ既定＋数回リトライでよい（あとで調整）' },
+        { v: 'written', label: '数値目安を文書に書いた（メモ欄に秒数・回数）' },
+        { v: 'undecided', label: '未定（情シスと決める）' },
+      ],
+    },
+    {
+      section: '追補 · E',
+      ref: 'チェックリスト E · 二重送信',
+      title: '同じ週の同じレポートが二重に送られないように、記録はどう残しますか？',
+      hint: '例: DB に「週キー＋送信済み」、メールの Message-ID 管理、など。',
+      options: [
+        { v: 'db-flag', label: 'DB に送信済みフラグ（またはログ）を残す' },
+        { v: 'mail-only', label: 'メール側の運用（テンプレと件名規則）で抑止' },
+        { v: 'undecided', label: '未定' },
+      ],
+    },
+    {
+      section: '追補 · E',
+      ref: 'チェックリスト E · 手動再実行',
+      title: '手動での再取り込み・再送信・再実行は、誰に権限を持たせますか？',
+      hint: '障害時や訂正時に、誰がコマンドや管理画面を触れるかです。',
+      options: [
+        { v: 'admins', label: '管理者数名に限定' },
+        { v: 'oncall-only', label: '当番のみ' },
+        { v: 'undecided', label: '未定' },
+      ],
+    },
+    {
+      section: '追補 · E',
+      ref: 'チェックリスト E · 通知の整合',
+      title: '「通常はメール」「失敗時はチャット」など、チャネルが複数ある場合の役割を一文で決められますか？',
+      hint: '以前の回答でメールとチャットが混在しうる場合の整理用です。',
+      options: [
+        { v: 'matrix', label: '状況別の表（メモ欄に貼る）で決めた／決める' },
+        { v: 'email-all', label: '障害も含めメールに統一する' },
+        { v: 'undecided', label: '未定' },
+      ],
+    },
+    {
+      section: '追補 · F',
+      ref: 'チェックリスト F',
+      title: '社内向けの「画面の正」とするモック HTML はどれにしますか？',
+      hint: 'bundle の SalesInsight と sample のモックが複数あるとき、**参照の一本化**です。',
+      options: [
+        { v: 'saas-dash', label: 'sales-report-saas-dashboard-mock.html（週次 SaaS 風）' },
+        { v: 'bundle-insight', label: 'sales-report-bundle の売上まとめ系' },
+        { v: 'mvp-cli', label: 'sales-report-mvp-tool-ui.html（CLI 相当）' },
+        { v: 'undecided', label: '未定' },
+      ],
+    },
+    {
+      section: '追補 · F',
+      ref: 'チェックリスト F · 整合',
+      title: 'sales-report-flow.html の「届け先」と、メッセージ配信モックの表現を揃える作業はいつ頃やりますか？',
+      options: [
+        { v: 'next-sprint', label: '次の改修サイクルでやる（期限をメモ）' },
+        { v: 'low-prio', label: '優先度低め・余力で' },
+        { v: 'undecided', label: '未定' },
+      ],
+    },
+    {
+      section: '追補 · G',
+      ref: 'チェックリスト G',
+      title: 'ステージング（本番に近い環境）で、取り込み→集計→API→配信の E2E を試す予定はありますか？',
+      hint: 'E2E（イーツーイー）＝最初から最後まで一通り通す結合試験のことです。',
+      options: [
+        { v: 'dated', label: '日程またはマイルストーンがある（メモ欄）' },
+        { v: 'before-go-live', label: '本番直前に必ずやる（日は未定）' },
+        { v: 'undecided', label: '未定' },
+      ],
+    },
+    {
+      section: '追補 · G',
+      ref: 'チェックリスト G · コスト',
+      title: 'LLM（Claude）利用のコスト試算を、関係者に共有しますか？',
+      hint: '週 1 回でもプロンプトが長いと変動します。共有しておくと後からの説明が楽です。',
+      options: [
+        { v: 'shared', label: '概算を共有済み／共有予定（メモに根拠）' },
+        { v: 'low-risk', label: 'トークンを抑える設計なので当面不要' },
+        { v: 'undecided', label: '未定' },
+      ],
+    },
+  ];
+
+  let idx = 0;
+  const answers = [];
+
+  function loadState() {
+    try {
+      let raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) {
+        raw = localStorage.getItem(STORAGE_KEY_LEGACY);
+        if (raw) {
+          const leg = JSON.parse(raw);
+          if (leg.answers && Array.isArray(leg.answers)) {
+            for (let i = 0; i < leg.answers.length; i++) answers[i] = leg.answers[i];
+          }
+          if (typeof leg.idx === 'number') {
+            idx = Math.min(Math.max(0, leg.idx), STEPS.length - 1);
+          }
+          saveState();
+          return;
+        }
+      }
+      if (!raw) return;
+      const s = JSON.parse(raw);
+      if (s.answers && Array.isArray(s.answers)) {
+        for (let i = 0; i < Math.min(s.answers.length, STEPS.length); i++) answers[i] = s.answers[i];
+      }
+      if (typeof s.idx === 'number') idx = Math.min(Math.max(0, s.idx), STEPS.length - 1);
+    } catch (e) { /* ignore */ }
+  }
+
+  function saveState() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ idx, answers }));
+  }
+
+  function selectedValue() {
+    const el = document.querySelector('input[name="opt"]:checked');
+    return el ? el.value : '';
+  }
+
+  function render() {
+    const total = STEPS.length;
+    const s = STEPS[idx];
+    const pct = Math.round(((idx + 1) / total) * 100);
+    document.getElementById('step-label').textContent = '質問 ' + (idx + 1) + ' / ' + total;
+    document.getElementById('section-tag').textContent = s.section;
+    document.getElementById('progress-bar').style.width = pct + '%';
+    document.getElementById('q-title').textContent = s.title;
+    document.getElementById('q-ref').textContent = s.ref;
+    document.getElementById('q-hint').textContent = s.hint || '';
+
+    const opts = document.getElementById('q-options');
+    opts.innerHTML = '';
+    const cur = answers[idx] || {};
+    const fieldset = document.createElement('fieldset');
+    const leg = document.createElement('legend');
+    leg.className = 'sr-only';
+    leg.textContent = s.title;
+    fieldset.appendChild(leg);
+    s.options.forEach((o, i) => {
+      const id = 'opt-' + idx + '-' + i;
+      const wrap = document.createElement('label');
+      wrap.className = 'flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 bg-slate-50/40 px-4 py-3 transition hover:border-brand-200 hover:bg-brand-50/30 has-[:checked]:border-brand-400 has-[:checked]:bg-brand-50/50';
+      const input = document.createElement('input');
+      input.type = 'radio';
+      input.name = 'opt';
+      input.value = o.v;
+      input.id = id;
+      input.className = 'mt-1 h-4 w-4 shrink-0 border-slate-300 text-brand-600 focus:ring-brand-500';
+      if (cur.choice === o.v) input.checked = true;
+      const span = document.createElement('span');
+      span.className = 'text-sm font-medium text-slate-800';
+      span.textContent = o.label;
+      wrap.appendChild(input);
+      wrap.appendChild(span);
+      fieldset.appendChild(wrap);
+    });
+    opts.appendChild(fieldset);
+
+    document.getElementById('q-note').value = cur.note || '';
+
+    document.getElementById('btn-prev').disabled = idx === 0;
+    document.getElementById('btn-next').textContent = idx === total - 1 ? '完了してまとめを表示' : '次へ';
+
+    document.getElementById('finish-panel').classList.add('hidden');
+  }
+
+  function persistCurrent() {
+    answers[idx] = { choice: selectedValue(), note: document.getElementById('q-note').value.trim() };
+    saveState();
+  }
+
+  function buildMarkdown() {
+    let md = '# チェックリスト質問ウィザード — 回答メモ\n\n';
+    md += '（自動生成。会議後にチェックリスト本体へ反映してください。）\n\n';
+    STEPS.forEach((s, i) => {
+      const a = answers[i] || {};
+      const optLabel = (s.options.find((o) => o.v === a.choice) || {}).label || '（未選択）';
+      md += '## ' + (i + 1) + '. [' + s.section + '] ' + s.title + '\n';
+      md += '- **チェックリスト参照:** ' + s.ref + '\n';
+      md += '- **選択:** ' + optLabel + '\n';
+      if (a.note) md += '- **メモ:** ' + a.note + '\n';
+      md += '\n';
+    });
+    return md;
+  }
+
+  document.getElementById('btn-next').addEventListener('click', () => {
+    persistCurrent();
+    if (idx < STEPS.length - 1) {
+      idx++;
+      saveState();
+      render();
+    } else {
+      document.getElementById('export-md').value = buildMarkdown();
+      document.getElementById('finish-panel').classList.remove('hidden');
+      document.getElementById('finish-panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  });
+
+  document.getElementById('btn-prev').addEventListener('click', () => {
+    persistCurrent();
+    if (idx > 0) {
+      idx--;
+      saveState();
+      render();
+    }
+  });
+
+  document.getElementById('btn-clear').addEventListener('click', () => {
+    if (!confirm('このブラウザに保存した回答をすべて消します。よいですか？')) return;
+    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(STORAGE_KEY_LEGACY);
+    idx = 0;
+    answers.length = 0;
+    render();
+  });
+
+  document.getElementById('btn-copy').addEventListener('click', async () => {
+    const t = document.getElementById('export-md');
+    try {
+      await navigator.clipboard.writeText(t.value);
+      alert('クリップボードにコピーしました');
+    } catch (e) {
+      t.select();
+      alert('手動でコピーしてください（全文を選択済みにしました）');
+    }
+  });
+
+  loadState();
+  render();
+})();
+  </script>
+</body>
+</html>

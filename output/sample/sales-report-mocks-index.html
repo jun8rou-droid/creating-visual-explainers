@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <title>売上レポート系 — モック一覧</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;600;700&family=Plus+Jakarta+Sans:wght@600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = { theme: { extend: { fontFamily: { sans: ['"Noto Sans JP"', 'sans-serif'], display: ['"Plus Jakarta Sans"', 'sans-serif'] } } } };</script>
+</head>
+<body class="min-h-screen bg-slate-50 text-slate-800 antialiased p-6 sm:p-10">
+  <div class="max-w-2xl mx-auto">
+    <h1 class="font-display text-2xl font-bold text-slate-900">売上レポート系モック一覧</h1>
+    <p class="mt-2 text-sm text-slate-600">静的 HTML のみ。ローカルではこのフォルダ（<code class="text-xs bg-white px-1 py-0.5 rounded border">output/sample</code>）で <code class="text-xs bg-white px-1 py-0.5 rounded border">python3 -m http.server 8765</code> を実行し、<code class="text-xs bg-white px-1 py-0.5 rounded border">/sales-report-mocks-index.html</code> を開いてください。<strong class="text-slate-800">売上まとめ</strong>は <code class="text-xs bg-white px-1 py-0.5 rounded border">sales-report-bundle</code> シンボリックリンク経由で配信されます（親フォルダのサーバだとリンク切れになります）。</p>
+
+    <section class="mt-8 space-y-3">
+      <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400">このフォルダ（sample）</h2>
+      <ul class="rounded-2xl border border-slate-200 bg-white divide-y divide-slate-100 shadow-sm text-sm">
+        <li><a class="flex items-center justify-between gap-3 px-4 py-3 hover:bg-slate-50 font-medium text-indigo-700" href="sales-report-unified-source-mock.html">同一ソース統合（週次 × 売上まとめ） <span class="text-xs font-normal text-slate-400 shrink-0">architecture</span></a></li>
+        <li><a class="flex items-center justify-between gap-3 px-4 py-3 hover:bg-slate-50 font-medium text-indigo-700" href="sales-report-mvp-tool-ui.html">実装 CLI 相当のツール UI <span class="text-xs font-normal text-slate-400 shrink-0">mvp</span></a></li>
+        <li><a class="flex items-center justify-between gap-3 px-4 py-3 hover:bg-slate-50 font-medium text-indigo-700" href="sales-report-saas-dashboard-mock.html">SaaS 風週次ダッシュボード（洗練モック） <span class="text-xs font-normal text-slate-400 shrink-0">dashboard</span></a></li>
+        <li><a class="flex items-center justify-between gap-3 px-4 py-3 hover:bg-slate-50 font-medium text-indigo-700" href="sales-report-flow.html">全体の流れ（図解） <span class="text-xs font-normal text-slate-400 shrink-0">flow</span></a></li>
+        <li><a class="flex items-center justify-between gap-3 px-4 py-3 hover:bg-slate-50 font-medium text-indigo-700" href="sales-report-build-steps.html">やさしい作成手順（8 ステップ） <span class="text-xs font-normal text-slate-400 shrink-0">steps</span></a></li>
+        <li><a class="flex items-center justify-between gap-3 px-4 py-3 hover:bg-slate-50 font-medium text-indigo-700" href="sales-report-onboarding-flow.html">これからの進め方 <span class="text-xs font-normal text-slate-400 shrink-0">onboarding</span></a></li>
+        <li><a class="flex items-center justify-between gap-3 px-4 py-3 hover:bg-slate-50 font-medium text-indigo-700" href="sales-report-checklist-wizard.html">チェックリスト質問ウィザード <span class="text-xs font-normal text-slate-400 shrink-0">checklist</span></a></li>
+        <li><a class="flex items-center justify-between gap-3 px-4 py-3 hover:bg-slate-50 font-medium text-indigo-700" href="sales-report-boundary-and-canonical-draft.md">システム境界＋正本1ページ（ドラフト） <span class="text-xs font-normal text-slate-400 shrink-0">boundary</span></a></li>
+        <li><a class="flex items-center justify-between gap-3 px-4 py-3 hover:bg-slate-50 font-medium text-indigo-700" href="sales-report-tool-face.html">ダーク UI レイアウト素片 <span class="text-xs font-normal text-slate-400 shrink-0">tool-face</span></a></li>
+      </ul>
+    </section>
+
+    <section class="mt-8 space-y-3">
+      <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400">バンドル（sales-report-bundle）</h2>
+      <ul class="rounded-2xl border border-slate-200 bg-white divide-y divide-slate-100 shadow-sm text-sm">
+        <li><a class="flex items-center justify-between gap-3 px-4 py-3 hover:bg-slate-50 font-medium text-indigo-700" href="sales-report-bundle/sales-insight-mockup.html">売上まとめ（ダッシュボード） <span class="text-xs font-normal text-slate-400 shrink-0">SalesInsight</span></a></li>
+        <li><a class="flex items-center justify-between gap-3 px-4 py-3 hover:bg-slate-50 font-medium text-indigo-700" href="sales-report-bundle/sales-insight-yearly.html">年次売上推移</a></li>
+        <li><a class="flex items-center justify-between gap-3 px-4 py-3 hover:bg-slate-50 font-medium text-indigo-700" href="sales-report-bundle/sales-insight-customers.html">得意先ごとの売上</a></li>
+      </ul>
+    </section>
+
+    <p class="mt-8 text-xs text-slate-400 text-center font-mono">sales-report-mocks-index.html</p>
+  </div>
+</body>
+</html>
