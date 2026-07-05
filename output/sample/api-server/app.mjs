@@ -248,7 +248,7 @@ app.post(API_PATH_ANALYZE, upload.single('drawing'), async (req, res) => {
               cachedDb.quote_id,
             ),
             cached: true,
-            source: 'db',
+            source: isDemoSuggestionRow(cachedDb) ? 'db' : 'vision-google',
             visionEnabled: VISION_ENABLED,
             demoMode: isDemoSuggestionRow(cachedDb),
           });
@@ -277,6 +277,11 @@ app.post(API_PATH_ANALYZE, upload.single('drawing'), async (req, res) => {
         analyzeSource = 'demo-fallback';
       }
     } else {
+      if (VISION_ENABLED && !req.file?.buffer?.length) {
+        return res.status(400).json({
+          error: '図面ファイル本体が必要です。PDF / PNG / JPEG をアップロードしてから解析してください。',
+        });
+      }
       if (VISION_ENABLED && !req.file) {
         console.log('[analyze] no file body — demo by fileName only');
       }

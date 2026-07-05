@@ -133,6 +133,7 @@ export async function analyzeDrawing(fileOrName, options) {
     demoMode: Boolean(payload.demoMode),
     visionEnabled: payload.visionEnabled,
     visionError: payload.visionError || null,
+    cached: Boolean(payload.cached),
   };
 }
 

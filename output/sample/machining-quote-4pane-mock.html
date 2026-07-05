@@ -1019,7 +1019,7 @@
   <footer class="app-footer flex-shrink-0 px-5 py-2.5 flex flex-wrap items-center justify-between gap-2 text-sm text-zinc-500">
     <span id="status-bar">材料と工程を入力してください</span>
     <span class="hidden md:inline text-zinc-400">+ 追加 · ↑↓ 移動 · Esc 閉じる</span>
-    <span>モック v9 · AI-API デモ</span>
+    <span>v9 · Vercel + Neon + Gemini</span>
   </footer>
 
   <!-- 図面プレビュー（O1） -->
@@ -3462,8 +3462,11 @@
           api: 'API',
         };
         var src = result.analyzeSource || result.source || 'api';
-        if (result.demoMode || src === 'demo' || src === 'demo-fallback') {
+        if (result.demoMode || src === 'demo' || src === 'demo-fallback' || src === 'local') {
           return viaLabel[src] || 'デモ';
+        }
+        if (src === 'vision-google' || (src === 'db' && String(result.response?.model || '').indexOf('gemini:') === 0)) {
+          return result.cached ? 'Gemini Vision（キャッシュ）' : 'Gemini Vision';
         }
         return viaLabel[src] || 'API';
       }
@@ -3508,17 +3511,40 @@
         updateOcrFieldStyles();
       }
 
+      function resolveDrawingFileForAnalyze() {
+        var fileInput = $('drawing-file-input');
+        if (fileInput && fileInput.files && fileInput.files[0]) {
+          return Promise.resolve(fileInput.files[0]);
+        }
+        var meta = getCurrentDrawingMeta();
+        if (meta && meta.rawFile) {
+          return Promise.resolve(meta.rawFile);
+        }
+        var url = meta && (meta.previewUrl || meta.blobUrl);
+        if (url) {
+          return fetch(url).then(function (res) {
+            if (!res.ok) throw new Error('図面プレビューの読み込みに失敗しました');
+            return res.blob();
+          }).then(function (blob) {
+            var name = (meta && meta.fileName) || 'drawing.jpg';
+            var type = (meta && meta.mime) || blob.type || guessMimeFromName(name);
+            return new File([blob], name, { type: type });
+          });
+        }
+        return Promise.resolve(null);
+      }
+
       function runDrawingAnalyze() {
         if (isConfirmedRevView() || aiAnalyzeInFlight) return;
-        var fileInput = $('drawing-file-input');
-        var meta = getCurrentDrawingMeta();
-        if (fileInput && fileInput.files && fileInput.files[0]) {
-          requestDrawingApiAnalysis(fileInput.files[0], { forceReanalyze: true });
-        } else if (meta && meta.rawFile) {
-          requestDrawingApiAnalysis(meta.rawFile, { forceReanalyze: true });
-        } else if (meta) {
-          requestDrawingApiAnalysis(meta.fileName || 'drawing.pdf', { forceReanalyze: true });
-        }
+        resolveDrawingFileForAnalyze().then(function (file) {
+          if (!file) {
+            alert('図面ファイルが見つかりません。\n「ファイルを選ぶ」から再度アップロードしてください。');
+            return;
+          }
+          requestDrawingApiAnalysis(file, { forceReanalyze: true });
+        }).catch(function (err) {
+          alert('図面の読み込みに失敗しました: ' + (err && err.message ? err.message : String(err)));
+        });
       }
 
       function requestDrawingApiAnalysis(fileOrName, analyzeOpts) {
@@ -3546,7 +3572,8 @@
           applyDrawingAnalyzeResponse(result.response);
           aiAnalyzeInFlight = false;
           var via = formatAnalyzeSourceLabel(result);
-          var demoWarning = (result.demoMode || result.analyzeSource === 'demo' || result.analyzeSource === 'demo-fallback')
+          var demoWarning = (result.demoMode || result.analyzeSource === 'demo'
+            || result.analyzeSource === 'demo-fallback' || result.analyzeSource === 'local')
             ? ' — 図面は未読取（デモ値）'
             : '';
           $('status-bar').textContent =
@@ -3675,7 +3702,7 @@
           updateDrawingUI();
           renderInlineDrawingPreview();
           renderDrawingPreviewPanel();
-          requestDrawingApiAnalysis(file);
+          requestDrawingApiAnalysis(file, { forceReanalyze: true });
           renderMaterial();
         }
 
