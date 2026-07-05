@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="robots" content="noindex, nofollow">
   <meta name="color-scheme" content="light">
-  <title>加工費見積 — 4ペイン UI（モック v17）</title>
+  <title>加工費見積 — 4ペイン UI（モック v18）</title>
   <meta name="drawing-api-base" content="">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -428,10 +428,25 @@
         gap: 0;
       }
       .split-h:not(.split-ready)[data-split-id="main-lr"] > .split-pane:first-child {
-        flex: 0 0 min(420px, 34%);
-        max-width: 420px;
+        flex: 1 1 50%;
+        min-width: 0;
       }
       .split-h:not(.split-ready)[data-split-id="main-lr"] > .split-pane:last-child {
+        flex: 1 1 50%;
+        min-width: 0;
+      }
+      .split-h:not(.split-ready)[data-split-id="pane1-lr"] {
+        flex-direction: row;
+        align-items: stretch;
+        flex: 1;
+        min-height: 0;
+      }
+      .split-h:not(.split-ready)[data-split-id="pane1-lr"] > .split-pane:first-child {
+        flex: 0 1 42%;
+        max-width: 22rem;
+        min-width: 12rem;
+      }
+      .split-h:not(.split-ready)[data-split-id="pane1-lr"] > .split-pane:last-child {
         flex: 1 1 auto;
         min-width: 0;
       }
@@ -458,7 +473,7 @@
     }
     .workspace[data-split-id="main-lr"].split-ready {
       grid-template-columns:
-        minmax(var(--split-min-a, 260px), min(420px, var(--split-pct, 34%)))
+        minmax(var(--split-min-a, 360px), var(--split-pct, 50%))
         var(--split-grip-size, 8px)
         minmax(var(--split-min-b, 360px), 1fr);
     }
@@ -537,9 +552,6 @@
     body.split-dragging-v * { cursor: row-resize !important; }
     @media (min-width: 1280px) {
       .right-panes.split-ready { height: 100%; }
-      .workspace > .split-pane:first-child {
-        max-width: 420px;
-      }
     }
     .split-v:not(.split-ready)[data-split-id="pane1-process-tb"] > .split-pane:first-child {
       flex: 0 1 auto;
@@ -644,19 +656,46 @@
       border-color: #facc15 !important;
       box-shadow: 0 0 0 2px rgba(250, 204, 21, 0.25) !important;
     }
-    /* ① 材料・案件情報は上でスクロール、② 工程は常に下に確保 */
+    /* 左半分: ①入力 | ②工程（リスト上・入力下） */
+    .pane1-left-half {
+      min-height: 0;
+    }
+    .pane1-lr-wrap {
+      flex: 1;
+      min-height: 0;
+    }
     .pane1-upper-scroll {
       min-height: 0;
+      height: 100%;
       overflow-y: auto;
       overscroll-behavior: contain;
     }
+    .pane1-input-form {
+      border-bottom: none;
+    }
     .pane1-process-area {
       min-height: 0;
-      border-top: 2px solid rgba(79, 70, 229, 0.12);
+      height: 100%;
+      border-top: none;
+      border-left: 2px solid rgba(79, 70, 229, 0.12);
       background: #fff;
       overflow: hidden;
       display: flex;
       flex-direction: column;
+    }
+    @media (max-width: 767px) {
+      .split-h:not(.split-ready)[data-split-id="pane1-lr"] {
+        flex-direction: column;
+      }
+      .split-h:not(.split-ready)[data-split-id="pane1-lr"] > .split-pane:first-child {
+        flex: 0 0 auto;
+        max-width: none;
+      }
+      .pane1-process-area {
+        border-left: none;
+        border-top: 2px solid rgba(79, 70, 229, 0.12);
+        min-height: 16rem;
+      }
     }
     .pane1-process-area > .pane1-process-grid {
       flex: 1;
@@ -699,19 +738,19 @@
   </header>
 
   <main class="flex-1 min-h-0 p-4">
-    <div class="workspace split-h h-full" data-split-id="main-lr" data-split-default="34" data-split-min-a="260" data-split-min-b="360" data-split-disabled-below="1280">
-      <!-- 1: 入力 — 左列（幅は抑えめ · ②③④ が広い） -->
-      <section class="split-pane pane pane-card flex flex-col min-h-[420px] xl:min-h-0 xl:max-w-[420px]">
-        <div class="pane-head flex items-center justify-between">
+    <div class="workspace split-h h-full" data-split-id="main-lr" data-split-default="50" data-split-min-a="360" data-split-min-b="360" data-split-disabled-below="1280">
+      <!-- 左半分: ①入力 | 工程リスト・工程入力 -->
+      <section class="split-pane pane pane-card pane1-left-half flex flex-col min-h-[420px] xl:min-h-0">
+        <div class="pane-head flex items-center justify-between shrink-0">
           <h2 class="font-semibold text-zinc-900 text-base tracking-tight flex items-center gap-2">
             <span class="pane-num">1</span>
-            入力
+            入力 · 工程
           </h2>
         </div>
 
-        <div class="flex-1 min-h-0 flex flex-col overflow-hidden split-v" data-split-id="pane1-tb" data-split-default="48" data-split-min-a="200" data-split-min-b="220">
+        <div class="pane1-lr-wrap split-h flex-1 min-h-0 overflow-hidden" data-split-id="pane1-lr" data-split-default="42" data-split-min-a="200" data-split-min-b="240" data-split-disabled-below="768">
 
-          <div class="pane1-upper-scroll split-pane">
+          <div class="pane1-upper-scroll split-pane min-h-0">
 
           <form id="pane1-input-form" class="pane1-input-form" autocomplete="off" onsubmit="return false">
 
@@ -799,9 +838,9 @@
 
           </div><!-- /pane1-upper-scroll -->
 
-          <!-- 工程リスト + 対話（常に画面下に確保） -->
-          <div class="pane1-process-area split-pane">
-          <div class="pane1-process-grid split-v h-full min-h-0" data-split-id="pane1-process-tb" data-split-default="38" data-split-min-a="120" data-split-min-b="160">
+          <!-- 工程リスト + 入力（①の横 · リスト上・入力下） -->
+          <div class="pane1-process-area split-pane min-h-0">
+          <div class="pane1-process-grid split-v h-full min-h-0" data-split-id="pane1-process-tb" data-split-default="40" data-split-min-a="120" data-split-min-b="160">
             <!-- リスト -->
             <div class="split-pane min-h-0 flex flex-col p-2.5 bg-white border-b border-zinc-200">
               <div class="flex items-center justify-between mb-2 flex-shrink-0">
@@ -855,7 +894,7 @@
             </div>
           </div>
           </div><!-- /pane1-process-area -->
-        </div>
+        </div><!-- /pane1-lr-wrap -->
       </section>
 
       <!-- 右半分: 2|3 横並び + 4 -->
@@ -1027,7 +1066,7 @@
   <footer class="app-footer flex-shrink-0 px-5 py-2.5 flex flex-wrap items-center justify-between gap-2 text-sm text-zinc-500">
     <span id="status-bar">材料と工程を入力してください</span>
     <span class="hidden md:inline text-zinc-400">+ 追加 · ↑↓ 移動 · 区切りをドラッグでサイズ調整</span>
-    <span>v17 · 細列入力 · 工程縦並び</span>
+    <span>v18 · 左半分 入力|工程</span>
   </footer>
 
   <!-- FAX用 PDF プレビュー（L2 · CT-FAX） -->
