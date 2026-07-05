@@ -203,6 +203,20 @@
       flex: 1;
       min-width: 0;
     }
+    .pane1-step-btn {
+      flex-shrink: 0;
+      height: 2.25rem;
+      width: 2rem;
+      border-radius: 0.375rem;
+      border: 1px solid var(--app-border);
+      background: var(--app-surface-alt);
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: #52525b;
+      line-height: 1;
+    }
+    .pane1-step-btn:hover:not(:disabled) { background: var(--app-surface-muted); }
+    .pane1-step-btn:disabled { opacity: 0.45; cursor: not-allowed; }
     .pane1-field-unit {
       flex-shrink: 0;
       font-size: 0.75rem;
@@ -805,18 +819,22 @@
 
             <div class="pane1-field">
               <label class="pane1-field-label" for="input-diameter">材料径</label>
-              <div class="pane1-field-row">
-                <span class="pane1-field-unit font-mono">φ</span>
+              <div class="pane1-field-row max-w-xs">
+                <span class="pane1-field-unit font-mono w-auto">φ</span>
+                <button type="button" id="btn-diameter-minus" class="pane1-step-btn" title="1mm減">−</button>
                 <input type="text" id="input-diameter" value="50" class="input-field py-2 text-center font-mono text-base" />
-                <span class="pane1-field-unit">mm</span>
+                <button type="button" id="btn-diameter-plus" class="pane1-step-btn" title="1mm増">＋</button>
+                <span class="pane1-field-unit w-auto pl-0.5">mm</span>
               </div>
             </div>
 
             <div class="pane1-field">
               <label class="pane1-field-label" for="input-length">長さ</label>
-              <div class="pane1-field-row">
+              <div class="pane1-field-row max-w-xs">
+                <button type="button" id="btn-length-minus" class="pane1-step-btn" title="1mm減">−</button>
                 <input type="text" id="input-length" value="120" class="input-field py-2 text-center font-mono text-base" />
-                <span class="pane1-field-unit">mm</span>
+                <button type="button" id="btn-length-plus" class="pane1-step-btn" title="1mm増">＋</button>
+                <span class="pane1-field-unit w-auto pl-0.5">mm</span>
               </div>
             </div>
 
@@ -830,18 +848,20 @@
 
             <div class="pane1-field">
               <label class="pane1-field-label" for="input-quantity">本数</label>
-              <div class="pane1-field-row">
-                <input type="number" id="input-quantity" value="10" min="1" step="1" class="input-field text-center font-mono py-2 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
-                <span class="pane1-field-unit">本</span>
+              <div class="pane1-field-row max-w-xs">
+                <button type="button" id="btn-quantity-minus" class="pane1-step-btn" title="1本減">−</button>
+                <input type="number" id="input-quantity" value="10" min="1" step="1" class="input-field text-center font-mono px-1 min-w-0 flex-1 py-2 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
+                <button type="button" id="btn-quantity-plus" class="pane1-step-btn" title="1本増">＋</button>
+                <span class="pane1-field-unit w-auto pl-0.5">本</span>
               </div>
             </div>
 
             <div class="pane1-field">
               <label class="pane1-field-label" for="input-setup-minutes">段取り時間</label>
               <div class="pane1-field-row max-w-xs">
-                <button type="button" id="btn-setup-minus" class="shrink-0 h-9 w-8 rounded-md border border-zinc-200 bg-white text-sm font-medium text-zinc-600 hover:bg-zinc-50" title="10分減">−</button>
+                <button type="button" id="btn-setup-minus" class="pane1-step-btn" title="10分減">−</button>
                 <input type="number" id="input-setup-minutes" value="30" min="0" step="10" class="input-field text-center font-mono px-1 min-w-0 flex-1 py-2 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
-                <button type="button" id="btn-setup-plus" class="shrink-0 h-9 w-8 rounded-md border border-zinc-200 bg-white text-sm font-medium text-zinc-600 hover:bg-zinc-50" title="10分増">＋</button>
+                <button type="button" id="btn-setup-plus" class="pane1-step-btn" title="10分増">＋</button>
                 <span class="pane1-field-unit w-auto pl-0.5">分</span>
               </div>
             </div>
@@ -850,7 +870,12 @@
 
             <div class="pane1-field">
               <label class="pane1-field-label" for="material-cost-input" id="material-cost-label">材料費（1個）</label>
-              <input type="text" id="material-cost-input" value="2,108" class="input-field py-2 font-mono max-w-xs" />
+              <div class="pane1-field-row max-w-xs">
+                <button type="button" id="btn-material-cost-minus" class="pane1-step-btn" title="100円減">−</button>
+                <input type="text" id="material-cost-input" value="2,108" class="input-field py-2 font-mono text-center min-w-0 flex-1" />
+                <button type="button" id="btn-material-cost-plus" class="pane1-step-btn" title="100円増">＋</button>
+                <span class="pane1-field-unit w-auto pl-0.5">円</span>
+              </div>
               <p id="material-cost-ref" class="hidden text-xs text-zinc-400 mt-0.5">参考: 込みなら ¥2,108/個</p>
             </div>
 
@@ -5048,6 +5073,110 @@
           : getDraftHeaderLabel();
         updateDrawingUI();
         renderProcessPresets();
+        updatePane1StepperButtons();
+      }
+
+      var PANE1_STEPPER_BTN_IDS = [
+        'btn-diameter-minus', 'btn-diameter-plus',
+        'btn-length-minus', 'btn-length-plus',
+        'btn-quantity-minus', 'btn-quantity-plus',
+        'btn-setup-minus', 'btn-setup-plus',
+        'btn-material-cost-minus', 'btn-material-cost-plus',
+      ];
+
+      function updatePane1StepperButtons() {
+        var readOnly = isConfirmedRevView();
+        var matSupplied = materialMode === 'supplied';
+        var mi = $('material-cost-input');
+        PANE1_STEPPER_BTN_IDS.forEach(function (id) {
+          var btn = $(id);
+          if (!btn) return;
+          var isMatBtn = id.indexOf('material-cost') >= 0;
+          btn.disabled = readOnly || (isMatBtn && matSupplied) || (isMatBtn && mi && mi.readOnly);
+        });
+      }
+
+      function parsePane1InputNumber(el, fallback) {
+        var n = parseFloat(String(el.value).replace(/,/g, ''));
+        return Number.isFinite(n) ? n : (fallback != null ? fallback : 0);
+      }
+
+      function bindPane1NumericSteppers() {
+        function bindStepper(cfg) {
+          var el = $(cfg.inputId);
+          var minus = $(cfg.minusId);
+          var plus = $(cfg.plusId);
+          if (!el || !minus || !plus) return;
+          function applyDelta(delta) {
+            if (el.readOnly || el.disabled) return;
+            var cur = parsePane1InputNumber(el, cfg.fallback);
+            var next = cur + delta;
+            if (cfg.min != null) next = Math.max(cfg.min, next);
+            if (cfg.max != null) next = Math.min(cfg.max, next);
+            if (cfg.snap) next = cfg.snap(next);
+            if (cfg.format === 'comma') {
+              el.value = fmt(Math.round(next));
+            } else {
+              el.value = String(Math.round(next));
+            }
+            if (cfg.onChange) cfg.onChange();
+          }
+          minus.addEventListener('click', function () { applyDelta(-cfg.step); });
+          plus.addEventListener('click', function () { applyDelta(cfg.step); });
+        }
+
+        bindStepper({
+          inputId: 'input-diameter',
+          minusId: 'btn-diameter-minus',
+          plusId: 'btn-diameter-plus',
+          step: 1,
+          min: 1,
+          fallback: 50,
+          onChange: function () {
+            renderMaterial();
+            renderProcessList();
+            renderBreakdown();
+            updatePane2Highlight();
+          },
+        });
+        bindStepper({
+          inputId: 'input-length',
+          minusId: 'btn-length-minus',
+          plusId: 'btn-length-plus',
+          step: 1,
+          min: 1,
+          fallback: 120,
+          onChange: function () { renderMaterial(); },
+        });
+        bindStepper({
+          inputId: 'input-quantity',
+          minusId: 'btn-quantity-minus',
+          plusId: 'btn-quantity-plus',
+          step: 1,
+          min: 1,
+          fallback: 1,
+          onChange: onQuantityChanged,
+        });
+        bindStepper({
+          inputId: 'input-setup-minutes',
+          minusId: 'btn-setup-minus',
+          plusId: 'btn-setup-plus',
+          step: 10,
+          min: 0,
+          fallback: 0,
+          snap: snapSetupMinutes,
+          onChange: onSetupChanged,
+        });
+        bindStepper({
+          inputId: 'material-cost-input',
+          minusId: 'btn-material-cost-minus',
+          plusId: 'btn-material-cost-plus',
+          step: 100,
+          min: 0,
+          fallback: 0,
+          format: 'comma',
+          onChange: function () { renderMaterial(); },
+        });
       }
 
       function formatQuoteListDate(iso) {
@@ -5340,6 +5469,7 @@
         }
 
         updateCopyPreviewFromTemplate(unitTotal, unitMachining, matCostPiece, lotTotal);
+        updatePane1StepperButtons();
 
         if (isQuoteIncomplete()) {
           $('total-label').textContent = '見積未完了 · ' + qty + '本';
@@ -5408,14 +5538,6 @@
         var el = $('input-setup-minutes');
         el.addEventListener('change', onSetupChanged);
         el.addEventListener('blur', onSetupChanged);
-        $('btn-setup-minus').addEventListener('click', function () {
-          el.value = Math.max(0, getSetupMinutes() - 10);
-          onSetupChanged();
-        });
-        $('btn-setup-plus').addEventListener('click', function () {
-          el.value = getSetupMinutes() + 10;
-          onSetupChanged();
-        });
       }
 
       function bindConditionInputs() {
@@ -6263,6 +6385,7 @@
       });
 
       bindSetupInput();
+      bindPane1NumericSteppers();
       bindQuantityInput();
       bindConditionInputs();
       bindMaterialMaster();
