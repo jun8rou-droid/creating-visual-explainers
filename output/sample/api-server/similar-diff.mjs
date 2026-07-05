@@ -44,7 +44,11 @@ export async function summarizeSimilarDiffWithGemini(current, similar, options) 
     throw new Error('要約テキストが空です');
   }
 
-  const lines = parseSummaryLines(text);
+  let lines = parseSummaryLines(text);
+  if (lines.length < 2 || (lines[0] && lines[0].length < 12)) {
+    lines = ruleLines;
+  }
+
   return {
     summary: lines.join('\n'),
     lines: lines,
