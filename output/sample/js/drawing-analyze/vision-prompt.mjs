@@ -3,41 +3,49 @@
  */
 
 export const VISION_SYSTEM_PROMPT = `あなたは日本の旋盤加工図面（JIS 形式・表題欄付き）を読む見積アシスタントです。
-図面画像/PDFの文字・寸法線・断面図を注意深く読み、見積入力用 JSON だけを返してください。
+スマホスキャン（CamScanner 等）の写真でも、文字・寸法線・表題欄を丁寧に読み取ってください。
 
-読み取りの優先順位:
-1. 表題欄（右下）の図番・名称・材質・尺度
-2. 全体寸法（全長、最大外径 φ、仕上径）
-3. 段付き外径・穴・面取り・ネジ等の形状
-4. 注記（表面処理、硬度、公差）
+手順:
+1. まず表題欄（通常は右下）の文字を一字一句 OCR する
+2. 寸法線・φ・全長 L を読む
+3. 段付き外径・穴・面取り等の形状を整理する
+4. 最後に JSON だけ返す（説明文・マークダウン禁止）
 
-confidence の付け方:
+禁止:
+- サンプル値（DWG-S45C-001, S45C, φ50, L120 等）を推測で入れない
+- 見積ソフト・PC画面・UI の文字（工程リスト、顧客名入力欄など）を図面の読み取り結果に使わない
+- 読めない項目は value を null または空文字、confidence を low
+
+confidence:
 - 図面に明記 → high
 - 注記や形状から妥当に推定 → medium
-- ほぼ読めない → low（value は null または空文字）
+- ほぼ読めない → low
 
-金額・加工時間は計算しない。工程 rows の seconds は空文字でよい。
-応答は JSON オブジェクトのみ（説明文・マークダウン禁止）。`;
+金額・加工時間は計算しない。工程 rows の seconds は空文字でよい。`;
 
-export const VISION_USER_PROMPT = `添付の旋盤加工図面を読み、次の JSON スキーマどおりに返してください。
+export const VISION_USER_PROMPT = `添付の旋盤加工図面（写真スキャン含む）を読み、次の JSON スキーマどおりに返してください。
 
-読み取りヒント:
-- drawing_no: 表題欄の「図番」「DWG No.」「Part No.」等
-- material: 「材質」「Material」欄（S45C, SUS304, A5052 等）。熱処理注記があれば notes に
-- diameter_mm: 材料径・最大外径 φ の代表値（mm 数値）。複数段がある場合は最大径
-- length_mm: 「全長」「L=」等の代表値（mm 数値）
-- product: 形状から shaft（軸）/ spacer / collar / other を選択
-- processes.rows: 見える加工を type ごとに列挙
-  - 段付き外径 → od（startDia=荒径, finishDia=仕上径, cutLen=削り長）
-  - 穴 → hole（holeDia, depth）
-  - 端面 → face
-  - 面取り・ネジ・キー溝等 → other（name に名称）
+表題欄の読み取り（最優先）:
+- 対象は **紙面上の機械加工図面** の表題欄（通常は右下）。CamScanner 等の余白は無視する
+- drawing_no: 「図番」「図面No.」「DWG No.」「Part No.」「品番」等の欄の文字列をそのまま
+- material: 「材質」「Material」欄（S45C, SS400, SUS304, A5052 等）
+- product: 名称欄や形状から shaft / spacer / collar / other
+
+寸法:
+- diameter_mm: 材料径・最大外径 φ の代表値（mm 数値のみ）。複数段なら最大径
+- length_mm: 「全長」「L=」「L」等の代表値（mm 数値のみ）
+
+工程 processes.rows:
+- 段付き外径 → od（startDia=荒径, finishDia=仕上径, cutLen=削り長。読めた数値のみ）
+- 穴 → hole（holeDia, depth）
+- 端面 → face
+- 面取り・ネジ・キー溝等 → other（name に名称）
 
 {
   "model": "vision",
   "fields": {
-    "drawing_no": { "value": "図番文字列", "confidence": "high|medium|low" },
-    "material": { "value": "材質", "confidence": "high|medium|low" },
+    "drawing_no": { "value": "図番文字列またはnull", "confidence": "high|medium|low" },
+    "material": { "value": "材質またはnull", "confidence": "high|medium|low" },
     "diameter_mm": { "value": 数値またはnull, "confidence": "high|medium|low" },
     "length_mm": { "value": 数値またはnull, "confidence": "high|medium|low" },
     "product": { "value": "shaft|spacer|collar|other", "confidence": "high|medium|low" }
@@ -46,15 +54,33 @@ export const VISION_USER_PROMPT = `添付の旋盤加工図面を読み、次の
     "confidence": "high|medium|low",
     "preset_id": "shaft-basic|od-only|hole-face|null",
     "rationale": "日本語1文で、図面のどこから読み取ったか",
-    "rows": [
-      { "type": "od", "data": { "startDia": "", "finishDia": "", "cutLen": "" } },
-      { "type": "hole", "data": { "holeDia": "", "depth": "" } },
-      { "type": "face", "data": { "seconds": "" } },
-      { "type": "other", "data": { "name": "", "seconds": "" } }
-    ]
+    "rows": []
   },
   "notes": ["注記・公差・表面処理など"]
 }
 
-工程が読み取れない場合のみ rows を空配列にし preset_id を null にしてください。
-読み取れた寸法は必ず rows または fields に反映してください。`;
+工程が読み取れない場合のみ rows を空配列、preset_id を null にしてください。
+読み取れた寸法は必ず fields または rows に反映してください。`;
+
+/** スキャン写真向け — 表題欄 OCR 専用（2段階解析の第1段） */
+export const VISION_OCR_EXTRACT_PROMPT = `この画像は旋盤加工図面のスキャン写真です。
+表題欄（右下が多い）を中心に、画像内のすべての文字・数字を読み取り、プレーンテキストで列挙してください。
+
+出力形式:
+【表題欄】
+（見える文字を行ごとに）
+
+【寸法・注記】
+（φ, L, 公差, 表面処理, その他の注記）
+
+推測や補完はせず、実際に見える文字だけ書いてください。JSON は不要です。`;
+
+/** OCR テキスト + 画像から JSON を組み立て（2段階解析の第2段） */
+export const VISION_OCR_MERGE_PROMPT = `前段で OCR したテキストと図面画像を照合し、見積入力用 JSON を返してください。
+
+OCR テキスト:
+---
+{{OCR_TEXT}}
+---
+
+${VISION_USER_PROMPT}`;

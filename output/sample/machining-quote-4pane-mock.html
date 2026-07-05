@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="robots" content="noindex, nofollow">
   <meta name="color-scheme" content="light">
-  <title>加工費見積 — 4ペイン UI（モック v9）</title>
+  <title>加工費見積 — 4ペイン UI（モック v10）</title>
   <meta name="drawing-api-base" content="">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -191,6 +191,22 @@
       border-color: rgba(139, 92, 246, 0.35);
       background: linear-gradient(135deg, rgba(237, 233, 254, 0.95), rgba(245, 243, 255, 0.85));
     }
+    #ai-read-summary {
+      border-color: rgba(99, 102, 241, 0.25);
+      background: rgba(255, 255, 255, 0.92);
+    }
+    #ai-read-summary.ai-read-sparse {
+      border-color: rgba(245, 158, 11, 0.45);
+      background: rgba(255, 251, 235, 0.95);
+    }
+    .ai-read-row { display: flex; gap: 0.5rem; align-items: baseline; padding: 0.15rem 0; }
+    .ai-read-label { min-width: 3.5rem; color: rgb(82, 82, 91); font-weight: 600; }
+    .ai-read-value { flex: 1; font-family: ui-monospace, monospace; }
+    .ai-read-conf { font-size: 10px; padding: 0 0.35rem; border-radius: 9999px; border: 1px solid; }
+    .ai-read-conf-high { color: rgb(21, 128, 61); border-color: rgba(34, 197, 94, 0.35); background: rgb(240, 253, 244); }
+    .ai-read-conf-medium { color: rgb(180, 83, 9); border-color: rgba(251, 191, 36, 0.45); background: rgb(255, 251, 235); }
+    .ai-read-conf-low { color: rgb(185, 28, 28); border-color: rgba(248, 113, 113, 0.4); background: rgb(254, 242, 242); }
+    .ai-read-miss { color: rgb(161, 98, 7); font-style: italic; }
     #ai-learn-chat { border-color: rgba(139, 92, 246, 0.2); }
     .ai-chat-bubble {
       border-radius: 0.65rem;
@@ -751,6 +767,7 @@
                 <div id="ocr-pending-banner" class="hidden rounded border border-amber-200 bg-amber-50 px-2 py-1 text-amber-900">
                   <span id="ocr-pending-label" class="font-semibold">AI未確認</span>
                 </div>
+                <div id="ai-read-summary" class="hidden w-full basis-full rounded-lg border px-2.5 py-2 text-xs leading-relaxed"></div>
                 <button type="button" id="btn-ai-analyze" class="hidden btn-primary px-2 py-0.5 text-xs">AIで読み取る</button>
                 <button type="button" id="btn-open-drawing-pane" class="hidden btn-primary px-2.5 py-1 text-xs">図面を開く</button>
                 <button type="button" id="btn-pick-from-drawing" class="hidden btn-ghost px-2 py-0.5 text-xs text-indigo-700">ピック</button>
@@ -1019,7 +1036,7 @@
   <footer class="app-footer flex-shrink-0 px-5 py-2.5 flex flex-wrap items-center justify-between gap-2 text-sm text-zinc-500">
     <span id="status-bar">材料と工程を入力してください</span>
     <span class="hidden md:inline text-zinc-400">+ 追加 · ↑↓ 移動 · Esc 閉じる</span>
-    <span>v9 · Vercel + Neon + Gemini</span>
+    <span>v10 · Vercel + Neon + Gemini Pro</span>
   </footer>
 
   <!-- 図面プレビュー（O1） -->
@@ -2830,8 +2847,117 @@
         renderMaterial();
       }
 
-      function confidenceNeedsReview(confidence) {
-        return confidence !== 'high';
+      var SEED_FIELD_DEFAULTS = {
+        drawing_no: 'DWG-S45C-001',
+        material: 'S45C',
+        diameter_mm: 50,
+        length_mm: 120,
+        product: 'shaft',
+      };
+      var AI_FIELD_LABELS = {
+        drawing_no: '図番',
+        material: '材質',
+        diameter_mm: '外径 φ',
+        length_mm: '全長 L',
+        product: '品名',
+      };
+      var lastVisionAnalyzeMeta = null;
+
+      function fieldValuePresent(value) {
+        return value !== null && value !== undefined && value !== '';
+      }
+
+      function countReadableAnalyzeFields(resp) {
+        if (!resp || !resp.fields) return 0;
+        var n = 0;
+        Object.keys(resp.fields).forEach(function (key) {
+          if (fieldValuePresent(resp.fields[key].value)) n += 1;
+        });
+        return n;
+      }
+
+      function clearSeedDefaultsForUnread(resp, isVision) {
+        if (!isVision || !resp || !resp.fields) return;
+        var f = resp.fields;
+        if (!fieldValuePresent(f.drawing_no && f.drawing_no.value)) {
+          if ($('input-drawing') && $('input-drawing').value === SEED_FIELD_DEFAULTS.drawing_no) {
+            $('input-drawing').value = '';
+          }
+        }
+        if (!fieldValuePresent(f.diameter_mm && f.diameter_mm.value)) {
+          if ($('input-diameter') && String($('input-diameter').value) === String(SEED_FIELD_DEFAULTS.diameter_mm)) {
+            $('input-diameter').value = '';
+          }
+        }
+        if (!fieldValuePresent(f.length_mm && f.length_mm.value)) {
+          if ($('input-length') && String($('input-length').value) === String(SEED_FIELD_DEFAULTS.length_mm)) {
+            $('input-length').value = '';
+          }
+        }
+        if (!fieldValuePresent(f.product && f.product.value)) {
+          if ($('sel-product') && $('sel-product').value === SEED_FIELD_DEFAULTS.product) {
+            $('sel-product').value = SEED_FIELD_DEFAULTS.product;
+          }
+        }
+        renderMaterial();
+      }
+
+      function formatAnalyzeFieldDisplay(key, value) {
+        if (!fieldValuePresent(value)) return null;
+        if (key === 'diameter_mm') return 'φ' + value;
+        if (key === 'length_mm') return 'L' + value;
+        if (key === 'product') {
+          var pm = productMaster[value];
+          return pm ? pm.name : String(value);
+        }
+        return String(value);
+      }
+
+      function renderAiReadSummary(resp, meta) {
+        var box = $('ai-read-summary');
+        if (!box) return;
+        if (!resp || !resp.fields) {
+          box.classList.add('hidden');
+          return;
+        }
+        var readable = countReadableAnalyzeFields(resp);
+        var sparse = readable < 2;
+        box.classList.toggle('ai-read-sparse', sparse);
+        box.classList.remove('hidden');
+        var html = '<p class="font-semibold text-indigo-900 mb-1">AI 読み取り結果'
+          + (meta && meta.via ? ' <span class="font-normal text-zinc-500">(' + meta.via + ')</span>' : '')
+          + '</p>';
+        ['drawing_no', 'material', 'diameter_mm', 'length_mm', 'product'].forEach(function (key) {
+          var f = resp.fields[key] || { value: '', confidence: 'low' };
+          var label = AI_FIELD_LABELS[key] || key;
+          var display = formatAnalyzeFieldDisplay(key, f.value);
+          var conf = f.confidence || 'low';
+          html += '<div class="ai-read-row"><span class="ai-read-label">' + label + '</span>';
+          if (display) {
+            html += '<span class="ai-read-value">' + display + '</span>'
+              + '<span class="ai-read-conf ai-read-conf-' + conf + '">' + conf + '</span>';
+          } else {
+            html += '<span class="ai-read-miss">読取不可</span>'
+              + '<span class="ai-read-conf ai-read-conf-low">low</span>';
+          }
+          html += '</div>';
+        });
+        if (resp.processes && resp.processes.rows && resp.processes.rows.length) {
+          html += '<div class="ai-read-row mt-1"><span class="ai-read-label">工程</span>'
+            + '<span class="ai-read-value">' + resp.processes.rows.length + ' 行（提案あり）</span></div>';
+        } else if (meta && meta.isVision) {
+          html += '<div class="ai-read-row mt-1"><span class="ai-read-label">工程</span>'
+            + '<span class="ai-read-miss">読取不可 — 手入力</span></div>';
+        }
+        if (resp.notes && resp.notes.length) {
+          html += '<p class="mt-1 text-zinc-600">注記: ' + resp.notes.join(' · ') + '</p>';
+        }
+        if (sparse && meta && meta.isVision) {
+          html += '<p class="mt-1.5 text-amber-900 leading-snug">'
+            + '文字が小さいスキャン写真は読み取りにくいです。図面部分だけ切り出して PNG で再アップロードするか、「AIで読み取る」をもう一度押してください。'
+            + '</p>';
+        }
+        box.innerHTML = html;
       }
 
       function applyApiField(apiKey, value, confidence) {
@@ -2857,8 +2983,11 @@
         renderMaterial();
       }
 
-      function applyDrawingAnalyzeResponse(resp) {
+      function applyDrawingAnalyzeResponse(resp, analyzeMeta) {
         if (!resp) return;
+        analyzeMeta = analyzeMeta || {};
+        var isVision = analyzeMeta.isVision;
+        if (isVision) clearSeedDefaultsForUnread(resp, true);
         Object.keys(resp.fields || {}).forEach(function (key) {
           var f = resp.fields[key];
           applyApiField(key, f.value, f.confidence);
@@ -2868,6 +2997,7 @@
         } else {
           pendingAiProcessSuggestion = null;
         }
+        renderAiReadSummary(resp, analyzeMeta);
       }
 
       function getCurrentQuoteStateForDiff() {
@@ -3513,6 +3643,20 @@
         updateOcrFieldStyles();
       }
 
+      function dataUrlToFile(dataUrl, fileName, mime) {
+        var parts = String(dataUrl).split(',');
+        if (parts.length < 2) throw new Error('data URL が不正です');
+        var header = parts[0];
+        var b64 = parts[1];
+        var m = header.match(/data:([^;]+)/);
+        var type = mime || (m && m[1]) || guessMimeFromName(fileName);
+        var binary = atob(b64);
+        var len = binary.length;
+        var bytes = new Uint8Array(len);
+        for (var i = 0; i < len; i++) bytes[i] = binary.charCodeAt(i);
+        return new File([bytes], fileName || 'drawing.jpg', { type: type });
+      }
+
       function resolveDrawingFileForAnalyze() {
         var fileInput = $('drawing-file-input');
         if (fileInput && fileInput.files && fileInput.files[0]) {
@@ -3522,7 +3666,19 @@
         if (meta && meta.rawFile) {
           return Promise.resolve(meta.rawFile);
         }
-        var url = meta && (meta.previewUrl || meta.blobUrl);
+        var previewUrl = meta && meta.previewUrl;
+        if (previewUrl && previewUrl.indexOf('data:') === 0) {
+          try {
+            return Promise.resolve(dataUrlToFile(
+              previewUrl,
+              (meta && meta.fileName) || 'drawing.jpg',
+              meta && meta.mime
+            ));
+          } catch (e) {
+            return Promise.reject(e);
+          }
+        }
+        var url = meta && (meta.blobUrl || meta.previewUrl);
         if (url) {
           return fetch(url).then(function (res) {
             if (!res.ok) throw new Error('図面プレビューの読み込みに失敗しました');
@@ -3571,22 +3727,29 @@
             result.response = sessionLearnModule.applyLearnedBiases(result.response);
           }
           lastAiSuggestionRecord = result.suggestionRecord;
-          applyDrawingAnalyzeResponse(result.response);
-          aiAnalyzeInFlight = false;
           var via = formatAnalyzeSourceLabel(result);
+          var isVision = !(result.demoMode || result.analyzeSource === 'demo'
+            || result.analyzeSource === 'demo-fallback' || result.analyzeSource === 'local');
+          lastVisionAnalyzeMeta = { via: via, isVision: isVision };
+          applyDrawingAnalyzeResponse(result.response, lastVisionAnalyzeMeta);
+          aiAnalyzeInFlight = false;
           var demoWarning = (result.demoMode || result.analyzeSource === 'demo'
             || result.analyzeSource === 'demo-fallback' || result.analyzeSource === 'local')
             ? ' — 図面は未読取（デモ値）'
             : '';
+          var readable = countReadableAnalyzeFields(result.response);
+          var sparseNote = isVision && readable < 2
+            ? ' — 読み取り不足（' + readable + '/5 項目）'
+            : '';
           $('status-bar').textContent =
-            'AI 解析完了（' + via + demoWarning + '）· 黄色の欄と工程提案を確認してください';
+            'AI 解析完了（' + via + demoWarning + sparseNote + '）· 黄色の欄と工程提案を確認してください';
           var statusText = $('drawing-status-text');
           if (statusText && result.visionError) {
             statusText.textContent = 'Gemini エラー: ' + result.visionError;
           } else if (statusText && demoWarning) {
             statusText.textContent = 'デモデータが入りました。API キーを確認してください。';
           } else if (statusText) {
-            statusText.textContent = '解析: ' + via;
+            statusText.textContent = '解析: ' + via + (sparseNote ? ' · 読取不足' : '');
           }
           var chatBox = $('ai-chat-messages');
           if (chatBox) chatBox.innerHTML = '';
@@ -3596,8 +3759,15 @@
               appendAiChatMessage('assistant', sessionLearnModule.formatLearnedSummary(biases));
             }
           }
-          appendAiChatMessage('assistant',
-            '図面を解析しました。直したい点があれば下の欄に話しかけてください。');
+          if (isVision && readable < 2) {
+            appendAiChatMessage('assistant',
+              '図面から十分な文字が読み取れませんでした。'
+              + '表題欄（図番・材質）がはっきり写るよう、図面部分だけ切り出した PNG を推奨します。'
+              + '読めた項目は上の「AI 読み取り結果」に表示しています。');
+          } else {
+            appendAiChatMessage('assistant',
+              '図面を解析しました。直したい点があれば下の欄に話しかけてください。');
+          }
           updateAiUi();
           updateDrawingUI();
           renderAiLearnChat();

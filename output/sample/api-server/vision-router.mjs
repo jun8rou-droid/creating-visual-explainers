@@ -46,7 +46,7 @@ export function isVisionEnabled() {
  */
 export function getVisionModelId(provider) {
   if (provider === 'google') {
-    return process.env.GOOGLE_MODEL || process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+    return process.env.GOOGLE_MODEL || process.env.GEMINI_MODEL || 'gemini-2.5-pro';
   }
   return process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-6';
 }

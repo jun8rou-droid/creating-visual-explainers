@@ -272,9 +272,12 @@ app.post(API_PATH_ANALYZE, upload.single('drawing'), async (req, res) => {
         console.log('[analyze] vision ok:', fileName, '(' + visionResult.provider + ')');
       } catch (visionErr) {
         visionError = visionErr.message || String(visionErr);
-        console.error('[analyze] vision failed, fallback demo:', visionError);
-        response = buildDemoAnalyzeResponse(fileName);
-        analyzeSource = 'demo-fallback';
+        console.error('[analyze] vision failed:', visionError);
+        return res.status(502).json({
+          error: '図面の AI 解析に失敗しました: ' + visionError,
+          visionEnabled: true,
+          visionError,
+        });
       }
     } else {
       if (VISION_ENABLED && !req.file?.buffer?.length) {

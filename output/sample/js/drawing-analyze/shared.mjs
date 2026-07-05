@@ -47,6 +47,78 @@ export function confidenceNeedsReview(confidence) {
 }
 
 /**
+ * 読み取れたフィールド数（value が空でない high/medium/low すべて）
+ * @param {DrawingAnalyzeResponse} response
+ * @returns {number}
+ */
+export function countReadableFields(response) {
+  if (!response || !response.fields) return 0;
+  let n = 0;
+  for (const key of FIELD_KEYS) {
+    const f = response.fields[key];
+    if (!f) continue;
+    const v = f.value;
+    if (v !== null && v !== undefined && v !== '') n += 1;
+  }
+  return n;
+}
+
+/**
+ * @param {DrawingAnalyzeResponse} response
+ * @returns {boolean}
+ */
+export function isSparseVisionResponse(response) {
+  return countReadableFields(response) < 2;
+}
+
+const UI_LEAK_PATTERN = /工程リスト|見積ソフト|ペイン|入力欄|画面|UI|サンプル|モック|4ペイン/i;
+const DEMO_FIELD_SIGNATURE = {
+  drawing_no: 'DWG-S45C-001',
+  material: 'S45C',
+  diameter_mm: 50,
+  length_mm: 120,
+  product: 'shaft',
+};
+
+/**
+ * 画面キャプチャ等を図面と誤認した応答を検出して弱める
+ * @param {DrawingAnalyzeResponse} response
+ * @returns {DrawingAnalyzeResponse}
+ */
+export function sanitizeUiHallucination(response) {
+  if (!response) return response;
+  const rationale = response.processes?.rationale || '';
+  const notesText = (response.notes || []).join(' ');
+  const uiLeak = UI_LEAK_PATTERN.test(rationale) || UI_LEAK_PATTERN.test(notesText);
+  if (!uiLeak) return response;
+
+  const out = JSON.parse(JSON.stringify(response));
+  out.notes = out.notes || [];
+  if (out.notes.indexOf('UI誤読警告') < 0) {
+    out.notes.unshift('UI誤読警告: 見積画面の文字を図面と混同した可能性があります');
+  }
+
+  if (out.processes) {
+    out.processes.rows = [];
+    out.processes.preset_id = null;
+    out.processes.confidence = 'low';
+    out.processes.rationale = '画面/UI を読んだ可能性があるため工程提案を却下';
+  }
+
+  FIELD_KEYS.forEach(function (key) {
+    const f = out.fields[key];
+    if (!f) return;
+    const sig = DEMO_FIELD_SIGNATURE[key];
+    if (sig !== undefined && String(f.value) === String(sig)) {
+      f.value = '';
+      f.confidence = 'low';
+    }
+  });
+
+  return out;
+}
+
+/**
  * @param {unknown} obj
  * @returns {obj is DrawingAnalyzeResponse}
  */
