@@ -6,6 +6,7 @@
 import {
   API_PATH_ANALYZE,
   API_PATH_FEEDBACK,
+  API_PATH_OCR_CROP,
   buildDemoAnalyzeResponse,
   createSuggestionRecord,
   validateAnalyzeResponse,
@@ -83,6 +84,7 @@ async function parseJsonOrThrow(res) {
  * @property {AbortSignal} [signal]
  * @property {boolean} [forceReanalyze] — true なら DB キャッシュを無視して再解析
  * @property {boolean} [forceLocal] — true なら fetch せずローカル demo のみ
+ * @property {File|Blob} [titleCrop] — 表題欄切り出し画像（任意）
  */
 
 /**
@@ -114,6 +116,9 @@ export async function analyzeDrawing(fileOrName, options) {
   } else if (fileOrName) {
     form.append('drawing', fileOrName, fileOrName.name || 'drawing.pdf');
   }
+  if (options.titleCrop) {
+    form.append('title_crop', options.titleCrop, options.titleCrop.name || 'title-block.jpg');
+  }
   if (options.quoteId) form.append('quote_id', options.quoteId);
   if (options.forceReanalyze) form.append('force', '1');
 
@@ -143,6 +148,27 @@ export async function analyzeDrawing(fileOrName, options) {
     visionError: payload.visionError || null,
     cached: Boolean(payload.cached),
   };
+}
+
+/**
+ * 図面上の範囲切り出し画像を OCR（手動ピック用）
+ * @param {File|Blob} cropFile
+ * @param {{ apiBase?: string, signal?: AbortSignal }} [options]
+ */
+export async function ocrDrawingCrop(cropFile, options) {
+  options = options || {};
+  const apiBase = resolveApiBase(options);
+  if (!apiBase) {
+    throw new Error('OCR API が利用できません');
+  }
+  const form = new FormData();
+  form.append('crop', cropFile, cropFile.name || 'crop.jpg');
+  const res = await fetch(joinUrl(apiBase, API_PATH_OCR_CROP), {
+    method: 'POST',
+    body: form,
+    signal: options.signal,
+  });
+  return parseJsonOrThrow(res);
 }
 
 /**

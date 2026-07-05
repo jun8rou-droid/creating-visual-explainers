@@ -13,6 +13,7 @@ import { fileURLToPath } from 'url';
 import {
   API_PATH_ANALYZE,
   API_PATH_FEEDBACK,
+  API_PATH_OCR_CROP,
   buildDemoAnalyzeResponse,
   createSuggestionRecord,
   validateAnalyzeResponse,
@@ -31,6 +32,7 @@ import {
   saveDraftQuote,
 } from './quotes-db.mjs';
 import { analyzeDrawing, getVisionStatus, isVisionEnabled } from './vision-router.mjs';
+import { ocrDrawingRegion } from './gemini-analyze.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.join(__dirname, '.env') });
@@ -47,6 +49,11 @@ const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 20 * 1024 * 1024 },
 });
+
+const analyzeUpload = upload.fields([
+  { name: 'drawing', maxCount: 1 },
+  { name: 'title_crop', maxCount: 1 },
+]);
 
 const app = express();
 app.use(cors());
@@ -220,15 +227,17 @@ app.put('/api/quotes/:ref/draft', async (req, res) => {
   }
 });
 
-app.post(API_PATH_ANALYZE, upload.single('drawing'), async (req, res) => {
+app.post(API_PATH_ANALYZE, analyzeUpload, async (req, res) => {
   try {
-    const fileName = req.file
-      ? req.file.originalname
+    const reqFile = req.files?.drawing?.[0] || req.file;
+    const titleCropFile = req.files?.title_crop?.[0] || null;
+    const fileName = reqFile
+      ? reqFile.originalname
       : (req.body && req.body.fileName) || 'drawing.pdf';
     const quoteRef = req.body && req.body.quote_id;
     const forceReanalyze = req.query.force === '1' || req.body?.force === '1';
-    const hash = req.file ? drawingFileHash(req.file) : null;
-    const cacheKey = req.file ? fileCacheKey(req.file) : fileName;
+    const hash = reqFile ? drawingFileHash(reqFile) : null;
+    const cacheKey = reqFile ? fileCacheKey(reqFile) : fileName;
 
     let quoteId = null;
     if (isDbEnabled()) {
@@ -263,9 +272,11 @@ app.post(API_PATH_ANALYZE, upload.single('drawing'), async (req, res) => {
     let visionModel = null;
     let visionError = null;
 
-    if (VISION_ENABLED && req.file && req.file.buffer?.length) {
+    if (VISION_ENABLED && reqFile && reqFile.buffer?.length) {
       try {
-        const visionResult = await analyzeDrawing(req.file);
+        const visionResult = await analyzeDrawing(reqFile, {
+          titleCrop: titleCropFile,
+        });
         response = visionResult.response;
         analyzeSource = visionResult.source;
         visionModel = visionResult.model;
@@ -280,12 +291,12 @@ app.post(API_PATH_ANALYZE, upload.single('drawing'), async (req, res) => {
         });
       }
     } else {
-      if (VISION_ENABLED && !req.file?.buffer?.length) {
+      if (VISION_ENABLED && !reqFile?.buffer?.length) {
         return res.status(400).json({
           error: '図面ファイル本体が必要です。PDF / PNG / JPEG をアップロードしてから解析してください。',
         });
       }
-      if (VISION_ENABLED && !req.file) {
+      if (VISION_ENABLED && !reqFile) {
         console.log('[analyze] no file body — demo by fileName only');
       }
       response = buildDemoAnalyzeResponse(fileName);
@@ -324,6 +335,22 @@ app.post(API_PATH_ANALYZE, upload.single('drawing'), async (req, res) => {
   } catch (err) {
     console.error('[analyze]', err);
     res.status(500).json({ error: err.message || '解析に失敗しました' });
+  }
+});
+
+app.post(API_PATH_OCR_CROP, upload.single('crop'), async (req, res) => {
+  try {
+    if (!VISION_ENABLED) {
+      return res.status(503).json({ error: 'Vision API が無効です' });
+    }
+    if (!req.file?.buffer?.length) {
+      return res.status(400).json({ error: 'crop 画像が必要です' });
+    }
+    const text = await ocrDrawingRegion(req.file);
+    res.json({ text: String(text || '').trim() });
+  } catch (err) {
+    console.error('[ocr-crop]', err);
+    res.status(502).json({ error: err.message || 'OCR に失敗しました' });
   }
 });
 

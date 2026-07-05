@@ -4,6 +4,7 @@
  */
 
 export const API_PATH_ANALYZE = '/api/drawings/analyze';
+export const API_PATH_OCR_CROP = '/api/drawings/ocr-crop';
 export const API_PATH_FEEDBACK = '/api/ai/feedback';
 
 export const FIELD_KEYS = [
@@ -131,9 +132,12 @@ function fieldConfidentlyRead(field) {
 /**
  * 図番未確認なのにサンプル初期値（S45C·φ50·L120 等）だけ返る応答を却下
  * @param {DrawingAnalyzeResponse} response
+ * @param {{ ocrText?: string }} [options]
  * @returns {DrawingAnalyzeResponse}
  */
-export function sanitizeSeedHallucination(response) {
+export function sanitizeSeedHallucination(response, options) {
+  options = options || {};
+  const ocrText = options.ocrText || '';
   if (!response?.fields) return response;
   if (fieldConfidentlyRead(response.fields.drawing_no)) return response;
 
@@ -158,10 +162,10 @@ export function sanitizeSeedHallucination(response) {
     const f = out.fields[key];
     if (!f) return;
     const sig = DEMO_FIELD_SIGNATURE[key];
-    if (sig !== undefined && String(f.value) === String(sig)) {
-      f.value = '';
-      f.confidence = 'low';
-    }
+    if (sig === undefined || String(f.value) !== String(sig)) return;
+    if (ocrText && ocrTextSupportsSeedField(key, f.value, ocrText)) return;
+    f.value = '';
+    f.confidence = 'low';
   });
 
   if (out.processes && (out.processes.preset_id === 'shaft-basic' || seedMatches >= 3)) {
@@ -172,6 +176,25 @@ export function sanitizeSeedHallucination(response) {
   }
 
   return out;
+}
+
+/**
+ * @param {string} key
+ * @param {unknown} value
+ * @param {string} ocrText
+ */
+function ocrTextSupportsSeedField(key, value, ocrText) {
+  const text = String(ocrText);
+  const v = String(value);
+  if (key === 'material') {
+    return new RegExp('\\b' + v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'i').test(text);
+  }
+  if (key === 'diameter_mm' || key === 'length_mm') {
+    return text.indexOf(v) >= 0
+      || new RegExp('(?:φ|L\\s*[=:]?)\\s*' + v.replace('.', '\\.')).test(text);
+  }
+  if (key === 'product') return /シャフト|shaft/i.test(text);
+  return false;
 }
 
 export { DEMO_FIELD_SIGNATURE };

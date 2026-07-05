@@ -53,15 +53,17 @@ export function getVisionModelId(provider) {
 
 /**
  * @param {{ originalname: string, mimetype?: string, buffer: Buffer }} file
+ * @param {{ titleCrop?: { originalname?: string, mimetype?: string, buffer: Buffer } }} [options]
  */
-export async function analyzeDrawing(file) {
+export async function analyzeDrawing(file, options) {
+  options = options || {};
   const provider = resolveVisionProvider();
   if (!provider) {
     throw new Error('Vision API キーが未設定です');
   }
 
   if (provider === 'google') {
-    const response = await analyzeDrawingWithGemini(file);
+    const response = await analyzeDrawingWithGemini(file, options);
     return { response, provider, source: 'vision-google', model: getVisionModelId(provider) };
   }
 

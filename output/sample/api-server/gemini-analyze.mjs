@@ -15,10 +15,15 @@ import {
   sanitizeSeedHallucination,
 } from '../js/drawing-analyze/shared.mjs';
 import {
+  enrichResponseFromOcrText,
+  mergeVisionResponses,
+} from '../js/drawing-analyze/ocr-parse.mjs';
+import {
   VISION_SYSTEM_PROMPT,
   VISION_USER_PROMPT,
   VISION_OCR_EXTRACT_PROMPT,
   VISION_OCR_MERGE_PROMPT,
+  VISION_TITLE_BLOCK_PROMPT,
 } from '../js/drawing-analyze/vision-prompt.mjs';
 import { bufferToBase64, detectDrawingMediaType } from './vision-media.mjs';
 
@@ -64,14 +69,23 @@ function parseModelJson(text) {
  * @param {import('@google/genai').GoogleGenAI} ai
  * @param {string} modelId
  * @param {import('@google/genai').Part} imagePart
- * @param {string} fileName
  */
-async function analyzeWithOcrRetry(ai, modelId, imagePart, fileName) {
-  const ocrText = await generate(ai, modelId, [
+async function extractOcrPlainText(ai, modelId, imagePart) {
+  return generate(ai, modelId, [
     imagePart,
     { text: VISION_OCR_EXTRACT_PROMPT },
   ], { json: false, maxTokens: 8192 });
+}
 
+/**
+ * @param {import('@google/genai').GoogleGenAI} ai
+ * @param {string} modelId
+ * @param {import('@google/genai').Part} imagePart
+ * @param {string} fileName
+ * @param {string} ocrText
+ * @param {string} [modelTag]
+ */
+async function mergeOcrToJson(ai, modelId, imagePart, fileName, ocrText, modelTag) {
   const mergePrompt = VISION_OCR_MERGE_PROMPT.replace('{{OCR_TEXT}}', ocrText.slice(0, 12000));
   const mergeText = await generate(ai, modelId, [
     imagePart,
@@ -79,15 +93,77 @@ async function analyzeWithOcrRetry(ai, modelId, imagePart, fileName) {
   ], { json: true });
 
   return normalizeVisionResponse(parseModelJson(mergeText), {
-    modelId: 'gemini:' + modelId + '+ocr',
+    modelId: modelTag || ('gemini:' + modelId + '+ocr'),
     fileName,
     allowDemoProcessFallback: false,
   });
 }
 
 /**
+ * @param {import('@google/genai').GoogleGenAI} ai
+ * @param {string} modelId
+ * @param {import('@google/genai').Part} imagePart
+ * @param {string} fileName
+ */
+async function analyzeWithOcrRetry(ai, modelId, imagePart, fileName) {
+  const ocrText = await extractOcrPlainText(ai, modelId, imagePart);
+  return {
+    ocrText,
+    response: await mergeOcrToJson(ai, modelId, imagePart, fileName, ocrText, 'gemini:' + modelId + '+ocr'),
+  };
+}
+
+/**
  * @param {{ originalname: string, mimetype?: string, buffer: Buffer }} file
  * @param {{ apiKey?: string, model?: string }} [options]
+ * @returns {Promise<string>}
+ */
+export async function ocrDrawingRegion(file, options) {
+  options = options || {};
+  const apiKey = options.apiKey || process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
+  if (!apiKey) throw new Error('GOOGLE_API_KEY が未設定です');
+
+  const mediaType = detectDrawingMediaType(file);
+  if (!mediaType || !mediaType.startsWith('image/')) {
+    throw new Error('OCR 範囲指定は JPEG/PNG 画像のみ対応です');
+  }
+
+  const modelId = options.model || process.env.GOOGLE_MODEL || process.env.GEMINI_MODEL || 'gemini-2.5-pro';
+  const ai = new GoogleGenAI({ apiKey });
+  const data = bufferToBase64(mediaType, file.buffer);
+  const imagePart = createPartFromBase64(data, mediaType, PartMediaResolutionLevel.MEDIA_RESOLUTION_HIGH);
+  return extractOcrPlainText(ai, modelId, imagePart);
+}
+
+/**
+ * @param {{ originalname?: string, mimetype?: string, buffer: Buffer }} cropFile
+ * @param {import('@google/genai').GoogleGenAI} ai
+ * @param {string} modelId
+ * @param {string} fileName
+ */
+async function analyzeTitleCrop(cropFile, ai, modelId, fileName) {
+  const mediaType = detectDrawingMediaType(cropFile);
+  if (!mediaType?.startsWith('image/')) return { ocrText: '', response: null };
+
+  const data = bufferToBase64(mediaType, cropFile.buffer);
+  const cropPart = createPartFromBase64(data, mediaType, PartMediaResolutionLevel.MEDIA_RESOLUTION_HIGH);
+  const ocrText = await extractOcrPlainText(ai, modelId, cropPart);
+  const mergeText = await generate(ai, modelId, [
+    cropPart,
+    { text: VISION_TITLE_BLOCK_PROMPT + '\n\nOCR テキスト:\n' + ocrText.slice(0, 8000) },
+  ], { json: true });
+
+  const response = normalizeVisionResponse(parseModelJson(mergeText), {
+    modelId: 'gemini:' + modelId + '+title-crop',
+    fileName,
+    allowDemoProcessFallback: false,
+  });
+  return { ocrText, response };
+}
+
+/**
+ * @param {{ originalname: string, mimetype?: string, buffer: Buffer }} file
+ * @param {{ apiKey?: string, model?: string, titleCrop?: { originalname?: string, mimetype?: string, buffer: Buffer } }} [options]
  */
 export async function analyzeDrawingWithGemini(file, options) {
   options = options || {};
@@ -110,6 +186,8 @@ export async function analyzeDrawingWithGemini(file, options) {
     : PartMediaResolutionLevel.MEDIA_RESOLUTION_HIGH;
 
   const imagePart = createPartFromBase64(data, mediaType, resolution);
+  const isImage = mediaType.startsWith('image/');
+  const ocrChunks = [];
 
   const mainText = await generate(ai, modelId, [
     imagePart,
@@ -121,19 +199,42 @@ export async function analyzeDrawingWithGemini(file, options) {
     fileName: file.originalname,
     allowDemoProcessFallback: false,
   });
-  response = sanitizeUiHallucination(response);
-  response = sanitizeSeedHallucination(response);
 
-  const readable = countReadableFields(response);
-  if (readable < MIN_READABLE_FIELDS && mediaType.startsWith('image/')) {
-    console.log('[gemini] sparse read (' + readable + ' fields), OCR retry:', file.originalname);
+  if (isImage && options.titleCrop?.buffer?.length) {
     try {
-      response = await analyzeWithOcrRetry(ai, modelId, imagePart, file.originalname);
+      console.log('[gemini] title crop analyze:', file.originalname);
+      const cropResult = await analyzeTitleCrop(options.titleCrop, ai, modelId, file.originalname);
+      if (cropResult.ocrText) ocrChunks.push(cropResult.ocrText);
+      if (cropResult.response) {
+        response = mergeVisionResponses(response, cropResult.response);
+      }
+    } catch (cropErr) {
+      console.warn('[gemini] title crop failed:', cropErr.message || cropErr);
+    }
+  }
+
+  response = sanitizeUiHallucination(response);
+  response = sanitizeSeedHallucination(response, { ocrText: ocrChunks.join('\n') });
+
+  let readable = countReadableFields(response);
+  if (isImage && readable < MIN_READABLE_FIELDS) {
+    console.log('[gemini] OCR retry (' + readable + ' fields):', file.originalname);
+    try {
+      const retry = await analyzeWithOcrRetry(ai, modelId, imagePart, file.originalname);
+      if (retry.ocrText) ocrChunks.push(retry.ocrText);
+      response = mergeVisionResponses(response, retry.response);
       response = sanitizeUiHallucination(response);
-      response = sanitizeSeedHallucination(response);
+      response = sanitizeSeedHallucination(response, { ocrText: ocrChunks.join('\n') });
+      readable = countReadableFields(response);
     } catch (ocrErr) {
       console.warn('[gemini] OCR retry failed:', ocrErr.message || ocrErr);
     }
+  }
+
+  const combinedOcr = ocrChunks.join('\n\n');
+  if (combinedOcr.trim()) {
+    response = enrichResponseFromOcrText(response, combinedOcr);
+    response = sanitizeSeedHallucination(response, { ocrText: combinedOcr });
   }
 
   return response;

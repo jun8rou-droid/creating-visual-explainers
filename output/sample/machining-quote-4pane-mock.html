@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="robots" content="noindex, nofollow">
   <meta name="color-scheme" content="light">
-  <title>加工費見積 — 4ペイン UI（モック v10）</title>
+  <title>加工費見積 — 4ペイン UI（モック v11）</title>
   <meta name="drawing-api-base" content="">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1037,7 +1037,7 @@
   <footer class="app-footer flex-shrink-0 px-5 py-2.5 flex flex-wrap items-center justify-between gap-2 text-sm text-zinc-500">
     <span id="status-bar">材料と工程を入力してください</span>
     <span class="hidden md:inline text-zinc-400">+ 追加 · ↑↓ 移動 · Esc 閉じる</span>
-    <span>v10 · Vercel + Neon + Gemini Pro</span>
+    <span>v11 · Vercel + Neon + Gemini Pro · 表題欄OCR</span>
   </footer>
 
   <!-- 図面プレビュー（O1） -->
@@ -1065,7 +1065,7 @@
       <div class="border-b px-4 py-3 flex items-start justify-between gap-3">
         <div>
           <h2 class="font-semibold text-zinc-900">図面からピック</h2>
-          <p class="text-sm text-zinc-500 mt-0.5">黄色の候補をクリック → 選択中の欄へ貼り付け</p>
+          <p class="text-sm text-zinc-500 mt-0.5">貼り先を選び、図面上をドラッグして範囲指定 → OCR で欄へ貼り付け</p>
         </div>
         <button type="button" id="btn-drawing-pick-close" class="btn-ghost px-3 py-1.5 text-sm shrink-0" onclick="window.__mqCloseDrawingPick && window.__mqCloseDrawingPick()">閉じる</button>
       </div>
@@ -2972,7 +2972,7 @@
             + '</p>';
         } else if (sparse && meta && meta.isVision) {
           html += '<p class="mt-1.5 text-amber-900 leading-snug">'
-            + '文字が小さいスキャン写真は読み取りにくいです。図面部分だけ切り出して PNG で再アップロードするか、「AIで読み取る」をもう一度押してください。'
+            + '自動読み取りが不足しています。「ピック」で表題欄をドラッグ指定するか、図面部分だけ切り出して再アップロードしてください。'
             + '</p>';
         }
         box.innerHTML = html;
@@ -3662,10 +3662,58 @@
       }
 
       var VERCEL_UPLOAD_SAFE_BYTES = 3.4 * 1024 * 1024;
-      var DRAWING_COMPRESS_MAX_EDGE = 2400;
+      var DRAWING_COMPRESS_MAX_EDGE = 2800;
+      var TITLE_BLOCK_CROP = { xRatio: 0.40, yRatio: 0.55, wRatio: 0.60, hRatio: 0.45 };
+
+      function canvasToJpegFile(canvas, fileName, quality) {
+        return new Promise(function (resolve, reject) {
+          canvas.toBlob(function (blob) {
+            if (!blob) {
+              reject(new Error('画像の変換に失敗しました'));
+              return;
+            }
+            resolve(new File([blob], fileName, { type: 'image/jpeg' }));
+          }, 'image/jpeg', quality || 0.9);
+        });
+      }
+
+      function loadImageFromFile(file) {
+        return new Promise(function (resolve, reject) {
+          var url = URL.createObjectURL(file);
+          var img = new Image();
+          img.onload = function () {
+            URL.revokeObjectURL(url);
+            resolve(img);
+          };
+          img.onerror = function () {
+            URL.revokeObjectURL(url);
+            reject(new Error('画像の読み込みに失敗しました'));
+          };
+          img.src = url;
+        });
+      }
+
+      function cropTitleBlockFromImage(img, sourceName) {
+        var w = img.naturalWidth || img.width;
+        var h = img.naturalHeight || img.height;
+        var x = Math.max(0, Math.round(w * TITLE_BLOCK_CROP.xRatio));
+        var y = Math.max(0, Math.round(h * TITLE_BLOCK_CROP.yRatio));
+        var cw = Math.max(1, Math.round(w * TITLE_BLOCK_CROP.wRatio));
+        var ch = Math.max(1, Math.round(h * TITLE_BLOCK_CROP.hRatio));
+        if (x + cw > w) cw = w - x;
+        if (y + ch > h) ch = h - y;
+        var canvas = document.createElement('canvas');
+        canvas.width = cw;
+        canvas.height = ch;
+        var ctx = canvas.getContext('2d');
+        if (!ctx) return Promise.resolve(null);
+        ctx.drawImage(img, x, y, cw, ch, 0, 0, cw, ch);
+        var base = (sourceName || 'drawing').replace(/\.[^.]+$/, '');
+        return canvasToJpegFile(canvas, base + '-title.jpg', 0.92);
+      }
 
       function compressDrawingFileForApi(file) {
-        if (!file) return Promise.resolve(file);
+        if (!file) return Promise.resolve({ file: file, titleCrop: null });
         var isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name || '');
         if (isPdf) {
           if (file.size > VERCEL_UPLOAD_SAFE_BYTES) {
@@ -3674,19 +3722,18 @@
               + '4MB 以下にするか、図面ページを JPEG/PNG で保存し直してください。',
             ));
           }
-          return Promise.resolve(file);
+          return Promise.resolve({ file: file, titleCrop: null });
         }
         var isImage = /^image\//i.test(file.type || '') || /\.(jpe?g|png|webp)$/i.test(file.name || '');
-        if (!isImage || file.size <= VERCEL_UPLOAD_SAFE_BYTES) {
-          return Promise.resolve(file);
-        }
+        if (!isImage) return Promise.resolve({ file: file, titleCrop: null });
 
-        function encode(quality) {
-          return new Promise(function (resolve, reject) {
-            var url = URL.createObjectURL(file);
-            var img = new Image();
-            img.onload = function () {
-              URL.revokeObjectURL(url);
+        return loadImageFromFile(file).then(function (img) {
+          return cropTitleBlockFromImage(img, file.name).then(function (titleCrop) {
+            if (file.size <= VERCEL_UPLOAD_SAFE_BYTES) {
+              return { file: file, titleCrop: titleCrop };
+            }
+
+            function encode(quality) {
               var w = img.naturalWidth || img.width;
               var h = img.naturalHeight || img.height;
               var scale = Math.min(1, DRAWING_COMPRESS_MAX_EDGE / Math.max(w, h, 1));
@@ -3696,34 +3743,22 @@
               canvas.width = cw;
               canvas.height = ch;
               var ctx = canvas.getContext('2d');
-              if (!ctx) {
-                resolve(file);
-                return;
-              }
+              if (!ctx) return Promise.resolve({ file: file, titleCrop: titleCrop });
               ctx.drawImage(img, 0, 0, cw, ch);
-              canvas.toBlob(function (blob) {
-                if (!blob) {
-                  resolve(file);
-                  return;
-                }
-                var base = (file.name || 'drawing').replace(/\.[^.]+$/, '');
-                var out = new File([blob], base + '.jpg', { type: 'image/jpeg' });
-                if (out.size > VERCEL_UPLOAD_SAFE_BYTES && quality > 0.55) {
-                  encode(quality - 0.12).then(resolve).catch(reject);
-                  return;
-                }
-                resolve(out);
-              }, 'image/jpeg', quality);
-            };
-            img.onerror = function () {
-              URL.revokeObjectURL(url);
-              resolve(file);
-            };
-            img.src = url;
-          });
-        }
+              return canvasToJpegFile(canvas, (file.name || 'drawing').replace(/\.[^.]+$/, '') + '.jpg', quality)
+                .then(function (out) {
+                  if (out.size > VERCEL_UPLOAD_SAFE_BYTES && quality > 0.55) {
+                    return encode(quality - 0.12);
+                  }
+                  return { file: out, titleCrop: titleCrop };
+                });
+            }
 
-        return encode(0.88);
+            return encode(0.88);
+          });
+        }).catch(function () {
+          return { file: file, titleCrop: null };
+        });
       }
 
       function dataUrlToFile(dataUrl, fileName, mime) {
@@ -3786,16 +3821,16 @@
 
       function runDrawingAnalyze() {
         if (isConfirmedRevView() || aiAnalyzeInFlight) return;
-        resolveDrawingFileForAnalyze().then(function (file) {
-          if (!file) {
+        resolveDrawingFileForAnalyze().then(function (pack) {
+          if (!pack || !pack.file) {
             alert('図面ファイルが見つかりません。\n「ファイルを選ぶ」から再度アップロードしてください。');
             return;
           }
-          if (file.size > VERCEL_UPLOAD_SAFE_BYTES) {
-            alert('圧縮後もファイルが大きすぎます（約 ' + Math.round(file.size / 1024 / 1024) + 'MB）。\n図面部分だけ切り出して再試してください。');
+          if (pack.file.size > VERCEL_UPLOAD_SAFE_BYTES) {
+            alert('圧縮後もファイルが大きすぎます（約 ' + Math.round(pack.file.size / 1024 / 1024) + 'MB）。\n図面部分だけ切り出して再試してください。');
             return;
           }
-          requestDrawingApiAnalysis(file, { forceReanalyze: true });
+          requestDrawingApiAnalysis(pack.file, { forceReanalyze: true, titleCrop: pack.titleCrop });
         }).catch(function (err) {
           alert('図面の読み込みに失敗しました: ' + (err && err.message ? err.message : String(err)));
         });
@@ -3814,7 +3849,7 @@
         if (bar) {
           bar.textContent = (fileOrName && fileOrName.size > VERCEL_UPLOAD_SAFE_BYTES)
             ? '図面を圧縮して AI 解析中…'
-            : '図面を AI で解析中…';
+            : '図面を AI で解析中…（表題欄切り出し含む）';
         }
 
         loadDrawingApiModule().then(function (api) {
@@ -3822,6 +3857,7 @@
             quoteId: getQuoteIdForApi(),
             presetCatalog: PROCESS_PRESETS,
             forceReanalyze: analyzeOpts.forceReanalyze,
+            titleCrop: analyzeOpts.titleCrop || null,
           });
         }).then(function (result) {
           lastAiSuggestionRecord = result.suggestionRecord;
@@ -3986,8 +4022,8 @@
           if ($('status-bar') && file.size > VERCEL_UPLOAD_SAFE_BYTES) {
             $('status-bar').textContent = '大きい写真を圧縮中… ' + originalName;
           }
-          compressDrawingFileForApi(file).then(function (compressed) {
-            requestDrawingApiAnalysis(compressed, { forceReanalyze: true });
+          compressDrawingFileForApi(file).then(function (pack) {
+            requestDrawingApiAnalysis(pack.file, { forceReanalyze: true, titleCrop: pack.titleCrop });
           }).catch(function (err) {
             alert((err && err.message) || '図面の圧縮に失敗しました');
             if ($('status-bar')) $('status-bar').textContent = '図面の準備に失敗しました';
@@ -4094,9 +4130,162 @@
         });
       }
 
+      function normalizeOcrPickText(text, field) {
+        var t = String(text || '').replace(/\s+/g, ' ').trim();
+        if (!t) return '';
+        var lines = t.split(/\n/).map(function (s) { return s.trim(); }).filter(Boolean);
+        if (field === 'material') {
+          var mat = lines.find(function (l) { return /S45C|SUS|SS400|A5052|SCM|SUM|C3604/i.test(l); });
+          if (mat) return mat.match(/S45C|SUS\d+|SS400|A5052|SCM\d+|SUM\d+|C3604/i)[0].toUpperCase();
+        }
+        if (field === 'dia') {
+          var dm = t.match(/(?:φ|Φ|ø|直径)\s*(\d+(?:\.\d+)?)/i);
+          if (dm) return 'φ' + dm[1];
+          var n = t.match(/\b(\d{1,4}(?:\.\d+)?)\b/);
+          return n ? 'φ' + n[1] : t.slice(0, 24);
+        }
+        if (field === 'length') {
+          var lm = t.match(/(?:全長|L\s*[=:：]?)\s*(\d+(?:\.\d+)?)/i);
+          if (lm) return 'L' + lm[1];
+          var ln = t.match(/\b(\d{2,4})\b/);
+          return ln ? 'L' + ln[1] : t.slice(0, 24);
+        }
+        return (lines[0] || t).slice(0, 48);
+      }
+
+      function cropImageRegionFromSrc(src, rect) {
+        return new Promise(function (resolve, reject) {
+          var img = new Image();
+          img.onload = function () {
+            var canvas = document.createElement('canvas');
+            canvas.width = Math.max(1, Math.round(rect.w));
+            canvas.height = Math.max(1, Math.round(rect.h));
+            var ctx = canvas.getContext('2d');
+            if (!ctx) {
+              reject(new Error('canvas 未対応'));
+              return;
+            }
+            ctx.drawImage(img, rect.x, rect.y, rect.w, rect.h, 0, 0, rect.w, rect.h);
+            canvasToJpegFile(canvas, 'pick-crop.jpg', 0.92).then(resolve).catch(reject);
+          };
+          img.onerror = function () { reject(new Error('図面画像の読み込みに失敗しました')); };
+          img.src = src;
+        });
+      }
+
+      function wireImagePickCanvas(container, meta) {
+        if (!container || !meta) return;
+        var src = getDrawingPreviewSrc(meta);
+        if (!src || !isImageDrawingMeta(meta)) return;
+
+        var wrap = container.querySelector('.pick-image-wrap');
+        var img = container.querySelector('.pick-image');
+        var overlay = container.querySelector('.pick-overlay');
+        if (!wrap || !img || !overlay) return;
+
+        var dragging = false;
+        var startX = 0;
+        var startY = 0;
+        var sel = null;
+
+        function clientToImage(clientX, clientY) {
+          var r = img.getBoundingClientRect();
+          var scaleX = (img.naturalWidth || img.width) / r.width;
+          var scaleY = (img.naturalHeight || img.height) / r.height;
+          return {
+            x: (clientX - r.left) * scaleX,
+            y: (clientY - r.top) * scaleY,
+          };
+        }
+
+        function renderSel() {
+          if (!sel) {
+            overlay.style.display = 'none';
+            return;
+          }
+          var r = img.getBoundingClientRect();
+          var w = img.naturalWidth || img.width;
+          var h = img.naturalHeight || img.height;
+          overlay.style.display = 'block';
+          overlay.style.left = (sel.x / w * r.width) + 'px';
+          overlay.style.top = (sel.y / h * r.height) + 'px';
+          overlay.style.width = (sel.w / w * r.width) + 'px';
+          overlay.style.height = (sel.h / h * r.height) + 'px';
+        }
+
+        function onDown(e) {
+          if (e.button !== 0) return;
+          dragging = true;
+          var p = clientToImage(e.clientX, e.clientY);
+          startX = p.x;
+          startY = p.y;
+          sel = { x: startX, y: startY, w: 1, h: 1 };
+          renderSel();
+          e.preventDefault();
+        }
+
+        function onMove(e) {
+          if (!dragging) return;
+          var p = clientToImage(e.clientX, e.clientY);
+          var x = Math.min(startX, p.x);
+          var y = Math.min(startY, p.y);
+          var w = Math.abs(p.x - startX);
+          var h = Math.abs(p.y - startY);
+          sel = { x: x, y: y, w: Math.max(4, w), h: Math.max(4, h) };
+          renderSel();
+        }
+
+        function onUp() {
+          if (!dragging || !sel) return;
+          dragging = false;
+          if (sel.w < 8 || sel.h < 8) {
+            sel = null;
+            renderSel();
+            return;
+          }
+          var field = pickActiveField;
+          if ($('status-bar')) $('status-bar').textContent = '選択範囲を OCR 中…';
+          cropImageRegionFromSrc(src, sel).then(function (cropFile) {
+            return loadDrawingApiModule().then(function (api) {
+              if (!api.ocrDrawingCrop) throw new Error('OCR API 未対応');
+              return api.ocrDrawingCrop(cropFile);
+            });
+          }).then(function (payload) {
+            var text = normalizeOcrPickText(payload.text, field);
+            if (!text) {
+              alert('文字が読み取れませんでした。範囲を広げて再試してください。');
+              return;
+            }
+            applyOcrValue(field, text);
+            updatePickTargetButtons();
+            renderDrawingPickCanvas();
+            if ($('status-bar')) $('status-bar').textContent = text + ' を「' + field + '」へ貼り付けました';
+          }).catch(function (err) {
+            alert('OCR に失敗しました: ' + (err && err.message ? err.message : String(err)));
+          }).finally(function () {
+            sel = null;
+            renderSel();
+          });
+        }
+
+        img.addEventListener('mousedown', onDown);
+        window.addEventListener('mousemove', onMove);
+        window.addEventListener('mouseup', onUp);
+      }
+
       function renderDrawingPreviewContent(container, meta, forPick) {
         if (!container || !meta) return;
         var src = getDrawingPreviewSrc(meta);
+        if (forPick && src && isImageDrawingMeta(meta)) {
+          container.innerHTML =
+            '<div class="pick-image-wrap relative inline-block max-w-full">' +
+            '<img class="pick-image max-w-full h-auto block select-none" src="' + src + '" alt="図面プレビュー" draggable="false" />' +
+            '<div class="pick-overlay absolute border-2 border-amber-400 bg-amber-300/20 pointer-events-none" style="display:none"></div>' +
+            '</div>' +
+            '<p class="text-xs text-zinc-500 mt-2 text-center">貼り先を選んでから、図面上をドラッグしてください</p>';
+          wireImagePickCanvas(container, meta);
+          return;
+        }
         if (src && !forPick) {
           if (isImageDrawingMeta(meta)) {
             container.innerHTML =
@@ -4113,6 +4302,11 @@
               '<p class="p-4 text-center text-sm text-zinc-600">' + escapeHtml(meta.fileName) + '</p>' +
               '<p class="text-center pb-4"><a href="' + src + '" target="_blank" rel="noopener" class="text-indigo-700 underline">新しいタブで開く</a></p>';
           }
+          return;
+        }
+        if (forPick) {
+          container.innerHTML = renderDemoTitleBlockSvg(pickActiveField);
+          wirePickRegions(container);
           return;
         }
         container.innerHTML = renderDemoTitleBlockSvg(forPick ? pickActiveField : null);
