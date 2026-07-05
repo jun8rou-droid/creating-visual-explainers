@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="robots" content="noindex, nofollow">
   <meta name="color-scheme" content="light">
-  <title>加工費見積 — 4ペイン UI（モック v18）</title>
+  <title>加工費見積 — 4ペイン UI（モック v20）</title>
   <meta name="drawing-api-base" content="">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -755,8 +755,11 @@
           <form id="pane1-input-form" class="pane1-input-form" autocomplete="off" onsubmit="return false">
 
             <div class="pane1-field">
-              <label class="pane1-field-label" for="input-customer">顧客名 <span class="optional">任意</span></label>
-              <input type="text" id="input-customer" value="株式会社サンプル" class="input-field font-sans text-base py-2" placeholder="例: 〇〇製作所" />
+              <label class="pane1-field-label" for="sel-customer">顧客名 <span class="optional">任意</span></label>
+              <select id="sel-customer" class="input-field font-sans text-base w-full py-2"></select>
+              <div id="customer-custom-wrap" class="hidden mt-1.5">
+                <input type="text" id="input-customer-custom" class="input-field font-sans text-base py-2" placeholder="顧客名を入力" />
+              </div>
             </div>
 
             <div class="pane1-field">
@@ -833,6 +836,8 @@
               <button type="button" id="btn-open-master-inline" class="text-indigo-600 underline hover:text-indigo-800 font-medium">材質マスタ</button>
               ·
               <button type="button" id="btn-open-master-product-inline" class="text-indigo-600 underline hover:text-indigo-800 font-medium">品名マスタ</button>
+              ·
+              <button type="button" id="btn-open-master-customer-inline" class="text-indigo-600 underline hover:text-indigo-800 font-medium">顧客マスタ</button>
             </p>
           </form>
 
@@ -1066,7 +1071,7 @@
   <footer class="app-footer flex-shrink-0 px-5 py-2.5 flex flex-wrap items-center justify-between gap-2 text-sm text-zinc-500">
     <span id="status-bar">材料と工程を入力してください</span>
     <span class="hidden md:inline text-zinc-400">+ 追加 · ↑↓ 移動 · 区切りをドラッグでサイズ調整</span>
-    <span>v18 · 左半分 入力|工程</span>
+    <span>v20 · マスタ工程</span>
   </footer>
 
   <!-- FAX用 PDF プレビュー（L2 · CT-FAX） -->
@@ -1094,7 +1099,7 @@
     <header class="app-header flex-shrink-0 px-5 py-3 flex items-center justify-between gap-3">
       <div>
         <h2 class="font-semibold text-zinc-900">マスタ管理</h2>
-        <p class="text-sm text-zinc-500">材質 · 品名 · 回答テンプレ · 時間単価を登録</p>
+        <p class="text-sm text-zinc-500">材質 · 品名 · 顧客 · 回答テンプレ · 時間単価</p>
       </div>
       <button type="button" id="btn-master-close" class="btn-ghost px-4 py-2 text-sm font-medium">見積に戻る</button>
     </header>
@@ -1104,6 +1109,10 @@
           <button type="button" id="master-nav-shop" class="master-nav w-full text-left rounded-lg border px-3 py-2.5 text-sm transition bg-white hover:bg-zinc-50 border-zinc-200">
             <span class="font-semibold text-zinc-800">共通設定</span>
             <span class="block text-sm font-mono text-zinc-500 mt-0.5" id="master-nav-hourly-preview">¥4,200/h</span>
+          </button>
+          <button type="button" id="master-nav-customers" class="master-nav w-full text-left rounded-lg border px-3 py-2.5 text-sm transition bg-white hover:bg-zinc-50 border-zinc-200">
+            <span class="font-semibold text-zinc-800">顧客</span>
+            <span class="block text-sm text-zinc-500 mt-0.5" id="master-nav-customers-preview">5件登録</span>
           </button>
           <button type="button" id="master-nav-products" class="master-nav w-full text-left rounded-lg border px-3 py-2.5 text-sm transition bg-white hover:bg-zinc-50 border-zinc-200">
             <span class="font-semibold text-zinc-800">品名</span>
@@ -1202,7 +1211,37 @@
               <input type="number" id="master-product-sort" value="100" min="0" step="10" class="input-field mt-1 font-mono" />
               <p class="text-sm text-zinc-400 mt-0.5">小さいほど上に表示</p>
             </div>
+            <fieldset class="border border-zinc-200 rounded-xl p-3 space-y-2">
+              <legend class="text-sm font-semibold text-zinc-800 px-1">標準工程</legend>
+              <p class="text-xs text-zinc-500 leading-relaxed">見積でこの品名を選ぶと、工程リストの参考として読み込みます</p>
+              <div id="master-product-process-list" class="space-y-2 max-h-[280px] overflow-y-auto"></div>
+              <div class="flex flex-wrap gap-1.5 pt-1">
+                <button type="button" class="master-add-proc btn-ghost px-2 py-1 text-xs" data-type="od">+ 外径</button>
+                <button type="button" class="master-add-proc btn-ghost px-2 py-1 text-xs" data-type="hole">+ 穴</button>
+                <button type="button" class="master-add-proc btn-ghost px-2 py-1 text-xs" data-type="face">+ 端面</button>
+                <button type="button" class="master-add-proc btn-ghost px-2 py-1 text-xs" data-type="other">+ その他</button>
+              </div>
+            </fieldset>
             <p id="master-product-form-error" class="hidden text-sm text-red-600"></p>
+          </div>
+        </div>
+        <!-- 顧客 -->
+        <div id="master-customer-panel" class="hidden flex flex-col min-h-0 flex-1">
+          <div class="border-b px-4 py-2.5">
+            <p id="master-customer-form-title" class="text-sm font-semibold text-zinc-900">顧客を編集</p>
+            <p class="text-sm text-zinc-500 mt-0.5">見積のプルダウンに並ぶ名称です</p>
+          </div>
+          <div class="flex-1 overflow-y-auto p-4 space-y-4">
+            <div>
+              <label class="text-base font-medium text-zinc-600">顧客名 <span class="text-red-500">*</span></label>
+              <input type="text" id="master-customer-name" class="input-field mt-1 font-sans max-w-sm" placeholder="例: 株式会社サンプル" />
+            </div>
+            <div class="max-w-xs">
+              <label class="text-base font-medium text-zinc-600">並び順</label>
+              <input type="number" id="master-customer-sort" value="100" min="0" step="10" class="input-field mt-1 font-mono" />
+              <p class="text-sm text-zinc-400 mt-0.5">小さいほど上に表示</p>
+            </div>
+            <p id="master-customer-form-error" class="hidden text-sm text-red-600"></p>
           </div>
         </div>
         <!-- 材質 -->
@@ -1279,10 +1318,14 @@
         companyFax: '03-1234-5679',
         quoteValidityDays: 14,
       };
-      /** マスタ画面: 'shop' | 'product' | 'material' | 'template' */
+      /** マスタ画面: 'shop' | 'product' | 'customer' | 'material' | 'template' */
       let masterEditingMode = 'material';
       /** 品名マスタ: 編集中ID（null=新規） */
       let masterProductEditingId = null;
+      /** 顧客マスタ: 編集中ID（null=新規） */
+      let masterCustomerEditingId = null;
+      /** 品名マスタ編集中の標準工程ドラフト */
+      let masterProductProcessDraft = [];
 
       const TYPE_META = {
         od:    { label: '外径',   auto: true,  badge: 'bg-sky-100 text-sky-800 border-sky-200',     icon: '↔', desc: 'Vc/f/ap から自動' },
@@ -1355,17 +1398,47 @@
         S45C:   { vc: 120, f: 0.15, ap: 1.0, vcHole: 80, fHole: 0.08, density: 7.85, priceKg: 180 },
         SUS304: { vc: 90,  f: 0.12, ap: 0.8, vcHole: 60, fHole: 0.06, density: 7.93, priceKg: 450 },
       };
-      /** 品名マスタ { id: { name, sort } } */
+      /** 品名マスタ { id: { name, sort, processRows?: {type,data}[] } } */
       let productMaster = {
-        spacer:  { name: 'スペーサー', sort: 10 },
-        shaft:   { name: 'シャフト', sort: 20 },
-        collar:  { name: 'カラー', sort: 30 },
-        bush:    { name: 'ブッシュ', sort: 40 },
-        pin:     { name: 'ピン', sort: 50 },
-        nozzle:  { name: 'ノズル', sort: 60 },
-        fitting: { name: '継手（配管用）', sort: 70 },
+        spacer:  {
+          name: 'スペーサー', sort: 10,
+          processRows: [
+            { type: 'od', data: { startDia: '', finishDia: '40', cutLen: '30' } },
+            { type: 'face', data: { seconds: '60' } },
+          ],
+        },
+        shaft:   {
+          name: 'シャフト', sort: 20,
+          processRows: [
+            { type: 'od', data: { startDia: '', finishDia: '40', cutLen: '40' } },
+            { type: 'od', data: { startDia: '50', finishDia: '40', cutLen: '80' } },
+            { type: 'hole', data: { holeDia: '10', depth: '25' } },
+            { type: 'face', data: { seconds: '90' } },
+            { type: 'other', data: { name: '面取り', seconds: '120' } },
+          ],
+        },
+        collar:  {
+          name: 'カラー', sort: 30,
+          processRows: [
+            { type: 'od', data: { startDia: '', finishDia: '35', cutLen: '20' } },
+            { type: 'face', data: { seconds: '45' } },
+          ],
+        },
+        bush:    { name: 'ブッシュ', sort: 40, processRows: [] },
+        pin:     { name: 'ピン', sort: 50, processRows: [] },
+        nozzle:  { name: 'ノズル', sort: 60, processRows: [] },
+        fitting: { name: '継手（配管用）', sort: 70, processRows: [] },
       };
       let productCustomText = '';
+      /** 顧客マスタ { id: { name, sort } } */
+      let customerMaster = {
+        sample: { name: '株式会社サンプル', sort: 10 },
+        tanaka: { name: '田中精機', sort: 20 },
+        maru: { name: '〇〇工業', sort: 30 },
+        yamada: { name: '山田製作所', sort: 40 },
+        sato: { name: '佐藤金属', sort: 50 },
+      };
+      let customerCustomText = '';
       /** REV1: draft | rev1 | rev2 */
       let quoteViewMode = 'draft';
       /** 編集中の下書き番号（DB の draft_no） */
@@ -1659,27 +1732,159 @@
         });
       }
 
-      function applyProcessPreset(presetId) {
-        if (isConfirmedRevView()) return;
-        var preset = PROCESS_PRESETS.find(function (p) { return p.id === presetId; });
-        if (!preset) return;
-        if (processes.length > 0 && !confirm('「' + preset.label + '」で工程を置き換えますか？')) return;
+      function applyProcessRowsFromTemplate(rows, label) {
+        if (isConfirmedRevView() || !rows || !rows.length) return false;
         var baseId = nextProcessId;
-        processes = preset.rows.map(function (row, i) {
+        processes = rows.map(function (row, i) {
           return {
             id: baseId + i,
             type: row.type,
-            data: JSON.parse(JSON.stringify(row.data)),
+            data: JSON.parse(JSON.stringify(row.data || {})),
           };
         });
-        nextProcessId = baseId + preset.rows.length;
+        nextProcessId = baseId + rows.length;
         selectedId = processes[0].id;
         dialogMode = 'edit';
         dialogType = processes[0].type;
         dialogDraft = Object.assign({}, processes[0].data);
         dialogStep = 0;
-        $('status-bar').textContent = 'プリセット「' + preset.label + '」を適用しました · 内容を確認してください';
+        var name = label || '標準工程';
+        $('status-bar').textContent = '「' + name + '」の標準工程（' + rows.length + '行）を読み込みました · 内容を確認してください';
         renderAll();
+        return true;
+      }
+
+      function getProductProcessRows(productId) {
+        var p = productMaster[productId];
+        if (!p || !p.processRows || !p.processRows.length) return null;
+        return p.processRows;
+      }
+
+      function tryApplyProductProcessOnSelect(productId) {
+        if (isConfirmedRevView() || getProductMode() !== 'catalog') return;
+        var rows = getProductProcessRows(productId);
+        if (!rows) return;
+        var p = productMaster[productId];
+        var label = p ? p.name : productId;
+        if (processes.length > 0) {
+          if (!confirm('品名「' + label + '」の標準工程（' + rows.length + '行）で置き換えますか？')) return;
+        }
+        applyProcessRowsFromTemplate(rows, label);
+      }
+
+      function applyProcessPreset(presetId) {
+        if (isConfirmedRevView()) return;
+        var preset = PROCESS_PRESETS.find(function (p) { return p.id === presetId; });
+        if (!preset) return;
+        if (processes.length > 0 && !confirm('「' + preset.label + '」で工程を置き換えますか？')) return;
+        applyProcessRowsFromTemplate(preset.rows, preset.label);
+      }
+
+      function defaultProcessRowData(type) {
+        if (type === 'od') return { startDia: '', finishDia: '40', cutLen: '40' };
+        if (type === 'hole') return { holeDia: '10', depth: '25' };
+        if (type === 'face') return { seconds: '90' };
+        if (type === 'other') return { name: '', seconds: '120' };
+        if (type === 'groove') return { width: '', depth: '', seconds: '90' };
+        return {};
+      }
+
+      function masterProcessRowFieldsHtml(type, data, index) {
+        data = data || {};
+        var meta = TYPE_META[type] || TYPE_META.other;
+        var fields = '';
+        if (type === 'od') {
+          fields = '<label class="text-xs text-zinc-500">仕上φ<input type="text" class="master-proc-input input-field text-xs py-1 mt-0.5 font-mono" data-idx="' + index + '" data-key="finishDia" value="' + (data.finishDia || '') + '" /></label>' +
+            '<label class="text-xs text-zinc-500">削り長<input type="text" class="master-proc-input input-field text-xs py-1 mt-0.5 font-mono" data-idx="' + index + '" data-key="cutLen" value="' + (data.cutLen || '') + '" /></label>';
+        } else if (type === 'hole') {
+          fields = '<label class="text-xs text-zinc-500">穴φ<input type="text" class="master-proc-input input-field text-xs py-1 mt-0.5 font-mono" data-idx="' + index + '" data-key="holeDia" value="' + (data.holeDia || '') + '" /></label>' +
+            '<label class="text-xs text-zinc-500">深さ<input type="text" class="master-proc-input input-field text-xs py-1 mt-0.5 font-mono" data-idx="' + index + '" data-key="depth" value="' + (data.depth || '') + '" /></label>';
+        } else if (type === 'face') {
+          fields = '<label class="text-xs text-zinc-500">秒<input type="text" class="master-proc-input input-field text-xs py-1 mt-0.5 font-mono w-16" data-idx="' + index + '" data-key="seconds" value="' + (data.seconds || '') + '" /></label>';
+        } else if (type === 'other') {
+          fields = '<label class="text-xs text-zinc-500">名称<input type="text" class="master-proc-input input-field text-xs py-1 mt-0.5" data-idx="' + index + '" data-key="name" value="' + (data.name || '') + '" /></label>' +
+            '<label class="text-xs text-zinc-500">秒<input type="text" class="master-proc-input input-field text-xs py-1 mt-0.5 font-mono w-16" data-idx="' + index + '" data-key="seconds" value="' + (data.seconds || '') + '" /></label>';
+        }
+        return '<div class="rounded-lg border border-zinc-200 p-2 bg-zinc-50/80" data-proc-idx="' + index + '">' +
+          '<div class="flex items-center justify-between gap-2 mb-1.5">' +
+          '<span class="text-xs font-semibold ' + meta.badge + ' border rounded px-1.5 py-0.5">' + meta.label + '</span>' +
+          '<span class="flex gap-1">' +
+          '<button type="button" class="master-proc-up text-xs text-zinc-500 hover:text-zinc-800" data-idx="' + index + '" title="上へ">↑</button>' +
+          '<button type="button" class="master-proc-down text-xs text-zinc-500 hover:text-zinc-800" data-idx="' + index + '" title="下へ">↓</button>' +
+          '<button type="button" class="master-proc-del text-xs text-red-600 hover:text-red-800" data-idx="' + index + '">削除</button>' +
+          '</span></div>' +
+          '<div class="grid grid-cols-2 gap-2">' + fields + '</div></div>';
+      }
+
+      function renderMasterProductProcessEditor() {
+        var box = $('master-product-process-list');
+        if (!box) return;
+        if (!masterProductProcessDraft.length) {
+          box.innerHTML = '<p class="text-xs text-zinc-400 text-center py-3">標準工程がありません · 下のボタンで追加</p>';
+          return;
+        }
+        box.innerHTML = masterProductProcessDraft.map(function (row, i) {
+          return masterProcessRowFieldsHtml(row.type, row.data, i);
+        }).join('');
+      }
+
+      function loadMasterProductProcessDraft(rows) {
+        masterProductProcessDraft = (rows || []).map(function (r) {
+          return { type: r.type, data: JSON.parse(JSON.stringify(r.data || {})) };
+        });
+        renderMasterProductProcessEditor();
+      }
+
+      function bindMasterProductProcessEditor() {
+        var panel = $('master-product-panel');
+        if (!panel || panel.dataset.procBound) return;
+        panel.dataset.procBound = '1';
+        panel.addEventListener('click', function (e) {
+          var addBtn = e.target.closest('.master-add-proc');
+          if (addBtn) {
+            var t = addBtn.getAttribute('data-type');
+            masterProductProcessDraft.push({ type: t, data: defaultProcessRowData(t) });
+            renderMasterProductProcessEditor();
+            return;
+          }
+          var delBtn = e.target.closest('.master-proc-del');
+          if (delBtn) {
+            var di = parseInt(delBtn.getAttribute('data-idx'), 10);
+            masterProductProcessDraft.splice(di, 1);
+            renderMasterProductProcessEditor();
+            return;
+          }
+          var upBtn = e.target.closest('.master-proc-up');
+          if (upBtn) {
+            var ui = parseInt(upBtn.getAttribute('data-idx'), 10);
+            if (ui > 0) {
+              var tmp = masterProductProcessDraft[ui - 1];
+              masterProductProcessDraft[ui - 1] = masterProductProcessDraft[ui];
+              masterProductProcessDraft[ui] = tmp;
+              renderMasterProductProcessEditor();
+            }
+            return;
+          }
+          var downBtn = e.target.closest('.master-proc-down');
+          if (downBtn) {
+            var dj = parseInt(downBtn.getAttribute('data-idx'), 10);
+            if (dj < masterProductProcessDraft.length - 1) {
+              var tmp2 = masterProductProcessDraft[dj + 1];
+              masterProductProcessDraft[dj + 1] = masterProductProcessDraft[dj];
+              masterProductProcessDraft[dj] = tmp2;
+              renderMasterProductProcessEditor();
+            }
+          }
+        });
+        panel.addEventListener('input', function (e) {
+          var inp = e.target.closest('.master-proc-input');
+          if (!inp) return;
+          var idx = parseInt(inp.getAttribute('data-idx'), 10);
+          var key = inp.getAttribute('data-key');
+          if (masterProductProcessDraft[idx] && key) {
+            masterProductProcessDraft[idx].data[key] = inp.value;
+          }
+        });
       }
 
       function sortedProductIds() {
@@ -1689,6 +1894,92 @@
           if (sa !== sb) return sa - sb;
           return productMaster[a].name.localeCompare(productMaster[b].name, 'ja');
         });
+      }
+
+      function sortedCustomerIds() {
+        return Object.keys(customerMaster).sort(function (a, b) {
+          var sa = customerMaster[a].sort || 0;
+          var sb = customerMaster[b].sort || 0;
+          if (sa !== sb) return sa - sb;
+          return customerMaster[a].name.localeCompare(customerMaster[b].name, 'ja');
+        });
+      }
+
+      function getCustomerSelectValue() {
+        return $('sel-customer') ? $('sel-customer').value : '';
+      }
+
+      function getCustomerName() {
+        var v = getCustomerSelectValue();
+        if (!v) return '';
+        if (v === '__other__') {
+          return (($('input-customer-custom') && $('input-customer-custom').value.trim()) || customerCustomText || '').trim();
+        }
+        return (customerMaster[v] && customerMaster[v].name) || '';
+      }
+
+      function findCustomerIdByName(name) {
+        var n = String(name || '').trim();
+        if (!n) return '';
+        var found = '';
+        sortedCustomerIds().forEach(function (id) {
+          if (customerMaster[id].name === n) found = id;
+        });
+        return found;
+      }
+
+      function ensureCustomerInMaster(name) {
+        var n = String(name || '').trim();
+        if (!n) return '';
+        var existing = findCustomerIdByName(n);
+        if (existing) return existing;
+        var id = 'c_' + Date.now().toString(36).slice(-6);
+        customerMaster[id] = { name: n, sort: 900 + Object.keys(customerMaster).length };
+        return id;
+      }
+
+      function updateCustomerCustomUI() {
+        var wrap = $('customer-custom-wrap');
+        if (!wrap) return;
+        wrap.classList.toggle('hidden', getCustomerSelectValue() !== '__other__');
+      }
+
+      function renderCustomerSelect(selectedId) {
+        var sel = $('sel-customer');
+        if (!sel) return;
+        var html = '<option value="">（未選択）</option>';
+        html += sortedCustomerIds().map(function (id) {
+          return '<option value="' + id + '">' + customerMaster[id].name + '</option>';
+        }).join('');
+        html += '<option disabled>────────</option>';
+        html += '<option value="__other__">その他（直接入力）</option>';
+        sel.innerHTML = html;
+        var pick = selectedId != null ? selectedId : getCustomerSelectValue();
+        if (pick && pick !== '__other__' && pick !== '' && !customerMaster[pick]) pick = '';
+        sel.value = pick;
+        updateCustomerCustomUI();
+      }
+
+      function applyCustomerFromName(name) {
+        var n = String(name || '').trim();
+        if (!n) {
+          renderCustomerSelect('');
+          customerCustomText = '';
+          if ($('input-customer-custom')) $('input-customer-custom').value = '';
+          updateCustomerCustomUI();
+          return;
+        }
+        var id = findCustomerIdByName(n);
+        if (id) {
+          renderCustomerSelect(id);
+          customerCustomText = '';
+          if ($('input-customer-custom')) $('input-customer-custom').value = '';
+        } else {
+          renderCustomerSelect('__other__');
+          customerCustomText = n;
+          if ($('input-customer-custom')) $('input-customer-custom').value = n;
+        }
+        updateCustomerCustomUI();
       }
 
       function getProductSelectValue() {
@@ -1753,9 +2044,18 @@
         return 'p_' + String(name).trim().toLowerCase().replace(/\s+/g, '_').replace(/[^\w\u3040-\u30ff\u4e00-\u9faf-]/g, '').slice(0, 24) + '_' + Date.now().toString(36).slice(-4);
       }
 
+      function slugFromCustomerName(name) {
+        return 'c_' + String(name).trim().toLowerCase().replace(/\s+/g, '_').replace(/[^\w\u3040-\u30ff\u4e00-\u9faf-]/g, '').slice(0, 24) + '_' + Date.now().toString(36).slice(-4);
+      }
+
       function updateMasterProductsPreview() {
         var el = $('master-nav-products-preview');
         if (el) el.textContent = sortedProductIds().length + '件登録';
+      }
+
+      function updateMasterCustomersPreview() {
+        var el = $('master-nav-customers-preview');
+        if (el) el.textContent = sortedCustomerIds().length + '件登録';
       }
 
       function productMatchKey() {
@@ -1773,7 +2073,7 @@
         var isSupplied = o.isSupplied != null ? o.isSupplied : materialMode === 'supplied';
         var tplKey = isSupplied ? 'supplied' : 'included';
         var tpl = responseTemplates[tplKey] || DEFAULT_RESPONSE_TEMPLATES[tplKey];
-        var customer = o.customer != null ? o.customer : (($('input-customer') && $('input-customer').value.trim()) || '');
+        var customer = o.customer != null ? o.customer : getCustomerName();
         var drawing = o.drawing != null ? o.drawing : (($('input-drawing') && $('input-drawing').value.trim()) || '');
         var customerLine = customer ? 'お得意先：' + customer + '\n' : '';
         var drawingLine = drawing ? '図番：' + drawing + '\n' : '';
@@ -1849,9 +2149,8 @@
         masterEditingMode = 'template';
         masterEditingId = null;
         masterProductEditingId = null;
-        $('master-shop-panel').classList.add('hidden');
-        $('master-material-panel').classList.add('hidden');
-        $('master-product-panel').classList.add('hidden');
+        masterCustomerEditingId = null;
+        hideAllMasterPanels();
         $('master-template-panel').classList.remove('hidden');
         $('master-list-title').textContent = 'テンプレ';
         $('master-list').innerHTML = '<li class="px-2 py-4 text-sm text-zinc-400 text-center leading-relaxed">材料込み / 材料支給<br>2種類を切替</li>';
@@ -2693,7 +2992,7 @@
         var qty = totals.qty;
         var matId = getCurrentMaterialId();
         var productLabel = getProductDisplayLabel();
-        var customer = ($('input-customer') && $('input-customer').value.trim()) || '';
+        var customer = getCustomerName();
         var drawing = ($('input-drawing') && $('input-drawing').value.trim()) || '';
         var dia = materialDia();
         var len = materialLength();
@@ -3129,7 +3428,7 @@
         }
         var matId = getCurrentMaterialId();
         return {
-          customer_name: ($('input-customer') && $('input-customer').value.trim()) || '',
+          customer_name: getCustomerName(),
           drawing_no: ($('input-drawing') && $('input-drawing').value.trim()) || '',
           material_id: matId,
           dia: parseFloat(materialDia()) || 50,
@@ -3279,7 +3578,7 @@
         var matId = rev.material_id || 'S45C';
         ensureMaterialInMaster(matId);
 
-        if ($('input-customer')) $('input-customer').value = payload.customer_name || '';
+        applyCustomerFromName(payload.customer_name || '');
         if ($('input-drawing')) $('input-drawing').value = payload.drawing_no || '';
 
         renderMaterialSelect(matId);
@@ -4554,7 +4853,7 @@
         var readOnly = isConfirmedRevView();
         var sel = $('sel-rev');
         if (sel) sel.value = quoteViewMode;
-        var ids = ['input-customer', 'input-drawing', 'input-diameter', 'input-length', 'input-quantity', 'input-setup-minutes', 'material-cost-input', 'input-product-custom'];
+        var ids = ['input-drawing', 'input-diameter', 'input-length', 'input-quantity', 'input-setup-minutes', 'material-cost-input', 'input-product-custom', 'input-customer-custom'];
         ids.forEach(function (id) {
           var el = $(id);
           if (el) {
@@ -4563,7 +4862,7 @@
             el.classList.toggle('text-zinc-500', readOnly);
           }
         });
-        ['sel-material', 'sel-product'].forEach(function (id) {
+        ['sel-material', 'sel-product', 'sel-customer'].forEach(function (id) {
           var el = $(id);
           if (el) el.disabled = readOnly;
         });
@@ -4803,7 +5102,7 @@
         var lotMachining = totals.lotMachiningAfter;
         var matId = getCurrentMaterialId();
         var productLabel = getProductDisplayLabel();
-        var customer = ($('input-customer') && $('input-customer').value.trim()) || '';
+        var customer = getCustomerName();
         var drawing = ($('input-drawing') && $('input-drawing').value.trim()) || '';
         var metaPrefix = productLabel +
           (customer ? ' · ' + customer : '') +
@@ -4984,8 +5283,17 @@
         };
       }
 
+      function hideAllMasterPanels() {
+        $('master-shop-panel').classList.add('hidden');
+        $('master-material-panel').classList.add('hidden');
+        $('master-product-panel').classList.add('hidden');
+        $('master-customer-panel').classList.add('hidden');
+        $('master-template-panel').classList.add('hidden');
+      }
+
       function updateMasterNavHighlight() {
         var shopBtn = $('master-nav-shop');
+        var custBtn = $('master-nav-customers');
         var prodBtn = $('master-nav-products');
         if (shopBtn) {
           var shopSel = masterEditingMode === 'shop';
@@ -4996,6 +5304,13 @@
             preview.className = 'block text-sm font-mono mt-0.5' + (shopSel ? ' text-zinc-300' : ' text-zinc-500');
             preview.textContent = '¥' + fmt(getHourlyRate()) + '/h';
           }
+        }
+        if (custBtn) {
+          var custSel = masterEditingMode === 'customer';
+          custBtn.className = 'master-nav w-full text-left rounded-lg border px-3 py-2.5 text-sm transition' +
+            (custSel ? ' bg-indigo-600 text-white border-indigo-600' : ' bg-white hover:bg-zinc-50/50 border-slate-200');
+          var cp = $('master-nav-customers-preview');
+          if (cp) cp.className = 'block text-sm mt-0.5' + (custSel ? ' text-zinc-300' : ' text-zinc-500');
         }
         if (prodBtn) {
           var prodSel = masterEditingMode === 'product';
@@ -5011,16 +5326,16 @@
             (tplSel ? ' bg-indigo-600 text-white border-indigo-600' : ' bg-white hover:bg-zinc-50/50 border-slate-200');
         }
         updateMasterProductsPreview();
+        updateMasterCustomersPreview();
       }
 
       function showMasterShopPanel() {
         masterEditingMode = 'shop';
         masterEditingId = null;
         masterProductEditingId = null;
+        masterCustomerEditingId = null;
+        hideAllMasterPanels();
         $('master-shop-panel').classList.remove('hidden');
-        $('master-material-panel').classList.add('hidden');
-        $('master-product-panel').classList.add('hidden');
-        $('master-template-panel').classList.add('hidden');
         fillShopMasterForm();
         $('master-shop-error').classList.add('hidden');
         updateMasterNavHighlight();
@@ -5030,21 +5345,29 @@
       function showMasterProductPanel() {
         masterEditingMode = 'product';
         masterEditingId = null;
-        $('master-shop-panel').classList.add('hidden');
-        $('master-material-panel').classList.add('hidden');
+        masterCustomerEditingId = null;
+        hideAllMasterPanels();
         $('master-product-panel').classList.remove('hidden');
-        $('master-template-panel').classList.add('hidden');
         $('master-list-title').textContent = '品名一覧';
+        updateMasterNavHighlight();
+      }
+
+      function showMasterCustomerPanel() {
+        masterEditingMode = 'customer';
+        masterEditingId = null;
+        masterProductEditingId = null;
+        hideAllMasterPanels();
+        $('master-customer-panel').classList.remove('hidden');
+        $('master-list-title').textContent = '顧客一覧';
         updateMasterNavHighlight();
       }
 
       function showMasterMaterialPanel() {
         masterEditingMode = 'material';
         masterProductEditingId = null;
-        $('master-shop-panel').classList.add('hidden');
+        masterCustomerEditingId = null;
+        hideAllMasterPanels();
         $('master-material-panel').classList.remove('hidden');
-        $('master-product-panel').classList.add('hidden');
-        $('master-template-panel').classList.add('hidden');
         $('master-list-title').textContent = '材質';
         updateMasterNavHighlight();
       }
@@ -5074,6 +5397,10 @@
           fillProductFormNew();
           return;
         }
+        if (masterEditingMode === 'customer') {
+          fillCustomerFormNew();
+          return;
+        }
         showMasterMaterialPanel();
         masterEditingId = null;
         $('master-form-title').textContent = '新規材質を登録';
@@ -5101,6 +5428,7 @@
         $('master-product-name').value = p.name;
         $('master-product-sort').value = String(p.sort || 100);
         $('master-product-form-error').classList.add('hidden');
+        loadMasterProductProcessDraft(p.processRows || []);
         renderMasterList();
       }
 
@@ -5111,8 +5439,32 @@
         $('master-product-name').value = '';
         $('master-product-sort').value = '100';
         $('master-product-form-error').classList.add('hidden');
+        loadMasterProductProcessDraft([]);
         renderMasterList();
         $('master-product-name').focus();
+      }
+
+      function fillCustomerForm(id) {
+        showMasterCustomerPanel();
+        var c = customerMaster[id];
+        if (!c) return;
+        masterCustomerEditingId = id;
+        $('master-customer-form-title').textContent = '「' + c.name + '」を編集';
+        $('master-customer-name').value = c.name;
+        $('master-customer-sort').value = String(c.sort || 100);
+        $('master-customer-form-error').classList.add('hidden');
+        renderMasterList();
+      }
+
+      function fillCustomerFormNew() {
+        showMasterCustomerPanel();
+        masterCustomerEditingId = null;
+        $('master-customer-form-title').textContent = '新規顧客を登録';
+        $('master-customer-name').value = '';
+        $('master-customer-sort').value = '100';
+        $('master-customer-form-error').classList.add('hidden');
+        renderMasterList();
+        $('master-customer-name').focus();
       }
 
       function renderMasterList() {
@@ -5129,15 +5481,32 @@
         if (masterEditingMode === 'product') {
           list.innerHTML = sortedProductIds().map(function (id) {
             var p = productMaster[id];
+            var procN = (p.processRows && p.processRows.length) || 0;
             var sel = (masterProductEditingId === id) ? ' bg-indigo-600 text-white border-indigo-600' : ' bg-white hover:bg-indigo-50/50 border-slate-200';
             return '<li><button type="button" class="master-product-pick w-full text-left rounded-lg border px-3 py-2 text-sm transition' + sel + '" data-id="' + id + '">' +
               '<span class="font-semibold">' + p.name + '</span>' +
-              '<span class="block text-sm font-mono mt-0.5 opacity-80">sort ' + (p.sort || 0) + '</span>' +
+              '<span class="block text-sm font-mono mt-0.5 opacity-80">sort ' + (p.sort || 0) + ' · 標準工程 ' + procN + '行</span>' +
               '</button></li>';
           }).join('');
           list.querySelectorAll('.master-product-pick').forEach(function (btn) {
             btn.addEventListener('click', function () {
               fillProductForm(btn.getAttribute('data-id'));
+            });
+          });
+          return;
+        }
+        if (masterEditingMode === 'customer') {
+          list.innerHTML = sortedCustomerIds().map(function (id) {
+            var c = customerMaster[id];
+            var sel = (masterCustomerEditingId === id) ? ' bg-indigo-600 text-white border-indigo-600' : ' bg-white hover:bg-indigo-50/50 border-slate-200';
+            return '<li><button type="button" class="master-customer-pick w-full text-left rounded-lg border px-3 py-2 text-sm transition' + sel + '" data-id="' + id + '">' +
+              '<span class="font-semibold">' + c.name + '</span>' +
+              '<span class="block text-sm font-mono mt-0.5 opacity-80">sort ' + (c.sort || 0) + '</span>' +
+              '</button></li>';
+          }).join('');
+          list.querySelectorAll('.master-customer-pick').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+              fillCustomerForm(btn.getAttribute('data-id'));
             });
           });
           return;
@@ -5164,10 +5533,12 @@
           fillProductFormNew();
           return;
         }
+        if (section === 'customer') {
+          fillCustomerFormNew();
+          return;
+        }
         if (section === 'template') {
           showMasterTemplatePanel();
-          $('master-screen').classList.remove('hidden');
-          document.body.classList.add('overflow-hidden');
           return;
         }
         var id = focusId || getCurrentMaterialId();
@@ -5208,6 +5579,45 @@
         renderMaterial();
       }
 
+      function saveCustomerForm() {
+        var err = $('master-customer-form-error');
+        var name = $('master-customer-name').value.trim();
+        if (!name) {
+          err.textContent = '顧客名を入力してください';
+          err.classList.remove('hidden');
+          return;
+        }
+        var sort = parseInt($('master-customer-sort').value, 10);
+        if (isNaN(sort)) sort = 100;
+        var id = masterCustomerEditingId;
+        if (!id) {
+          var dup = findCustomerIdByName(name);
+          if (dup) {
+            err.textContent = '「' + name + '」はすでに登録されています';
+            err.classList.remove('hidden');
+            return;
+          }
+          id = slugFromCustomerName(name);
+          while (customerMaster[id]) id = id + 'x';
+        } else if (customerMaster[id].name !== name) {
+          var dup2 = findCustomerIdByName(name);
+          if (dup2 && dup2 !== id) {
+            err.textContent = '「' + name + '」はすでに登録されています';
+            err.classList.remove('hidden');
+            return;
+          }
+        }
+        customerMaster[id] = { name: name, sort: sort };
+        masterCustomerEditingId = id;
+        $('master-customer-form-title').textContent = '「' + name + '」を編集';
+        renderCustomerSelect(id);
+        $('sel-customer').value = id;
+        updateCustomerCustomUI();
+        renderMasterList();
+        updateMasterCustomersPreview();
+        err.classList.add('hidden');
+      }
+
       function saveProductForm() {
         var err = $('master-product-form-error');
         var name = $('master-product-name').value.trim();
@@ -5223,7 +5633,10 @@
           id = slugFromProductName(name);
           while (productMaster[id]) id = id + 'x';
         }
-        productMaster[id] = { name: name, sort: sort };
+        var processRows = masterProductProcessDraft.map(function (r) {
+          return { type: r.type, data: JSON.parse(JSON.stringify(r.data || {})) };
+        });
+        productMaster[id] = { name: name, sort: sort, processRows: processRows };
         masterProductEditingId = id;
         $('master-product-form-title').textContent = '「' + name + '」を編集';
         renderProductSelect(id);
@@ -5241,6 +5654,10 @@
         }
         if (masterEditingMode === 'product') {
           saveProductForm();
+          return;
+        }
+        if (masterEditingMode === 'customer') {
+          saveCustomerForm();
           return;
         }
         if (masterEditingMode === 'template') {
@@ -5359,14 +5776,17 @@
         $('btn-open-master').addEventListener('click', function () { openMasterScreen(); });
         $('btn-open-master-inline').addEventListener('click', function () { openMasterScreen(); });
         $('btn-open-master-product-inline').addEventListener('click', function () { openMasterScreen(null, 'product'); });
+        $('btn-open-master-customer-inline').addEventListener('click', function () { openMasterScreen(null, 'customer'); });
         $('btn-open-master-pane2').addEventListener('click', function () { openMasterScreen(getCurrentMaterialId()); });
         $('btn-master-close').addEventListener('click', closeMasterScreen);
         $('btn-master-cancel').addEventListener('click', closeMasterScreen);
         $('btn-master-new').addEventListener('click', fillMasterFormNew);
         $('btn-master-save').addEventListener('click', saveMasterForm);
         $('master-nav-shop').addEventListener('click', showMasterShopPanel);
+        $('master-nav-customers').addEventListener('click', function () { fillCustomerFormNew(); });
         $('master-nav-products').addEventListener('click', function () { fillProductFormNew(); });
         $('master-nav-template').addEventListener('click', showMasterTemplatePanel);
+        bindMasterProductProcessEditor();
         $('tpl-mode-included').addEventListener('click', function () {
           responseTemplates[templateEditingMode] = $('master-template-body').value;
           templateEditingMode = 'included';
@@ -5402,11 +5822,35 @@
         });
       }
 
+      function bindCustomerSelect() {
+        var sel = $('sel-customer');
+        if (!sel) return;
+        sel.addEventListener('change', function () {
+          if (getCustomerSelectValue() !== '__other__') {
+            customerCustomText = '';
+            if ($('input-customer-custom')) $('input-customer-custom').value = '';
+          }
+          updateCustomerCustomUI();
+          renderMaterial();
+        });
+        var custom = $('input-customer-custom');
+        if (custom) {
+          custom.addEventListener('input', function () {
+            customerCustomText = custom.value;
+            renderMaterial();
+          });
+        }
+      }
+
       function bindProductSelect() {
         $('sel-product').addEventListener('change', function () {
           productCustomText = '';
           if ($('input-product-custom')) $('input-product-custom').value = '';
           updateProductCustomUI();
+          var pid = getProductSelectValue();
+          if (getProductMode() === 'catalog') {
+            tryApplyProductProcessOnSelect(pid);
+          }
           renderMaterial();
         });
         $('input-product-custom').addEventListener('input', function () {
@@ -5594,7 +6038,9 @@
         draftResult = draftResult || { applied: false, source: 'empty' };
         if (!draftResult.applied) {
           renderProductSelect('shaft');
+          renderCustomerSelect('sample');
           renderMaterialSelect('S45C');
+          tryApplyProductProcessOnSelect('shaft');
         }
         renderProcessPresets();
         syncProcessesForViewMode();
@@ -5653,6 +6099,7 @@
       bindDrawingUI();
       bindTemplateShortcuts();
       bindProductSelect();
+      bindCustomerSelect();
       $('sel-rev').addEventListener('change', function () {
         quoteViewMode = $('sel-rev').value;
         applyQuoteViewMode();
@@ -5662,9 +6109,7 @@
       $('btn-quote-list-close').addEventListener('click', closeQuoteListScreen);
       $('btn-quote-new').addEventListener('click', createNewQuoteFromApi);
       $('quote-search').addEventListener('input', function () { renderQuoteList($('quote-search').value); });
-      var custEl = $('input-customer');
       var drawEl = $('input-drawing');
-      if (custEl) custEl.addEventListener('input', function () { renderMaterial(); });
       if (drawEl) drawEl.addEventListener('input', function () { renderMaterial(); });
       bindKeyboardShortcuts();
       }
