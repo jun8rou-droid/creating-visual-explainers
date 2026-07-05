@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="robots" content="noindex, nofollow">
   <meta name="color-scheme" content="light">
-  <title>加工費見積 — 4ペイン UI（モック v11）</title>
+  <title>加工費見積 — 4ペイン UI（モック v12）</title>
   <meta name="drawing-api-base" content="">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1037,7 +1037,7 @@
   <footer class="app-footer flex-shrink-0 px-5 py-2.5 flex flex-wrap items-center justify-between gap-2 text-sm text-zinc-500">
     <span id="status-bar">材料と工程を入力してください</span>
     <span class="hidden md:inline text-zinc-400">+ 追加 · ↑↓ 移動 · Esc 閉じる</span>
-    <span>v11 · Vercel + Neon + Gemini Pro · 表題欄OCR</span>
+    <span>v12 · 図面送信の実体表示</span>
   </footer>
 
   <!-- 図面プレビュー（O1） -->
@@ -1499,8 +1499,21 @@
               return drawingApiModule;
             })
             .catch(function (err) {
-              console.warn('[drawing-api] ES module load failed — inline fallback', err);
-              drawingApiModule = createInlineDrawingApiFallback();
+              console.error('[drawing-api] ES module load failed', err);
+              drawingApiModule = {
+                confidenceNeedsReview: function (c) { return c !== 'high'; },
+                analyzeDrawing: function () {
+                  return Promise.reject(new Error(
+                    '図面 API モジュールの読み込みに失敗しました。ページを再読み込みしてください。',
+                  ));
+                },
+                ocrDrawingCrop: function () {
+                  return Promise.reject(new Error('OCR API モジュールが読み込めていません'));
+                },
+                submitFeedback: function (payload) {
+                  return Promise.resolve({ ok: true, local: true, payload: payload });
+                },
+              };
               feedbackDiffModule = null;
               return drawingApiModule;
             });
@@ -2887,30 +2900,75 @@
           && (field.confidence === 'high' || field.confidence === 'medium');
       }
 
-      function clearSeedDefaultsForUnread(resp, isVision) {
-        if (!isVision || !resp || !resp.fields) return;
-        var f = resp.fields;
-        if (!apiFieldConfidentlyRead(f.drawing_no)) {
-          if ($('input-drawing') && $('input-drawing').value === SEED_FIELD_DEFAULTS.drawing_no) {
-            $('input-drawing').value = '';
-          }
-        }
-        if (!apiFieldConfidentlyRead(f.diameter_mm)) {
-          if ($('input-diameter') && String($('input-diameter').value) === String(SEED_FIELD_DEFAULTS.diameter_mm)) {
-            $('input-diameter').value = '';
-          }
-        }
-        if (!apiFieldConfidentlyRead(f.length_mm)) {
-          if ($('input-length') && String($('input-length').value) === String(SEED_FIELD_DEFAULTS.length_mm)) {
-            $('input-length').value = '';
-          }
-        }
-        if (!apiFieldConfidentlyRead(f.product)) {
-          if ($('sel-product') && $('sel-product').value === SEED_FIELD_DEFAULTS.product) {
-            $('sel-product').value = SEED_FIELD_DEFAULTS.product;
-          }
+      function clearOcrFieldUi(uiKey) {
+        if (uiKey === 'drawing' && $('input-drawing')) {
+          $('input-drawing').value = '';
+        } else if (uiKey === 'dia' && $('input-diameter')) {
+          $('input-diameter').value = '';
+        } else if (uiKey === 'length' && $('input-length')) {
+          $('input-length').value = '';
+        } else if (uiKey === 'material' && $('sel-material')) {
+          $('sel-material').value = '';
+        } else if (uiKey === 'product' && $('sel-product')) {
+          $('sel-product').value = 'shaft';
+          updateProductCustomUI();
         }
         renderMaterial();
+      }
+
+      function resetSeedFieldsBeforeDrawingAnalyze() {
+        if ($('input-drawing') && $('input-drawing').value === SEED_FIELD_DEFAULTS.drawing_no) {
+          $('input-drawing').value = '';
+        }
+        if ($('sel-material') && $('sel-material').value === SEED_FIELD_DEFAULTS.material) {
+          $('sel-material').value = '';
+        }
+        if ($('input-diameter') && String($('input-diameter').value) === String(SEED_FIELD_DEFAULTS.diameter_mm)) {
+          $('input-diameter').value = '';
+        }
+        if ($('input-length') && String($('input-length').value) === String(SEED_FIELD_DEFAULTS.length_mm)) {
+          $('input-length').value = '';
+        }
+        if ($('sel-product') && $('sel-product').value === SEED_FIELD_DEFAULTS.product) {
+          $('sel-product').value = 'shaft';
+          updateProductCustomUI();
+        }
+        renderMaterial();
+      }
+
+      var API_FIELD_TO_UI = {
+        drawing_no: 'drawing',
+        material: 'material',
+        diameter_mm: 'dia',
+        length_mm: 'length',
+        product: 'product',
+      };
+
+      function syncFormFieldsFromVisionResponse(resp) {
+        if (!resp || !resp.fields) return;
+        Object.keys(API_FIELD_TO_UI).forEach(function (apiKey) {
+          var uiKey = API_FIELD_TO_UI[apiKey];
+          var f = resp.fields[apiKey] || { value: '', confidence: 'low' };
+          if (fieldValuePresent(f.value)) {
+            applyApiField(apiKey, f.value, f.confidence);
+          } else {
+            clearOcrFieldUi(uiKey);
+            setOcrPending(uiKey, true);
+          }
+        });
+      }
+
+      function formatAnalyzeDebugLine(result) {
+        var dbg = result && result.analyzeDebug;
+        if (!dbg) return '';
+        var kb = dbg.fileBytes ? Math.round(dbg.fileBytes / 1024) + 'KB' : '0KB';
+        var parts = ['送信 ' + (dbg.fileName || '—') + ' (' + kb + ')'];
+        if (dbg.titleCropBytes) {
+          parts.push('表題欄 ' + Math.round(dbg.titleCropBytes / 1024) + 'KB');
+        }
+        if (dbg.cached) parts.push('キャッシュ');
+        if (!dbg.hadFile) parts.push('⚠ ファイル未着');
+        return parts.join(' · ');
       }
 
       function formatAnalyzeFieldDisplay(key, value) {
@@ -2938,6 +2996,14 @@
         var html = '<p class="font-semibold text-indigo-900 mb-1">AI 読み取り結果'
           + (meta && meta.via ? ' <span class="font-normal text-zinc-500">(' + meta.via + ')</span>' : '')
           + '</p>';
+        if (meta && meta.debugLine) {
+          html += '<p class="text-[11px] text-zinc-500 mb-1 font-mono">' + escapeHtml(meta.debugLine) + '</p>';
+        }
+        if (meta && meta.isVision && sparse) {
+          html += '<p class="text-xs text-amber-900 font-semibold mb-1 leading-snug">'
+            + '入力欄の S45C·φ50 等は初期値です。下の読取結果が空なら、図面はまだ反映されていません。'
+            + '</p>';
+        }
         ['drawing_no', 'material', 'diameter_mm', 'length_mm', 'product'].forEach(function (key) {
           var f = resp.fields[key] || { value: '', confidence: 'low' };
           var label = AI_FIELD_LABELS[key] || key;
@@ -3005,11 +3071,14 @@
         if (!resp) return;
         analyzeMeta = analyzeMeta || {};
         var isVision = analyzeMeta.isVision;
-        if (isVision) clearSeedDefaultsForUnread(resp, true);
-        Object.keys(resp.fields || {}).forEach(function (key) {
-          var f = resp.fields[key];
-          applyApiField(key, f.value, f.confidence);
-        });
+        if (isVision) {
+          syncFormFieldsFromVisionResponse(resp);
+        } else {
+          Object.keys(resp.fields || {}).forEach(function (key) {
+            var f = resp.fields[key];
+            applyApiField(key, f.value, f.confidence);
+          });
+        }
         if (resp.processes && resp.processes.rows && resp.processes.rows.length) {
           pendingAiProcessSuggestion = resp.processes;
         } else {
@@ -3821,6 +3890,7 @@
 
       function runDrawingAnalyze() {
         if (isConfirmedRevView() || aiAnalyzeInFlight) return;
+        resetSeedFieldsBeforeDrawingAnalyze();
         resolveDrawingFileForAnalyze().then(function (pack) {
           if (!pack || !pack.file) {
             alert('図面ファイルが見つかりません。\n「ファイルを選ぶ」から再度アップロードしてください。');
@@ -3849,7 +3919,7 @@
         if (bar) {
           bar.textContent = (fileOrName && fileOrName.size > VERCEL_UPLOAD_SAFE_BYTES)
             ? '図面を圧縮して AI 解析中…'
-            : '図面を AI で解析中…（表題欄切り出し含む）';
+            : '図面を AI で解析中…（' + (fileOrName && fileOrName.name ? fileOrName.name : 'file') + '）';
         }
 
         loadDrawingApiModule().then(function (api) {
@@ -3864,12 +3934,16 @@
           var via = formatAnalyzeSourceLabel(result);
           var isVision = !(result.demoMode || result.analyzeSource === 'demo'
             || result.analyzeSource === 'demo-fallback' || result.analyzeSource === 'local');
-          lastVisionAnalyzeMeta = { via: via, isVision: isVision };
+          var debugLine = formatAnalyzeDebugLine(result);
+          lastVisionAnalyzeMeta = { via: via, isVision: isVision, debugLine: debugLine };
+          if (result.analyzeDebug && !result.analyzeDebug.hadFile) {
+            alert('図面ファイルがサーバーに届いていません（0KB）。\nファイルを選び直して再試してください。');
+          }
           applyDrawingAnalyzeResponse(result.response, lastVisionAnalyzeMeta);
           aiAnalyzeInFlight = false;
           var demoWarning = (result.demoMode || result.analyzeSource === 'demo'
             || result.analyzeSource === 'demo-fallback' || result.analyzeSource === 'local')
-            ? ' — 図面は未読取（デモ値）'
+            ? ' — 図面未送信（デモ値）'
             : '';
           var readable = countReadableAnalyzeFields(result.response);
           var sparseNote = isVision && readable < 2
@@ -3881,9 +3955,9 @@
           if (statusText && result.visionError) {
             statusText.textContent = 'Gemini エラー: ' + result.visionError;
           } else if (statusText && demoWarning) {
-            statusText.textContent = 'デモデータが入りました。API キーを確認してください。';
+            statusText.textContent = 'デモデータ（図面ファイル未送信）— ' + (debugLine || 'API キーを確認');
           } else if (statusText) {
-            statusText.textContent = '解析: ' + via + (sparseNote ? ' · 読取不足' : '');
+            statusText.textContent = (debugLine ? debugLine + ' · ' : '') + '解析: ' + via + (sparseNote ? ' · 読取不足' : '');
           }
           var chatBox = $('ai-chat-messages');
           if (chatBox) chatBox.innerHTML = '';
@@ -4022,6 +4096,7 @@
           if ($('status-bar') && file.size > VERCEL_UPLOAD_SAFE_BYTES) {
             $('status-bar').textContent = '大きい写真を圧縮中… ' + originalName;
           }
+          resetSeedFieldsBeforeDrawingAnalyze();
           compressDrawingFileForApi(file).then(function (pack) {
             requestDrawingApiAnalysis(pack.file, { forceReanalyze: true, titleCrop: pack.titleCrop });
           }).catch(function (err) {

@@ -260,6 +260,13 @@ app.post(API_PATH_ANALYZE, analyzeUpload, async (req, res) => {
             source: isDemoSuggestionRow(cachedDb) ? 'db' : 'vision-google',
             visionEnabled: VISION_ENABLED,
             demoMode: isDemoSuggestionRow(cachedDb),
+            analyzeDebug: {
+              fileName,
+              fileBytes: reqFile?.buffer?.length ?? 0,
+              cached: true,
+              forceReanalyze: false,
+              hadFile: Boolean(reqFile?.buffer?.length),
+            },
           });
         }
       }
@@ -299,6 +306,9 @@ app.post(API_PATH_ANALYZE, analyzeUpload, async (req, res) => {
       if (VISION_ENABLED && !reqFile) {
         console.log('[analyze] no file body — demo by fileName only');
       }
+      if (VISION_ENABLED && reqFile && !reqFile.buffer?.length) {
+        console.warn('[analyze] file present but empty buffer:', fileName);
+      }
       response = buildDemoAnalyzeResponse(fileName);
     }
 
@@ -327,6 +337,13 @@ app.post(API_PATH_ANALYZE, analyzeUpload, async (req, res) => {
       visionEnabled: VISION_ENABLED,
       demoMode: !analyzeSource.startsWith('vision-'),
       visionError,
+      analyzeDebug: {
+        fileName,
+        fileBytes: reqFile?.buffer?.length ?? 0,
+        titleCropBytes: titleCropFile?.buffer?.length ?? 0,
+        forceReanalyze,
+        hadFile: Boolean(reqFile?.buffer?.length),
+      },
     };
 
     if (!isDbEnabled() && cacheKey) analyzeCache.set(cacheKey, payload);

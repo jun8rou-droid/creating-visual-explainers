@@ -147,6 +147,7 @@ export async function analyzeDrawing(fileOrName, options) {
     visionEnabled: payload.visionEnabled,
     visionError: payload.visionError || null,
     cached: Boolean(payload.cached),
+    analyzeDebug: payload.analyzeDebug || null,
   };
 }
 
