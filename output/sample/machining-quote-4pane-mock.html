@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="robots" content="noindex, nofollow">
   <meta name="color-scheme" content="light">
-  <title>加工費見積 — 4ペイン UI（モック v20）</title>
+  <title>加工費見積 — 4ペイン UI（モック v21）</title>
   <meta name="drawing-api-base" content="">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -25,16 +25,20 @@
   </script>
   <style>
     :root {
-      --app-bg: #eef1f8;
-      --app-border: rgba(15, 23, 42, 0.07);
+      --app-bg: #ebe4d6;
+      --app-surface: #f6f1e8;
+      --app-surface-alt: #fffbf5;
+      --app-surface-muted: #f0e9dd;
+      --app-surface-head: #f3ece2;
+      --app-border: rgba(74, 58, 38, 0.09);
       --app-accent: #4f46e5;
-      --shadow-pane: 0 1px 2px rgba(15, 23, 42, 0.04), 0 12px 32px rgba(15, 23, 42, 0.07);
-      --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.05);
+      --shadow-pane: 0 1px 2px rgba(68, 52, 32, 0.05), 0 12px 32px rgba(68, 52, 32, 0.07);
+      --shadow-sm: 0 1px 2px rgba(68, 52, 32, 0.06);
     }
     body.app-shell {
       background:
-        radial-gradient(ellipse 80% 60% at 0% 0%, rgba(99, 102, 241, 0.08), transparent 50%),
-        radial-gradient(ellipse 60% 50% at 100% 100%, rgba(14, 165, 233, 0.06), transparent 45%),
+        radial-gradient(ellipse 80% 60% at 0% 0%, rgba(196, 160, 108, 0.14), transparent 50%),
+        radial-gradient(ellipse 60% 50% at 100% 100%, rgba(210, 185, 145, 0.12), transparent 45%),
         var(--app-bg);
     }
     a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible {
@@ -43,7 +47,7 @@
     }
     .pane { min-height: 0; }
     .pane-card {
-      background: #fff;
+      background: var(--app-surface);
       border: 1px solid var(--app-border);
       border-radius: 1rem;
       box-shadow: var(--shadow-pane);
@@ -51,7 +55,7 @@
     }
     .pane-head {
       border-bottom: 1px solid var(--app-border);
-      background: linear-gradient(180deg, #fafbff, #fff);
+      background: linear-gradient(180deg, var(--app-surface-head), var(--app-surface));
       padding: 0.75rem 1rem;
     }
     .pane-num {
@@ -68,7 +72,7 @@
     }
     .app-header {
       border-bottom: 1px solid var(--app-border);
-      background: rgba(255, 255, 255, 0.82);
+      background: rgba(246, 241, 232, 0.88);
       backdrop-filter: blur(12px);
     }
     .logo-mark {
@@ -76,19 +80,19 @@
       box-shadow: 0 4px 14px rgba(79, 70, 229, 0.35);
     }
     .price-chip {
-      background: linear-gradient(135deg, #f8fafc, #eef2ff);
+      background: linear-gradient(135deg, var(--app-surface-alt), #f3ebe0);
       border: 1px solid rgba(79, 70, 229, 0.12);
       border-radius: 0.875rem;
       padding: 0.5rem 0.875rem;
     }
     .btn-ghost {
       border: 1px solid var(--app-border);
-      background: #fff;
+      background: var(--app-surface-alt);
       border-radius: 0.625rem;
       box-shadow: var(--shadow-sm);
       transition: all 0.15s ease;
     }
-    .btn-ghost:hover { background: #f8fafc; border-color: rgba(79, 70, 229, 0.25); }
+    .btn-ghost:hover { background: var(--app-surface-muted); border-color: rgba(79, 70, 229, 0.25); }
     .btn-primary {
       background: linear-gradient(135deg, #4f46e5, #6366f1);
       color: #fff;
@@ -173,7 +177,7 @@
       flex-shrink: 0;
       padding: 0.75rem 1rem 1rem;
       border-bottom: 1px solid var(--app-border);
-      background: #fff;
+      background: var(--app-surface);
     }
     .pane1-field + .pane1-field {
       margin-top: 0.625rem;
@@ -259,11 +263,11 @@
       color: #4c1d95;
       margin-right: 0.5rem;
     }
-    .dialog-shell { background: linear-gradient(180deg, #f8fafc, #fff); }
+    .dialog-shell { background: linear-gradient(180deg, var(--app-surface-muted), var(--app-surface)); }
     .dialog-panel-inner {
       border-radius: 0.875rem;
       border: 1px solid var(--app-border);
-      background: #fff;
+      background: var(--app-surface-alt);
       box-shadow: var(--shadow-sm);
     }
     .drag-handle { cursor: grab; touch-action: none; color: #cbd5e1; }
@@ -271,13 +275,13 @@
     .dragging { opacity: 0.45; }
     .drag-over { box-shadow: inset 0 0 0 2px var(--app-accent); }
     .toggle-group {
-      background: #f1f5f9;
+      background: var(--app-surface-muted);
       border: 1px solid var(--app-border);
       border-radius: 0.625rem;
       padding: 3px;
     }
     .toggle-active {
-      background: #fff;
+      background: var(--app-surface-alt);
       color: #0f172a;
       box-shadow: var(--shadow-sm);
       font-weight: 600;
@@ -304,7 +308,7 @@
     }
     .process-preset-btn {
       border: 1px solid var(--app-border);
-      background: #fff;
+      background: var(--app-surface-alt);
       border-radius: 0.625rem;
       padding: 0.375rem 0.625rem;
       font-size: 0.75rem;
@@ -318,7 +322,7 @@
     }
     .process-preset-btn:hover {
       border-color: rgba(79, 70, 229, 0.35);
-      background: #f5f3ff;
+      background: #f3ebe0;
       color: #312e81;
     }
     .process-preset-btn:disabled {
@@ -334,7 +338,7 @@
       width: 100%;
       border-radius: 0.625rem;
       border: 1px solid var(--app-border);
-      background: #fff;
+      background: var(--app-surface-alt);
       padding: 0.625rem 0.75rem;
       font-size: 1rem;
       font-family: "IBM Plex Mono", ui-monospace, monospace;
@@ -355,11 +359,11 @@
     .process-row:hover { border-color: rgba(79, 70, 229, 0.2); box-shadow: var(--shadow-sm); }
     .app-footer {
       border-top: 1px solid var(--app-border);
-      background: rgba(255, 255, 255, 0.78);
+      background: rgba(246, 241, 232, 0.82);
       backdrop-filter: blur(8px);
     }
     .master-screen-bg {
-      background: radial-gradient(ellipse 70% 50% at 50% 0%, rgba(99, 102, 241, 0.08), transparent), var(--app-bg);
+      background: radial-gradient(ellipse 70% 50% at 50% 0%, rgba(196, 160, 108, 0.12), transparent), var(--app-bg);
     }
     .similar-tag {
       display: inline-block;
@@ -632,7 +636,7 @@
     .input-section-card {
       border: 1px solid var(--app-border);
       border-radius: 0.75rem;
-      background: #fff;
+      background: var(--app-surface-alt);
       padding: 0.75rem 0.875rem;
     }
     .input-section-title {
@@ -678,7 +682,7 @@
       height: 100%;
       border-top: none;
       border-left: 2px solid rgba(79, 70, 229, 0.12);
-      background: #fff;
+      background: var(--app-surface);
       overflow: hidden;
       display: flex;
       flex-direction: column;
@@ -700,6 +704,18 @@
     .pane1-process-area > .pane1-process-grid {
       flex: 1;
       min-height: 0;
+    }
+    /* Tailwind 白系もベージュに（サマリ・FAX用紙は除外） */
+    body.app-shell main .bg-white,
+    body.app-shell .master-screen-bg .bg-white,
+    body.app-shell .cond-input {
+      background-color: var(--app-surface-alt);
+    }
+    body.app-shell main .bg-zinc-50 {
+      background-color: var(--app-surface-muted);
+    }
+    body.app-shell main .border-zinc-200 {
+      border-color: rgba(74, 58, 38, 0.12);
     }
   </style>
 </head>
@@ -1071,7 +1087,7 @@
   <footer class="app-footer flex-shrink-0 px-5 py-2.5 flex flex-wrap items-center justify-between gap-2 text-sm text-zinc-500">
     <span id="status-bar">材料と工程を入力してください</span>
     <span class="hidden md:inline text-zinc-400">+ 追加 · ↑↓ 移動 · 区切りをドラッグでサイズ調整</span>
-    <span>v20 · マスタ工程</span>
+    <span>v21 · ベージュUI</span>
   </footer>
 
   <!-- FAX用 PDF プレビュー（L2 · CT-FAX） -->
