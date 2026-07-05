@@ -71,7 +71,7 @@ export function isSparseVisionResponse(response) {
   return countReadableFields(response) < 2;
 }
 
-const UI_LEAK_PATTERN = /工程リスト|見積ソフト|ペイン|入力欄|画面|UI|サンプル|モック|4ペイン/i;
+const UI_LEAK_PATTERN = /工程リスト|見積ソフト|ペイン|入力欄|画面|UI|サンプル|モック|4ペイン|サマリ|丸棒|材料込|案件情報|DWG-S45C|株式会社サンプル/i;
 const DEMO_FIELD_SIGNATURE = {
   drawing_no: 'DWG-S45C-001',
   material: 'S45C',
@@ -117,6 +117,64 @@ export function sanitizeUiHallucination(response) {
 
   return out;
 }
+
+/**
+ * @param {FieldValue|undefined} field
+ */
+function fieldConfidentlyRead(field) {
+  if (!field) return false;
+  const v = field.value;
+  if (v === null || v === undefined || v === '') return false;
+  return field.confidence === 'high' || field.confidence === 'medium';
+}
+
+/**
+ * 図番未確認なのにサンプル初期値（S45C·φ50·L120 等）だけ返る応答を却下
+ * @param {DrawingAnalyzeResponse} response
+ * @returns {DrawingAnalyzeResponse}
+ */
+export function sanitizeSeedHallucination(response) {
+  if (!response?.fields) return response;
+  if (fieldConfidentlyRead(response.fields.drawing_no)) return response;
+
+  let seedMatches = 0;
+  for (const key of FIELD_KEYS) {
+    if (key === 'drawing_no') continue;
+    const f = response.fields[key];
+    const sig = DEMO_FIELD_SIGNATURE[key];
+    if (sig !== undefined && f && f.value !== '' && f.value != null
+      && String(f.value) === String(sig)) {
+      seedMatches += 1;
+    }
+  }
+  if (seedMatches < 3) return response;
+
+  const out = JSON.parse(JSON.stringify(response));
+  out.notes = out.notes || [];
+  const warn = '表題欄の図番が未確認のため、サンプル初期値と一致する項目は却下しました';
+  if (out.notes.indexOf(warn) < 0) out.notes.unshift(warn);
+
+  FIELD_KEYS.forEach(function (key) {
+    const f = out.fields[key];
+    if (!f) return;
+    const sig = DEMO_FIELD_SIGNATURE[key];
+    if (sig !== undefined && String(f.value) === String(sig)) {
+      f.value = '';
+      f.confidence = 'low';
+    }
+  });
+
+  if (out.processes && (out.processes.preset_id === 'shaft-basic' || seedMatches >= 3)) {
+    out.processes.rows = [];
+    out.processes.preset_id = null;
+    out.processes.confidence = 'low';
+    out.processes.rationale = '図番未確認のため工程提案を保留しました';
+  }
+
+  return out;
+}
+
+export { DEMO_FIELD_SIGNATURE };
 
 /**
  * @param {unknown} obj

@@ -2881,25 +2881,31 @@
         return n;
       }
 
+      function apiFieldConfidentlyRead(field) {
+        if (!field) return false;
+        return fieldValuePresent(field.value)
+          && (field.confidence === 'high' || field.confidence === 'medium');
+      }
+
       function clearSeedDefaultsForUnread(resp, isVision) {
         if (!isVision || !resp || !resp.fields) return;
         var f = resp.fields;
-        if (!fieldValuePresent(f.drawing_no && f.drawing_no.value)) {
+        if (!apiFieldConfidentlyRead(f.drawing_no)) {
           if ($('input-drawing') && $('input-drawing').value === SEED_FIELD_DEFAULTS.drawing_no) {
             $('input-drawing').value = '';
           }
         }
-        if (!fieldValuePresent(f.diameter_mm && f.diameter_mm.value)) {
+        if (!apiFieldConfidentlyRead(f.diameter_mm)) {
           if ($('input-diameter') && String($('input-diameter').value) === String(SEED_FIELD_DEFAULTS.diameter_mm)) {
             $('input-diameter').value = '';
           }
         }
-        if (!fieldValuePresent(f.length_mm && f.length_mm.value)) {
+        if (!apiFieldConfidentlyRead(f.length_mm)) {
           if ($('input-length') && String($('input-length').value) === String(SEED_FIELD_DEFAULTS.length_mm)) {
             $('input-length').value = '';
           }
         }
-        if (!fieldValuePresent(f.product && f.product.value)) {
+        if (!apiFieldConfidentlyRead(f.product)) {
           if ($('sel-product') && $('sel-product').value === SEED_FIELD_DEFAULTS.product) {
             $('sel-product').value = SEED_FIELD_DEFAULTS.product;
           }
@@ -2957,7 +2963,14 @@
         if (resp.notes && resp.notes.length) {
           html += '<p class="mt-1 text-zinc-600">注記: ' + resp.notes.join(' · ') + '</p>';
         }
-        if (sparse && meta && meta.isVision) {
+        var seedWarn = resp.notes && resp.notes.some(function (n) {
+          return /サンプル初期値|UI誤読|図番が未確認/.test(n);
+        });
+        if (seedWarn) {
+          html += '<p class="mt-1.5 text-amber-900 font-semibold leading-snug">'
+            + '画面の初期値や過去データを読んだ可能性があります。図面の表題欄（図番·材質）と照合してください。'
+            + '</p>';
+        } else if (sparse && meta && meta.isVision) {
           html += '<p class="mt-1.5 text-amber-900 leading-snug">'
             + '文字が小さいスキャン写真は読み取りにくいです。図面部分だけ切り出して PNG で再アップロードするか、「AIで読み取る」をもう一度押してください。'
             + '</p>';
@@ -3811,9 +3824,6 @@
             forceReanalyze: analyzeOpts.forceReanalyze,
           });
         }).then(function (result) {
-          if (sessionLearnModule) {
-            result.response = sessionLearnModule.applyLearnedBiases(result.response);
-          }
           lastAiSuggestionRecord = result.suggestionRecord;
           var via = formatAnalyzeSourceLabel(result);
           var isVision = !(result.demoMode || result.analyzeSource === 'demo'
@@ -3844,10 +3854,19 @@
           if (sessionLearnModule) {
             var biases = sessionLearnModule.getLearnedBiases();
             if (Object.keys(biases).length) {
-              appendAiChatMessage('assistant', sessionLearnModule.formatLearnedSummary(biases));
+              appendAiChatMessage('assistant',
+                sessionLearnModule.formatLearnedSummary(biases)
+                + '（参考表示のみ。自動では反映しません）');
             }
           }
-          if (isVision && readable < 2) {
+          var seedRejected = result.response.notes && result.response.notes.some(function (n) {
+            return /サンプル初期値|UI誤読|図番が未確認/.test(n);
+          });
+          if (isVision && seedRejected) {
+            appendAiChatMessage('assistant',
+              '図番が読み取れないため、サンプル初期値っぽい結果は入力欄に入れていません。'
+              + '表題欄がはっきり写るよう図面部分だけ切り出して再アップロードしてください。');
+          } else if (isVision && readable < 2) {
             appendAiChatMessage('assistant',
               '図面から十分な文字が読み取れませんでした。'
               + '表題欄（図番・材質）がはっきり写るよう、図面部分だけ切り出した PNG を推奨します。'

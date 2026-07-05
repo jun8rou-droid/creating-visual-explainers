@@ -12,6 +12,7 @@ import {
   normalizeVisionResponse,
   parseJsonFromModelText,
   sanitizeUiHallucination,
+  sanitizeSeedHallucination,
 } from '../js/drawing-analyze/shared.mjs';
 import {
   VISION_SYSTEM_PROMPT,
@@ -121,6 +122,7 @@ export async function analyzeDrawingWithGemini(file, options) {
     allowDemoProcessFallback: false,
   });
   response = sanitizeUiHallucination(response);
+  response = sanitizeSeedHallucination(response);
 
   const readable = countReadableFields(response);
   if (readable < MIN_READABLE_FIELDS && mediaType.startsWith('image/')) {
@@ -128,6 +130,7 @@ export async function analyzeDrawingWithGemini(file, options) {
     try {
       response = await analyzeWithOcrRetry(ai, modelId, imagePart, file.originalname);
       response = sanitizeUiHallucination(response);
+      response = sanitizeSeedHallucination(response);
     } catch (ocrErr) {
       console.warn('[gemini] OCR retry failed:', ocrErr.message || ocrErr);
     }
