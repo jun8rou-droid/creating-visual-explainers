@@ -2848,6 +2848,10 @@
         renderMaterial();
       }
 
+      function confidenceNeedsReview(confidence) {
+        return confidence !== 'high';
+      }
+
       var SEED_FIELD_DEFAULTS = {
         drawing_no: 'DWG-S45C-001',
         material: 'S45C',
