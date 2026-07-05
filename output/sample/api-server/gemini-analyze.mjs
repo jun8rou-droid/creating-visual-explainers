@@ -1,8 +1,8 @@
 /**
- * Google Gemini — 図面解析（api-server 専用）
+ * Google Gemini — 図面解析（@google/genai · AQ./AIza 両対応）
  */
 
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenAI } from '@google/genai';
 import {
   normalizeVisionResponse,
   parseJsonFromModelText,
@@ -28,23 +28,28 @@ export async function analyzeDrawingWithGemini(file, options) {
   const data = bufferToBase64(mediaType, file.buffer);
 
   const modelId = options.model || process.env.GOOGLE_MODEL || process.env.GEMINI_MODEL || 'gemini-2.0-flash';
-  const client = new GoogleGenerativeAI(apiKey);
-  const model = client.getGenerativeModel({
+  const ai = new GoogleGenAI({ apiKey });
+
+  const result = await ai.models.generateContent({
     model: modelId,
-    systemInstruction: VISION_SYSTEM_PROMPT,
-    generationConfig: {
+    contents: [
+      {
+        role: 'user',
+        parts: [
+          { inlineData: { mimeType: mediaType, data } },
+          { text: VISION_USER_PROMPT },
+        ],
+      },
+    ],
+    config: {
+      systemInstruction: VISION_SYSTEM_PROMPT,
       responseMimeType: 'application/json',
       temperature: 0.2,
       maxOutputTokens: 4096,
     },
   });
 
-  const result = await model.generateContent([
-    { inlineData: { mimeType: mediaType, data: data } },
-    { text: VISION_USER_PROMPT },
-  ]);
-
-  const text = result.response.text();
+  const text = result.text;
   if (!text || !text.trim()) {
     throw new Error('モデルからテキスト応答がありません');
   }

@@ -83,9 +83,11 @@ export function getVisionStatus() {
     ? (process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY || '')
     : (process.env.ANTHROPIC_API_KEY || '');
   const keyHint = key
-    ? (provider === 'google'
-      ? (key.startsWith('AIza') ? 'AIza…' : '形式要確認（AIza で始まる AI Studio キー）')
-      : 'sk-…')
+    ? (key.startsWith('AQ.')
+      ? 'AQ.（認証キー）'
+      : key.startsWith('AIza')
+        ? 'AIza（従来キー）'
+        : '設定済み')
     : null;
   return {
     enabled: true,

@@ -74,7 +74,7 @@ DATABASE_URL="postgresql://..." npm run migrate
 
 **いま本番は API キー未設定のためデモモードです**（図面の中身は読まず固定サンプルを返します）。
 
-1. [Google AI Studio](https://aistudio.google.com/apikey) で API キーを作成（`AIza...`）
+1. [Google AI Studio](https://aistudio.google.com/apikey) で API キーを作成（`AIza...` または新形式 `AQ....`）
 2. Vercel → **Settings → Environment Variables → Add**
    - Name: `GOOGLE_API_KEY`
    - Value: コピーしたキー
