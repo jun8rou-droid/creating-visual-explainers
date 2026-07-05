@@ -27,7 +27,7 @@ export async function analyzeDrawingWithGemini(file, options) {
   }
   const data = bufferToBase64(mediaType, file.buffer);
 
-  const modelId = options.model || process.env.GOOGLE_MODEL || process.env.GEMINI_MODEL || 'gemini-2.0-flash';
+  const modelId = options.model || process.env.GOOGLE_MODEL || process.env.GEMINI_MODEL || 'gemini-2.5-flash';
   const ai = new GoogleGenAI({ apiKey });
 
   const result = await ai.models.generateContent({
