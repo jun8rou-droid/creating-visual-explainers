@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="robots" content="noindex, nofollow">
   <meta name="color-scheme" content="light">
-  <title>加工費見積 — 4ペイン UI（モック v14）</title>
+  <title>加工費見積 — 4ペイン UI（モック v16）</title>
   <meta name="drawing-api-base" content="">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -168,14 +168,52 @@
       background: linear-gradient(180deg, rgba(248, 250, 252, 0.8), transparent);
       border-bottom: 1px solid var(--app-border);
     }
-    .material-primary-panel {
+    .material-primary-panel,
+    .pane1-input-form {
       flex-shrink: 0;
-      border-bottom: 2px solid rgba(79, 70, 229, 0.12);
-      background: linear-gradient(180deg, rgba(238, 242, 255, 0.65) 0%, #fff 100%);
-      padding: 0.75rem;
+      padding: 0.75rem 1rem 1rem;
+      border-bottom: 1px solid var(--app-border);
+      background: #fff;
     }
-    .quote-meta-panel {
+    .pane1-field + .pane1-field {
+      margin-top: 0.625rem;
+    }
+    .pane1-field-label {
+      display: block;
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: #52525b;
+      margin-bottom: 0.3rem;
+    }
+    .pane1-field-label .optional {
+      font-weight: 400;
+      color: #a1a1aa;
+      font-size: 0.75rem;
+    }
+    .pane1-field-row {
+      display: flex;
+      align-items: center;
+      gap: 0.375rem;
+    }
+    .pane1-field-row .input-field {
+      flex: 1;
+      min-width: 0;
+    }
+    .pane1-field-unit {
       flex-shrink: 0;
+      font-size: 0.75rem;
+      color: #a1a1aa;
+      width: 1.75rem;
+      text-align: right;
+    }
+    .pane1-field-divider {
+      margin: 0.875rem 0 0.5rem;
+      border-top: 1px dashed rgba(79, 70, 229, 0.2);
+    }
+    .pane1-master-links {
+      margin-top: 0.75rem;
+      padding-top: 0.625rem;
+      border-top: 1px solid var(--app-border);
     }
     @keyframes ai-pulse {
       0%, 100% { opacity: 1; }
@@ -263,56 +301,6 @@
     .header-material-toggle.is-readonly {
       opacity: 0.55;
       pointer-events: none;
-    }
-    .material-hero {
-      background: linear-gradient(135deg, #1e3a8a 0%, #4338ca 50%, #6366f1 100%);
-      color: #fff;
-      border-radius: 0.75rem;
-      padding: 0.875rem 1rem;
-      box-shadow: 0 8px 24px rgba(67, 56, 202, 0.28);
-    }
-    .material-hero .hero-row {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: baseline;
-      gap: 0.35rem 0.5rem;
-    }
-    .material-hero .hero-material {
-      font-size: 1.625rem;
-      font-weight: 800;
-      letter-spacing: 0.02em;
-      line-height: 1.1;
-    }
-    .material-hero .hero-dia-wrap {
-      display: inline-flex;
-      align-items: baseline;
-      gap: 0.125rem;
-      margin-left: 0.25rem;
-      padding: 0.125rem 0.625rem;
-      border-radius: 0.5rem;
-      background: rgba(255, 255, 255, 0.16);
-      border: 1px solid rgba(255, 255, 255, 0.28);
-    }
-    .material-hero .hero-dia-label {
-      font-size: 1.125rem;
-      font-weight: 700;
-      opacity: 0.9;
-    }
-    .material-hero .hero-diameter {
-      font-size: 2rem;
-      font-weight: 800;
-      font-family: "IBM Plex Mono", monospace;
-      line-height: 1;
-    }
-    .material-hero .hero-dia-unit {
-      font-size: 0.875rem;
-      font-weight: 600;
-      opacity: 0.85;
-    }
-    .material-hero .hero-sub {
-      font-size: 0.8125rem;
-      opacity: 0.88;
-      margin-top: 0.375rem;
     }
     .process-preset-btn {
       border: 1px solid var(--app-border);
@@ -411,26 +399,138 @@
     }
     @keyframes fade-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
     .fade-in { animation: fade-in 0.22s cubic-bezier(0.22, 1, 0.36, 1); }
-    .panes-23 {
-      display: grid;
-      grid-template-columns: 1fr;
+    /* ドラッグで欄のサイズ調整 */
+    .split-h:not(.split-ready),
+    .split-v:not(.split-ready) {
+      display: flex;
+      flex-direction: column;
       gap: 0.875rem;
       min-height: 0;
+      min-width: 0;
+    }
+    .split-h:not(.split-ready) > .split-pane,
+    .split-v:not(.split-ready) > .split-pane {
+      min-height: 0;
+      min-width: 0;
     }
     @media (min-width: 768px) {
-      .panes-23 {
-        grid-template-columns: minmax(200px, 0.38fr) minmax(0, 0.62fr);
+      .split-h:not(.split-ready)[data-split-id="panes-23"],
+      .split-h:not(.split-ready)[data-split-id="pane1-process-lr"] {
+        flex-direction: row;
         align-items: stretch;
+      }
+      .split-h:not(.split-ready)[data-split-id="panes-23"] > .split-pane,
+      .split-h:not(.split-ready)[data-split-id="pane1-process-lr"] > .split-pane {
+        flex: 1 1 0;
       }
     }
     @media (min-width: 1280px) {
-      .workspace { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
-      .right-panes {
-        display: grid;
-        grid-template-rows: minmax(0, 1fr) minmax(0, 1.05fr);
-        gap: 0.875rem;
-        min-height: 0;
+      .split-h:not(.split-ready)[data-split-id="main-lr"] {
+        flex-direction: row;
+        gap: 0;
       }
+      .split-h:not(.split-ready)[data-split-id="main-lr"] > .split-pane:first-child {
+        flex: 1 1 50%;
+      }
+      .split-h:not(.split-ready)[data-split-id="main-lr"] > .split-pane:last-child {
+        flex: 1 1 50%;
+      }
+      .split-v:not(.split-ready)[data-split-id="right-tb"] {
+        gap: 0.875rem;
+        height: 100%;
+      }
+      .split-v:not(.split-ready)[data-split-id="right-tb"] > .split-pane:first-child {
+        flex: 1 1 55%;
+      }
+      .split-v:not(.split-ready)[data-split-id="right-tb"] > .split-pane:last-child {
+        flex: 1 1 45%;
+      }
+    }
+    .split-h.split-ready {
+      display: grid;
+      grid-template-columns:
+        minmax(var(--split-min-a, 180px), var(--split-pct, 50%))
+        var(--split-grip-size, 8px)
+        minmax(var(--split-min-b, 180px), 1fr);
+      gap: 0;
+      min-height: 0;
+      min-width: 0;
+    }
+    .split-v.split-ready {
+      display: grid;
+      grid-template-rows:
+        minmax(var(--split-min-a, 120px), var(--split-pct, 50%))
+        var(--split-grip-size, 8px)
+        minmax(var(--split-min-b, 120px), 1fr);
+      gap: 0;
+      min-height: 0;
+      min-width: 0;
+    }
+    .split-h.split-ready > .split-pane:nth-child(1),
+    .split-v.split-ready > .split-pane:nth-child(1) {
+      grid-area: pane-a;
+      min-width: 0;
+      min-height: 0;
+      overflow: hidden;
+    }
+    .split-h.split-ready > .split-grip,
+    .split-v.split-ready > .split-grip {
+      grid-area: grip;
+      position: relative;
+      z-index: 3;
+      touch-action: none;
+      user-select: none;
+    }
+    .split-h.split-ready > .split-pane:nth-child(3),
+    .split-v.split-ready > .split-pane:nth-child(3) {
+      grid-area: pane-b;
+      min-width: 0;
+      min-height: 0;
+      overflow: hidden;
+    }
+    .split-h.split-ready {
+      grid-template-areas: 'pane-a grip pane-b';
+    }
+    .split-v.split-ready {
+      grid-template-areas:
+        'pane-a'
+        'grip'
+        'pane-b';
+    }
+    .split-h.split-ready > .split-grip { cursor: col-resize; }
+    .split-v.split-ready > .split-grip { cursor: row-resize; }
+    .split-grip::after {
+      content: '';
+      position: absolute;
+      border-radius: 4px;
+      background: rgba(79, 70, 229, 0.18);
+      transition: background 0.12s, box-shadow 0.12s;
+    }
+    .split-h > .split-grip::after {
+      top: 10%;
+      bottom: 10%;
+      left: 50%;
+      width: 4px;
+      transform: translateX(-50%);
+    }
+    .split-v > .split-grip::after {
+      left: 10%;
+      right: 10%;
+      top: 50%;
+      height: 4px;
+      transform: translateY(-50%);
+    }
+    .split-grip:hover::after,
+    .split-grip.is-dragging::after {
+      background: rgba(79, 70, 229, 0.5);
+      box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.12);
+    }
+    body.split-dragging-h { cursor: col-resize !important; user-select: none !important; }
+    body.split-dragging-v { cursor: row-resize !important; user-select: none !important; }
+    body.split-dragging-h * { cursor: col-resize !important; }
+    body.split-dragging-v * { cursor: row-resize !important; }
+    @media (min-width: 1280px) {
+      .right-panes.split-ready { height: 100%; }
     }
     .btn-fax-pdf {
       background: linear-gradient(135deg, #f8fafc, #e2e8f0);
@@ -528,21 +628,20 @@
     }
     /* ① 材料・案件情報は上でスクロール、② 工程は常に下に確保 */
     .pane1-upper-scroll {
-      flex: 1 1 auto;
       min-height: 0;
       overflow-y: auto;
       overscroll-behavior: contain;
     }
     .pane1-process-area {
-      flex: 0 0 auto;
-      height: clamp(260px, 42vh, 420px);
-      min-height: 260px;
+      min-height: 0;
       border-top: 2px solid rgba(79, 70, 229, 0.12);
       background: #fff;
       overflow: hidden;
+      display: flex;
+      flex-direction: column;
     }
     .pane1-process-area > .pane1-process-grid {
-      height: 100%;
+      flex: 1;
       min-height: 0;
     }
   </style>
@@ -582,125 +681,111 @@
   </header>
 
   <main class="flex-1 min-h-0 p-4">
-    <div class="workspace h-full grid grid-cols-1 xl:grid-cols-2 gap-4">
+    <div class="workspace split-h h-full" data-split-id="main-lr" data-split-default="50" data-split-min-a="300" data-split-min-b="360" data-split-disabled-below="1280">
       <!-- 1: 入力 — 左半分 -->
-      <section class="pane pane-card flex flex-col min-h-[420px] xl:min-h-0">
+      <section class="split-pane pane pane-card flex flex-col min-h-[420px] xl:min-h-0">
         <div class="pane-head flex items-center justify-between">
           <h2 class="font-semibold text-zinc-900 text-base tracking-tight flex items-center gap-2">
             <span class="pane-num">1</span>
             入力
           </h2>
-          <button type="button" id="btn-toggle-common" class="text-sm text-indigo-600 hover:text-indigo-800 font-medium">案件情報を折りたたむ</button>
         </div>
 
-        <div class="flex-1 min-h-0 flex flex-col overflow-hidden">
+        <div class="flex-1 min-h-0 flex flex-col overflow-hidden split-v" data-split-id="pane1-tb" data-split-default="48" data-split-min-a="200" data-split-min-b="220">
 
-          <div class="pane1-upper-scroll">
+          <div class="pane1-upper-scroll split-pane">
 
-          <!-- ① 材料（常時表示 · 折りたたまない · 最初に入力） -->
-          <div id="material-primary-panel" class="material-primary-panel">
-            <div class="flex flex-col md:flex-row gap-3 md:items-stretch">
-              <div id="material-hero" class="material-hero md:w-[11rem] md:shrink-0 flex flex-col justify-center" aria-live="polite">
-                <div class="hero-row">
-                  <span id="hero-material" class="hero-material">S45C</span>
-                </div>
-                <div class="hero-dia-wrap mt-1.5 self-start">
-                  <span class="hero-dia-label">φ</span>
-                  <span id="hero-diameter" class="hero-diameter">50</span>
-                  <span class="hero-dia-unit">mm</span>
-                </div>
-                <p id="hero-material-sub" class="hero-sub mt-2">丸棒 · L120 mm</p>
-              </div>
-              <div class="flex-1 min-w-0 grid grid-cols-2 sm:grid-cols-4 gap-2 items-end">
-                <div class="col-span-2 sm:col-span-1">
-                  <label class="text-sm font-semibold text-indigo-900">材質</label>
-                  <select id="sel-material" class="input-field mt-1 font-sans text-base w-full py-2.5 border-indigo-200"></select>
-                </div>
-                <div class="col-span-1">
-                  <label class="text-sm font-semibold text-indigo-900">φ（材料径）</label>
-                  <div class="relative mt-1">
-                    <input type="text" id="input-diameter" value="50" class="input-field pr-9 py-2.5 text-center font-mono text-lg font-semibold border-indigo-200" />
-                    <span class="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-zinc-400">mm</span>
-                  </div>
-                </div>
-                <div class="col-span-1">
-                  <label class="text-sm font-medium text-zinc-600">L</label>
-                  <div class="relative mt-1">
-                    <input type="text" id="input-length" value="120" class="input-field pr-9 py-2 text-center font-mono" />
-                    <span class="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-zinc-400">mm</span>
-                  </div>
-                </div>
-                <div class="col-span-2 sm:col-span-1">
-                  <label class="text-sm font-medium text-zinc-600">形</label>
-                  <select class="input-field mt-1 font-sans text-base w-full py-2">
-                    <option selected>丸棒</option>
-                    <option>六角</option>
-                  </select>
-                </div>
+          <form id="pane1-input-form" class="pane1-input-form" autocomplete="off" onsubmit="return false">
+
+            <div class="pane1-field">
+              <label class="pane1-field-label" for="input-customer">顧客名 <span class="optional">任意</span></label>
+              <input type="text" id="input-customer" value="株式会社サンプル" class="input-field font-sans text-base py-2" placeholder="例: 〇〇製作所" />
+            </div>
+
+            <div class="pane1-field">
+              <label class="pane1-field-label" for="input-drawing">図番 <span class="optional">任意</span></label>
+              <input type="text" id="input-drawing" value="DWG-S45C-001" class="input-field font-sans text-base py-2" placeholder="例: A-12345" />
+            </div>
+
+            <div class="pane1-field">
+              <label class="pane1-field-label" for="sel-product">品名</label>
+              <select id="sel-product" class="input-field font-sans text-base w-full py-2"></select>
+              <div id="product-custom-wrap" class="hidden mt-1.5 space-y-1">
+                <input type="text" id="input-product-custom" class="input-field font-sans text-base py-2" placeholder="品名を入力" />
+                <p id="product-custom-hint" class="text-sm text-zinc-400"></p>
               </div>
             </div>
-            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2.5 pt-2.5 border-t border-indigo-100/80">
-              <div>
-                <label class="text-sm font-medium text-zinc-600" id="material-cost-label">材料費（1個）</label>
-                <input type="text" id="material-cost-input" value="2,108" class="input-field mt-1 py-2 font-mono" />
-                <p id="material-cost-ref" class="hidden text-xs text-zinc-400 mt-0.5">参考: 込みなら ¥2,108/個</p>
-              </div>
-              <div>
-                <label class="text-sm font-medium text-zinc-600">見積本数</label>
-                <div class="relative mt-1">
-                  <input type="number" id="input-quantity" value="10" min="1" step="1" class="input-field text-center font-mono pr-9 py-2 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
-                  <span class="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-zinc-400">本</span>
-                </div>
-              </div>
-              <div class="col-span-2 sm:col-span-2">
-                <label class="text-sm font-medium text-zinc-600">段取り時間</label>
-                <div class="mt-1 flex items-center gap-1 max-w-xs">
-                  <button type="button" id="btn-setup-minus" class="shrink-0 h-9 w-8 rounded-md border border-zinc-200 bg-white text-sm font-medium text-zinc-600 hover:bg-zinc-50" title="10分減">−</button>
-                  <input type="number" id="input-setup-minutes" value="30" min="0" step="10" class="input-field text-center font-mono px-1 min-w-0 flex-1 py-2 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
-                  <button type="button" id="btn-setup-plus" class="shrink-0 h-9 w-8 rounded-md border border-zinc-200 bg-white text-sm font-medium text-zinc-600 hover:bg-zinc-50" title="10分増">＋</button>
-                  <span class="text-xs text-zinc-400 shrink-0 w-6">分</span>
-                </div>
-              </div>
-            </div>
-            <p class="input-section-hint mt-2 mb-0">材質マスタは <button type="button" id="btn-open-master-inline" class="text-indigo-600 underline hover:text-indigo-800 font-medium">マスタ管理</button></p>
-          </div>
 
-          <!-- ③ 案件情報（折りたたみ可 · 別枠） -->
-          <div id="quote-meta-panel" class="quote-meta-panel common-panel">
-            <div class="p-3">
-              <section class="input-section-card border-dashed border-zinc-300 bg-zinc-50/50">
-                <h3 class="input-section-title text-zinc-600">案件情報</h3>
-                <p class="text-xs text-zinc-400 mb-2">顧客 · 図番 · 品名（材質入力のあとで OK）</p>
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                  <div>
-                    <label class="text-sm font-medium text-zinc-600">顧客名 <span class="text-zinc-400 font-normal text-xs">任意</span></label>
-                    <input type="text" id="input-customer" value="株式会社サンプル" class="input-field mt-1 font-sans text-base py-2" placeholder="例: 〇〇製作所" />
-                  </div>
-                  <div>
-                    <label class="text-sm font-medium text-zinc-600">図番 <span class="text-zinc-400 font-normal text-xs">任意</span></label>
-                    <input type="text" id="input-drawing" value="DWG-S45C-001" class="input-field mt-1 font-sans text-base py-2" placeholder="例: A-12345" />
-                  </div>
-                </div>
-                <div class="mt-2.5">
-                  <label class="text-sm font-medium text-zinc-600">品名</label>
-                  <select id="sel-product" class="input-field mt-1 font-sans text-base w-full py-2"></select>
-                  <div id="product-custom-wrap" class="hidden mt-1.5 space-y-1">
-                    <input type="text" id="input-product-custom" class="input-field font-sans text-base py-2" placeholder="品名を入力" />
-                    <p id="product-custom-hint" class="text-sm text-zinc-400"></p>
-                  </div>
-                  <p class="input-section-hint mt-1.5 mb-0">品名マスタは <button type="button" id="btn-open-master-product-inline" class="text-indigo-600 underline hover:text-indigo-800 font-medium">マスタ管理 › 品名</button></p>
-                </div>
-              </section>
+            <div class="pane1-field">
+              <label class="pane1-field-label" for="sel-material">材質</label>
+              <select id="sel-material" class="input-field font-sans text-base w-full py-2"></select>
             </div>
-          </div>
+
+            <div class="pane1-field">
+              <label class="pane1-field-label" for="input-diameter">材料径</label>
+              <div class="pane1-field-row">
+                <span class="pane1-field-unit font-mono">φ</span>
+                <input type="text" id="input-diameter" value="50" class="input-field py-2 text-center font-mono text-base" />
+                <span class="pane1-field-unit">mm</span>
+              </div>
+            </div>
+
+            <div class="pane1-field">
+              <label class="pane1-field-label" for="input-length">長さ</label>
+              <div class="pane1-field-row">
+                <input type="text" id="input-length" value="120" class="input-field py-2 text-center font-mono text-base" />
+                <span class="pane1-field-unit">mm</span>
+              </div>
+            </div>
+
+            <div class="pane1-field">
+              <label class="pane1-field-label" for="sel-shape">形状</label>
+              <select id="sel-shape" class="input-field font-sans text-base w-full py-2">
+                <option selected>丸棒</option>
+                <option>六角</option>
+              </select>
+            </div>
+
+            <div class="pane1-field">
+              <label class="pane1-field-label" for="input-quantity">本数</label>
+              <div class="pane1-field-row">
+                <input type="number" id="input-quantity" value="10" min="1" step="1" class="input-field text-center font-mono py-2 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
+                <span class="pane1-field-unit">本</span>
+              </div>
+            </div>
+
+            <div class="pane1-field">
+              <label class="pane1-field-label" for="input-setup-minutes">段取り時間</label>
+              <div class="pane1-field-row max-w-xs">
+                <button type="button" id="btn-setup-minus" class="shrink-0 h-9 w-8 rounded-md border border-zinc-200 bg-white text-sm font-medium text-zinc-600 hover:bg-zinc-50" title="10分減">−</button>
+                <input type="number" id="input-setup-minutes" value="30" min="0" step="10" class="input-field text-center font-mono px-1 min-w-0 flex-1 py-2 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
+                <button type="button" id="btn-setup-plus" class="shrink-0 h-9 w-8 rounded-md border border-zinc-200 bg-white text-sm font-medium text-zinc-600 hover:bg-zinc-50" title="10分増">＋</button>
+                <span class="pane1-field-unit w-auto pl-0.5">分</span>
+              </div>
+            </div>
+
+            <div class="pane1-field-divider" aria-hidden="true"></div>
+
+            <div class="pane1-field">
+              <label class="pane1-field-label" for="material-cost-input" id="material-cost-label">材料費（1個）</label>
+              <input type="text" id="material-cost-input" value="2,108" class="input-field py-2 font-mono max-w-xs" />
+              <p id="material-cost-ref" class="hidden text-xs text-zinc-400 mt-0.5">参考: 込みなら ¥2,108/個</p>
+            </div>
+
+            <p class="pane1-master-links input-section-hint mb-0">
+              <button type="button" id="btn-open-master-inline" class="text-indigo-600 underline hover:text-indigo-800 font-medium">材質マスタ</button>
+              ·
+              <button type="button" id="btn-open-master-product-inline" class="text-indigo-600 underline hover:text-indigo-800 font-medium">品名マスタ</button>
+            </p>
+          </form>
 
           </div><!-- /pane1-upper-scroll -->
 
           <!-- 工程リスト + 対話（常に画面下に確保） -->
-          <div class="pane1-process-area">
-          <div class="pane1-process-grid grid grid-cols-1 md:grid-cols-[minmax(200px,0.38fr)_minmax(260px,0.62fr)] divide-y md:divide-y-0 md:divide-x divide-zinc-200">
+          <div class="pane1-process-area split-pane">
+          <div class="pane1-process-grid split-h h-full min-h-0" data-split-id="pane1-process-lr" data-split-default="38" data-split-min-a="180" data-split-min-b="240" data-split-disabled-below="768">
             <!-- リスト -->
-            <div class="min-h-0 flex flex-col p-2.5 bg-white">
+            <div class="split-pane min-h-0 flex flex-col p-2.5 bg-white">
               <div class="flex items-center justify-between mb-2 flex-shrink-0">
                 <div>
                   <p class="text-base font-semibold text-zinc-800">工程リスト</p>
@@ -728,7 +813,7 @@
             </div>
 
             <!-- 対話 -->
-            <div class="min-h-0 flex flex-col dialog-shell p-2.5">
+            <div class="split-pane min-h-0 flex flex-col dialog-shell p-2.5">
               <div class="flex items-center justify-between mb-2 flex-shrink-0 gap-2">
                 <div>
                   <p class="text-base font-semibold text-zinc-800">工程の入力</p>
@@ -756,10 +841,10 @@
       </section>
 
       <!-- 右半分: 2|3 横並び + 4 -->
-      <div class="right-panes min-h-0 flex flex-col gap-3 xl:h-full">
-        <div class="panes-23 min-h-[280px] md:min-h-[320px] xl:min-h-0 xl:flex-1">
+      <div class="split-pane right-panes min-h-0 flex flex-col xl:h-full split-v" data-split-id="right-tb" data-split-default="52" data-split-min-a="240" data-split-min-b="220" data-split-disabled-below="1280">
+        <div class="panes-23 split-pane min-h-[280px] md:min-h-[320px] xl:min-h-0 split-h" data-split-id="panes-23" data-split-default="38" data-split-min-a="200" data-split-min-b="220" data-split-disabled-below="768">
       <!-- 2: 加工条件 -->
-      <section class="pane pane-card flex flex-col min-h-0 h-full">
+      <section class="split-pane pane pane-card flex flex-col min-h-0 h-full">
         <div class="pane-head flex justify-between items-center gap-1 shrink-0">
           <h2 class="font-semibold text-zinc-900 text-base tracking-tight flex items-center gap-2">
             <span class="pane-num pane-num-muted">2</span>
@@ -823,7 +908,7 @@
       </section>
 
       <!-- 3: 内訳 -->
-      <section class="pane pane-card flex flex-col min-h-0 h-full">
+      <section class="split-pane pane pane-card flex flex-col min-h-0 h-full">
         <div class="pane-head shrink-0">
           <h2 class="font-semibold text-zinc-900 text-base tracking-tight flex items-center gap-2">
             <span class="pane-num pane-num-muted">3</span>
@@ -846,7 +931,7 @@
         </div>
 
       <!-- 4: サマリ -->
-      <section class="pane summary-pane flex flex-col text-zinc-50 overflow-hidden min-h-[280px] xl:min-h-0">
+      <section class="split-pane pane summary-pane flex flex-col text-zinc-50 overflow-hidden min-h-[280px] xl:min-h-0">
         <div class="border-b border-white/10 px-4 py-3">
           <h2 class="font-semibold text-base tracking-tight flex items-center gap-2">
             <span class="pane-num">4</span>
@@ -923,8 +1008,8 @@
 
   <footer class="app-footer flex-shrink-0 px-5 py-2.5 flex flex-wrap items-center justify-between gap-2 text-sm text-zinc-500">
     <span id="status-bar">材料と工程を入力してください</span>
-    <span class="hidden md:inline text-zinc-400">+ 追加 · ↑↓ 移動 · Esc 閉じる</span>
-    <span>v14 · 図面なし · 類似差分 AI</span>
+    <span class="hidden md:inline text-zinc-400">+ 追加 · ↑↓ 移動 · 区切りをドラッグでサイズ調整</span>
+    <span>v16 · 縦並び入力 · リサイズ</span>
   </footer>
 
   <!-- FAX用 PDF プレビュー（L2 · CT-FAX） -->
@@ -1482,7 +1567,6 @@
       let dialogDraft = {};
       let dialogType = null;
       let materialMode = 'included';
-      let commonCollapsed = false;
       let dragId = null;
       /** マスタ画面: 編集中ID（null=新規） */
       let masterEditingId = null;
@@ -1499,15 +1583,7 @@
       function materialLength() { return parseFloat($('input-length') && $('input-length').value) || 120; }
 
       function updateMaterialHero() {
-        var mat = getCurrentMaterialId();
-        var dia = materialDia();
-        var len = materialLength();
-        var hm = $('hero-material');
-        var hd = $('hero-diameter');
-        var hs = $('hero-material-sub');
-        if (hm) hm.textContent = mat || '—';
-        if (hd) hd.textContent = dia || '—';
-        if (hs) hs.textContent = '丸棒 · L' + len + ' mm';
+        /* v16: ヒーロー表示廃止 */
       }
 
       function renderProcessPresets() {
@@ -5282,6 +5358,181 @@
         });
       }
 
+      var SPLIT_STORAGE_PREFIX = 'mq-split-v1-';
+
+      function splitOrientation(container) {
+        return container.classList.contains('split-v') ? 'v' : 'h';
+      }
+
+      function splitMinPx(container, side) {
+        var key = side === 'a' ? 'splitMinA' : 'splitMinB';
+        var fallback = side === 'a' ? '160' : '160';
+        return parseInt(container.dataset[key] || fallback, 10);
+      }
+
+      function splitDisabledBelow(container) {
+        return parseInt(container.getAttribute('data-split-disabled-below') || '0', 10);
+      }
+
+      function loadSplitPct(container) {
+        var id = container.getAttribute('data-split-id');
+        var fallback = parseFloat(container.getAttribute('data-split-default') || '50');
+        if (!id) return fallback;
+        try {
+          var raw = localStorage.getItem(SPLIT_STORAGE_PREFIX + id);
+          if (raw != null) {
+            var n = parseFloat(raw);
+            if (isFinite(n) && n > 8 && n < 92) return n;
+          }
+        } catch (e) { /* ignore */ }
+        return fallback;
+      }
+
+      function saveSplitPct(container, pct) {
+        var id = container.getAttribute('data-split-id');
+        if (!id) return;
+        try {
+          localStorage.setItem(SPLIT_STORAGE_PREFIX + id, String(Math.round(pct * 10) / 10));
+        } catch (e) { /* ignore */ }
+      }
+
+      function applySplitPct(container, pct) {
+        container.style.setProperty('--split-pct', pct + '%');
+        container.style.setProperty('--split-min-a', splitMinPx(container, 'a') + 'px');
+        container.style.setProperty('--split-min-b', splitMinPx(container, 'b') + 'px');
+      }
+
+      function removeSplitGrip(container) {
+        var grip = container.querySelector(':scope > .split-grip');
+        if (grip) grip.remove();
+        container.classList.remove('split-ready');
+        container.style.removeProperty('--split-pct');
+      }
+
+      function ensureSplitGrip(container) {
+        var existing = container.querySelector(':scope > .split-grip');
+        if (existing) return existing;
+        var panes = container.querySelectorAll(':scope > .split-pane');
+        if (panes.length !== 2) return null;
+        var grip = document.createElement('div');
+        grip.className = 'split-grip';
+        grip.setAttribute('role', 'separator');
+        grip.setAttribute('aria-orientation', splitOrientation(container) === 'v' ? 'horizontal' : 'vertical');
+        grip.setAttribute('aria-label', '欄のサイズを調整');
+        grip.setAttribute('title', 'ドラッグでサイズ調整 · ダブルクリックで初期値');
+        grip.setAttribute('tabindex', '0');
+        panes[0].insertAdjacentElement('afterend', grip);
+        return grip;
+      }
+
+      function bindSplitGrip(container, grip) {
+        if (grip.dataset.bound) return;
+        grip.dataset.bound = '1';
+        var orient = splitOrientation(container);
+
+        function pctFromPointer(clientX, clientY) {
+          var rect = container.getBoundingClientRect();
+          var minA = splitMinPx(container, 'a');
+          var minB = splitMinPx(container, 'b');
+          if (orient === 'h') {
+            var total = Math.max(1, rect.width - grip.offsetWidth);
+            var pos = clientX - rect.left;
+            var lo = (minA / rect.width) * 100;
+            var hi = ((total - minB) / rect.width) * 100;
+            return Math.max(lo, Math.min(hi, (pos / rect.width) * 100));
+          }
+          var totalV = Math.max(1, rect.height - grip.offsetHeight);
+          var posV = clientY - rect.top;
+          var loV = (minA / rect.height) * 100;
+          var hiV = ((totalV - minB) / rect.height) * 100;
+          return Math.max(loV, Math.min(hiV, (posV / rect.height) * 100));
+        }
+
+        function startDrag(clientX, clientY) {
+          grip.classList.add('is-dragging');
+          document.body.classList.add(orient === 'v' ? 'split-dragging-v' : 'split-dragging-h');
+
+          function onMove(e) {
+            if (e.cancelable) e.preventDefault();
+            var x = e.touches && e.touches.length ? e.touches[0].clientX : e.clientX;
+            var y = e.touches && e.touches.length ? e.touches[0].clientY : e.clientY;
+            applySplitPct(container, pctFromPointer(x, y));
+          }
+
+          function onEnd() {
+            grip.classList.remove('is-dragging');
+            document.body.classList.remove('split-dragging-v', 'split-dragging-h');
+            document.removeEventListener('mousemove', onMove);
+            document.removeEventListener('mouseup', onEnd);
+            document.removeEventListener('touchmove', onMove);
+            document.removeEventListener('touchend', onEnd);
+            var num = parseFloat(getComputedStyle(container).getPropertyValue('--split-pct'));
+            if (isFinite(num)) saveSplitPct(container, num);
+          }
+
+          document.addEventListener('mousemove', onMove);
+          document.addEventListener('mouseup', onEnd);
+          document.addEventListener('touchmove', onMove, { passive: false });
+          document.addEventListener('touchend', onEnd);
+        }
+
+        grip.addEventListener('mousedown', function (e) {
+          e.preventDefault();
+          startDrag(e.clientX, e.clientY);
+        });
+        grip.addEventListener('touchstart', function (e) {
+          e.preventDefault();
+          var t = e.touches[0];
+          startDrag(t.clientX, t.clientY);
+        }, { passive: false });
+
+        grip.addEventListener('dblclick', function () {
+          var def = parseFloat(container.getAttribute('data-split-default') || '50');
+          applySplitPct(container, def);
+          saveSplitPct(container, def);
+        });
+
+        grip.addEventListener('keydown', function (e) {
+          var step = e.shiftKey ? 5 : 1;
+          var cur = loadSplitPct(container);
+          if (orient === 'h' && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+            e.preventDefault();
+            var next = cur + (e.key === 'ArrowRight' ? step : -step);
+            applySplitPct(container, next);
+            saveSplitPct(container, next);
+          }
+          if (orient === 'v' && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+            e.preventDefault();
+            var nextV = cur + (e.key === 'ArrowDown' ? step : -step);
+            applySplitPct(container, nextV);
+            saveSplitPct(container, nextV);
+          }
+        });
+      }
+
+      function setupSplitContainer(container) {
+        var minW = splitDisabledBelow(container);
+        if (minW && window.innerWidth < minW) {
+          removeSplitGrip(container);
+          return;
+        }
+        var grip = ensureSplitGrip(container);
+        if (!grip) return;
+        container.classList.add('split-ready');
+        applySplitPct(container, loadSplitPct(container));
+        bindSplitGrip(container, grip);
+      }
+
+      function initSplitResizers() {
+        document.querySelectorAll('[data-split-id]').forEach(setupSplitContainer);
+      }
+
+      var splitResizeTimer;
+      window.addEventListener('resize', function () {
+        clearTimeout(splitResizeTimer);
+        splitResizeTimer = setTimeout(initSplitResizers, 120);
+      });
+
       function bootApp(draftResult) {
         draftResult = draftResult || { applied: false, source: 'empty' };
         if (!draftResult.applied) {
@@ -5309,6 +5560,7 @@
               : String(draftResult.error));
         }
         refreshQuoteRevisionMeta();
+        initSplitResizers();
       }
 
       window.addEventListener('beforeunload', function () {
@@ -5317,12 +5569,6 @@
 
       function bindAllEvents() {
       $('btn-add-process').addEventListener('click', startAddProcess);
-
-      $('btn-toggle-common').addEventListener('click', function () {
-        commonCollapsed = !commonCollapsed;
-        $('quote-meta-panel').classList.toggle('hidden', commonCollapsed);
-        $('btn-toggle-common').textContent = commonCollapsed ? '案件情報を表示' : '案件情報を折りたたむ';
-      });
 
       $('btn-material-included').addEventListener('click', function () { materialMode = 'included'; renderMaterial(); });
       $('btn-material-supplied').addEventListener('click', function () { materialMode = 'supplied'; renderMaterial(); });
