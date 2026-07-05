@@ -270,6 +270,12 @@
       background: var(--app-surface-alt);
       box-shadow: var(--shadow-sm);
     }
+    .dialog-fields { display: flex; flex-direction: column; gap: 0.65rem; }
+    .dialog-field-group:focus-within label { color: #4338ca; }
+    .dialog-actions-bar {
+      border-top: 1px solid var(--app-border);
+      background: var(--app-surface);
+    }
     .drag-handle { cursor: grab; touch-action: none; color: #cbd5e1; }
     .drag-handle:active { cursor: grabbing; }
     .dragging { opacity: 0.45; }
@@ -900,6 +906,7 @@
                 <span id="dialog-mode-badge" class="text-sm rounded-full border bg-white px-2 py-0.5 text-zinc-500 shrink-0">編集</span>
               </div>
               <div id="dialog-panel" class="dialog-panel-inner flex-1 overflow-y-auto p-3 min-h-0"></div>
+              <div id="dialog-actions" class="dialog-actions-bar hidden flex-shrink-0 px-3 py-2 flex flex-wrap items-center gap-2"></div>
               <div id="ai-learn-chat" class="flex-shrink-0 mt-2 pt-2 border-t border-violet-100 flex flex-col min-h-[5rem] max-h-[10rem]">
                 <div class="flex items-center justify-between gap-2 mb-1">
                   <p class="text-xs font-semibold text-violet-900">AI 対話（学習）</p>
@@ -958,7 +965,14 @@
               </div>
               <div class="flex justify-between gap-2 items-baseline border-t border-zinc-200 pt-1 mt-0.5">
                 <dt class="text-zinc-700 shrink-0"><span class="font-semibold">n</span><span class="font-sans font-normal text-zinc-400 ml-1">回転数</span></dt>
-                <dd id="pane2-n-turn" class="text-blue-700 font-semibold text-right">765</dd>
+                <dd class="text-right">
+                  <span id="pane2-n-turn" class="text-blue-700 font-semibold">765</span>
+                  <span id="pane2-n-turn-hint" class="block text-[10px] font-sans font-normal text-zinc-400"></span>
+                </dd>
+              </div>
+              <div class="flex justify-between gap-2 items-baseline">
+                <dt class="text-zinc-500 shrink-0 text-xs font-sans">n上限 <span class="text-zinc-400">材質</span></dt>
+                <dd id="pane2-nmax-turn" class="text-zinc-600 text-xs font-mono text-right">—</dd>
               </div>
             </dl>
           </div>
@@ -978,7 +992,14 @@
               </div>
               <div class="flex justify-between gap-2 items-baseline border-t border-zinc-200 pt-1 mt-0.5">
                 <dt class="text-zinc-700 shrink-0"><span class="font-semibold">n</span><span class="font-sans font-normal text-zinc-400 ml-1">回転数</span></dt>
-                <dd id="pane2-n-hole" class="text-blue-700 font-semibold text-right">—</dd>
+                <dd class="text-right">
+                  <span id="pane2-n-hole" class="text-blue-700 font-semibold">—</span>
+                  <span id="pane2-n-hole-hint" class="block text-[10px] font-sans font-normal text-zinc-400"></span>
+                </dd>
+              </div>
+              <div class="flex justify-between gap-2 items-baseline">
+                <dt class="text-zinc-500 shrink-0 text-xs font-sans">n上限 <span class="text-zinc-400">材質</span></dt>
+                <dd id="pane2-nmax-hole" class="text-zinc-600 text-xs font-mono text-right">—</dd>
               </div>
             </dl>
           </div>
@@ -1273,17 +1294,19 @@
           </div>
           <fieldset class="space-y-2">
             <legend class="text-sm font-semibold text-zinc-800">旋削（外径）</legend>
-            <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <div><label class="text-sm text-zinc-500">Vc <span class="text-zinc-400">切削速度</span></label><input type="text" id="master-vc" class="input-field mt-1 text-sm" /></div>
               <div><label class="text-sm text-zinc-500">f <span class="text-zinc-400">送り</span></label><input type="text" id="master-f" class="input-field mt-1 text-sm" /></div>
               <div><label class="text-sm text-zinc-500">ap <span class="text-zinc-400">削り量</span></label><input type="text" id="master-ap" class="input-field mt-1 text-sm" /></div>
+              <div><label class="text-sm text-zinc-500">n上限 <span class="text-zinc-400">最大回転数</span></label><input type="text" id="master-nmax-turn" class="input-field mt-1 text-sm" placeholder="3000" /></div>
             </div>
           </fieldset>
           <fieldset class="space-y-2">
             <legend class="text-sm font-semibold text-zinc-800">穴あけ</legend>
-            <div class="grid grid-cols-2 gap-3">
+            <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
               <div><label class="text-sm text-zinc-500">Vc穴 <span class="text-zinc-400">切削速度</span></label><input type="text" id="master-vc-hole" class="input-field mt-1 text-sm" /></div>
               <div><label class="text-sm text-zinc-500">f穴 <span class="text-zinc-400">送り</span></label><input type="text" id="master-f-hole" class="input-field mt-1 text-sm" /></div>
+              <div><label class="text-sm text-zinc-500">n上限穴 <span class="text-zinc-400">最大回転数</span></label><input type="text" id="master-nmax-hole" class="input-field mt-1 text-sm" placeholder="4000" /></div>
             </div>
           </fieldset>
           <fieldset class="space-y-2">
@@ -1409,10 +1432,10 @@
         ],
       };
 
-      /** 材質マスタ { name: { vc, f, ap, vcHole, fHole, density, priceKg } } */
+      /** 材質マスタ { name: { vc, f, ap, vcHole, fHole, nMaxTurn, nMaxHole, density, priceKg } } */
       let materialMaster = {
-        S45C:   { vc: 120, f: 0.15, ap: 1.0, vcHole: 80, fHole: 0.08, density: 7.85, priceKg: 180 },
-        SUS304: { vc: 90,  f: 0.12, ap: 0.8, vcHole: 60, fHole: 0.06, density: 7.93, priceKg: 450 },
+        S45C:   { vc: 120, f: 0.15, ap: 1.0, vcHole: 80, fHole: 0.08, nMaxTurn: 3000, nMaxHole: 4000, density: 7.85, priceKg: 180 },
+        SUS304: { vc: 90,  f: 0.12, ap: 0.8, vcHole: 60, fHole: 0.06, nMaxTurn: 2000, nMaxHole: 3000, density: 7.93, priceKg: 450 },
       };
       /** 品名マスタ { id: { name, sort, processRows?: {type,data}[] } } */
       let productMaster = {
@@ -2408,6 +2431,56 @@
         return { vc: m.vc, f: m.f, ap: m.ap, vcHole: m.vcHole, fHole: m.fHole };
       }
 
+      function getMaterialRpmLimits(materialId) {
+        var m = materialMaster[materialId] || materialMaster.S45C || {};
+        var nMaxTurn = parseFloat(m.nMaxTurn);
+        var nMaxHole = parseFloat(m.nMaxHole);
+        return {
+          nMaxTurn: Number.isFinite(nMaxTurn) && nMaxTurn > 0 ? nMaxTurn : 0,
+          nMaxHole: Number.isFinite(nMaxHole) && nMaxHole > 0 ? nMaxHole : (Number.isFinite(nMaxTurn) && nMaxTurn > 0 ? nMaxTurn : 0),
+        };
+      }
+
+      function calcRpmFromVc(vc, diameterMm) {
+        if (!diameterMm || diameterMm <= 0 || !vc) return 0;
+        return (1000 * vc) / (Math.PI * diameterMm);
+      }
+
+      function effectiveRpm(nCalc, nMax) {
+        if (!nCalc || nCalc <= 0) return { n: 0, capped: false, nCalc: 0 };
+        if (!nMax || nMax <= 0) return { n: nCalc, capped: false, nCalc: nCalc };
+        var n = Math.min(nCalc, nMax);
+        return { n: n, capped: nCalc > nMax, nCalc: nCalc };
+      }
+
+      function refreshPane2NmaxLabels() {
+        var lim = getMaterialRpmLimits(getCurrentMaterialId());
+        $('pane2-nmax-turn').textContent = lim.nMaxTurn > 0 ? String(lim.nMaxTurn) : '—';
+        $('pane2-nmax-hole').textContent = lim.nMaxHole > 0 ? String(lim.nMaxHole) : '—';
+      }
+
+      function setPane2RpmDisplay(valueElId, hintElId, rpmInfo, nMax) {
+        var el = $(valueElId);
+        var hint = $(hintElId);
+        if (!el || !hint) return;
+        if (!rpmInfo || rpmInfo.nCalc <= 0) {
+          el.textContent = '—';
+          hint.textContent = '';
+          el.className = 'text-blue-700 font-semibold';
+          return;
+        }
+        el.textContent = String(Math.round(rpmInfo.n));
+        if (rpmInfo.capped) {
+          el.className = 'text-amber-700 font-semibold';
+          hint.textContent = '計算 ' + Math.round(rpmInfo.nCalc) + ' · 上限 ' + nMax + ' でクリップ';
+          hint.className = 'block text-[10px] font-sans font-normal text-amber-600';
+        } else {
+          el.className = 'text-blue-700 font-semibold';
+          hint.textContent = nMax > 0 ? '計算値 · 上限内' : '計算値';
+          hint.className = 'block text-[10px] font-sans font-normal text-zinc-400';
+        }
+      }
+
       function getMasterConditions(materialId) {
         var m = materialMaster[materialId];
         if (!m) return masterToConditions(materialMaster.S45C);
@@ -2450,6 +2523,7 @@
         $('input-f-hole').value = cond.fHole;
         $('pane2-material-name').textContent = materialId;
         markConditionOverrides();
+        refreshPane2NmaxLabels();
         renderProcessList();
         renderBreakdown();
         renderMaterial();
@@ -2581,16 +2655,20 @@
           var len = parseFloat(p.data.cutLen) || 0;
           var passes = Math.max(1, Math.ceil((start - finish) / 2 / cond.ap));
           var dAvg = (start + finish) / 2;
-          var n = (1000 * cond.vc) / (Math.PI * dAvg);
-          var minPerPass = len / (cond.f * n);
+          var lim = getMaterialRpmLimits(getCurrentMaterialId());
+          var nEff = effectiveRpm(calcRpmFromVc(cond.vc, dAvg), lim.nMaxTurn).n;
+          if (!nEff) return { minutes: 0, amount: 0, timeDisplay: '—', auto: true };
+          var minPerPass = len / (cond.f * nEff);
           var minutes = passes * minPerPass;
           return { minutes: minutes, amount: minutes / 60 * getHourlyRate(), timeDisplay: minutes.toFixed(1) + '分', auto: true };
         }
         if (p.type === 'hole') {
           var hd = parseFloat(p.data.holeDia) || 10;
           var dep = parseFloat(p.data.depth) || 0;
-          var nH = (1000 * cond.vcHole) / (Math.PI * hd);
-          var minutes = dep / (cond.fHole * nH);
+          var limH = getMaterialRpmLimits(getCurrentMaterialId());
+          var nHEff = effectiveRpm(calcRpmFromVc(cond.vcHole, hd), limH.nMaxHole).n;
+          if (!nHEff) return { minutes: 0, amount: 0, timeDisplay: '—', auto: true };
+          var minutes = dep / (cond.fHole * nHEff);
           return { minutes: minutes, amount: minutes / 60 * getHourlyRate(), timeDisplay: minutes.toFixed(1) + '分', auto: true };
         }
         var sec = parseFloat(p.data.seconds) || 0;
@@ -2778,11 +2856,99 @@
         return html;
       }
 
+      function escapeAttr(s) {
+        return String(s || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+      }
+
+      function collectDialogDraftFromFields() {
+        var steps = DIALOG_STEPS[dialogType];
+        if (!steps) return;
+        steps.forEach(function (step) {
+          var el = $('dialog-field-' + step.key);
+          if (el) dialogDraft[step.key] = el.value;
+        });
+      }
+
+      function renderDialogActions() {
+        var actions = $('dialog-actions');
+        if (!actions) return;
+        if (isConfirmedRevView() || !dialogType) {
+          actions.classList.add('hidden');
+          actions.innerHTML = '';
+          return;
+        }
+        var idx = processes.findIndex(function (p) { return p.id === selectedId; });
+        var hasNext = idx >= 0 && idx < processes.length - 1;
+        actions.classList.remove('hidden');
+        actions.innerHTML =
+          '<button type="button" id="dialog-confirm" class="btn-primary flex-1 min-w-[6rem] px-4 py-2.5 text-sm">確定</button>' +
+          (hasNext
+            ? '<button type="button" id="dialog-confirm-next" class="rounded-lg border border-indigo-200 bg-white px-3 py-2.5 text-sm font-medium text-indigo-700 hover:bg-indigo-50 shrink-0 whitespace-nowrap">確定 → 次工程</button>'
+            : '') +
+          '<span class="text-[10px] text-zinc-400 leading-tight ml-auto hidden md:inline">Enter で次項目 · 最後で確定</span>';
+        $('dialog-confirm').addEventListener('click', function () {
+          collectDialogDraftFromFields();
+          finishDialog();
+        });
+        var nextBtn = $('dialog-confirm-next');
+        if (nextBtn) {
+          nextBtn.addEventListener('click', function () {
+            collectDialogDraftFromFields();
+            finishDialogAndGoNext();
+          });
+        }
+      }
+
+      function finishDialogAndGoNext() {
+        var idx = processes.findIndex(function (p) { return p.id === selectedId; });
+        var nextId = (idx >= 0 && idx < processes.length - 1) ? processes[idx + 1].id : null;
+        finishDialog();
+        if (nextId) selectProcess(nextId);
+      }
+
+      function wireDialogFieldInputs(steps) {
+        var panel = $('dialog-panel');
+        if (!panel || isConfirmedRevView()) return;
+        var inputs = panel.querySelectorAll('.dialog-field-input');
+        inputs.forEach(function (input, i) {
+          input.addEventListener('input', function () {
+            dialogDraft[steps[i].key] = input.value;
+            var preview = panel.querySelector('#dialog-od-preview');
+            if (preview && dialogType === 'od') {
+              preview.classList.toggle('hidden', !(dialogDraft.finishDia && dialogDraft.cutLen));
+            }
+          });
+          input.addEventListener('keydown', function (e) {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+              e.preventDefault();
+              collectDialogDraftFromFields();
+              finishDialog();
+              return;
+            }
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              collectDialogDraftFromFields();
+              if (i < inputs.length - 1) {
+                inputs[i + 1].focus();
+                inputs[i + 1].select();
+              } else {
+                finishDialog();
+              }
+            }
+          });
+        });
+        if (inputs.length) {
+          inputs[0].focus();
+          if (inputs.length === 1) inputs[0].select();
+        }
+      }
+
       function renderDialog() {
         var panel = $('dialog-panel');
         $('dialog-mode-badge').textContent = dialogMode === 'add' ? '追加' : '編集';
 
         if (dialogMode === 'add' && !dialogType) {
+          renderDialogActions();
           panel.innerHTML = '<div class="fade-in">' +
             '<p class="text-base font-semibold text-zinc-800 mb-1">何を追加しますか？</p>' +
             '<p class="text-sm text-zinc-500 mb-2">アイコンを選ぶか、下のプリセットを使えます</p>' +
@@ -2809,57 +2975,45 @@
         }
 
         var steps = DIALOG_STEPS[dialogType];
-        var step = steps[dialogStep];
         var meta = TYPE_META[dialogType];
-        var val = dialogDraft[step.key] || '';
+        var readOnly = isConfirmedRevView();
+        var currentProc = processes.find(function (p) { return p.id === selectedId; });
+        var odPreview = (dialogType === 'od' && dialogDraft.finishDia && dialogDraft.cutLen)
+          ? '<div id="dialog-od-preview" class="mt-2 rounded-lg bg-sky-50 border border-sky-100 px-2.5 py-2 text-sm text-sky-900"><span class="font-semibold">プレビュー</span> · マスタから自動計算</div>'
+          : '<div id="dialog-od-preview" class="hidden mt-2 rounded-lg bg-sky-50 border border-sky-100 px-2.5 py-2 text-sm text-sky-900"><span class="font-semibold">プレビュー</span> · マスタから自動計算</div>';
 
-        var preview = '';
-        if (dialogType === 'od' && dialogDraft.finishDia && dialogDraft.cutLen) {
-          preview = '<div class="mt-3 rounded-lg bg-sky-50 border border-sky-100 px-2.5 py-2 text-sm text-sky-900"><span class="font-semibold">プレビュー</span> · マスタから自動計算</div>';
-        }
+        var fieldsHtml = steps.map(function (step) {
+          var val = escapeAttr(dialogDraft[step.key] || '');
+          var inputCls = readOnly
+            ? 'input-field text-sm py-2 bg-zinc-100 text-zinc-500'
+            : 'dialog-field-input input-field text-sm py-2';
+          return '<div class="dialog-field-group">' +
+            '<label for="dialog-field-' + step.key + '" class="text-sm font-semibold text-zinc-800">' + step.label +
+            (step.optional ? ' <span class="font-normal text-zinc-400">任意</span>' : '') + '</label>' +
+            '<p class="text-xs text-zinc-500 mt-0.5 mb-1 leading-snug">' + step.hint + '</p>' +
+            '<div class="relative">' +
+            '<input type="text" id="dialog-field-' + step.key + '" value="' + val + '" placeholder="' + escapeAttr(step.placeholder || '') + '"' +
+            (readOnly ? ' readonly' : '') + ' class="' + inputCls + (step.suffix ? ' pr-12' : '') + '" />' +
+            (step.suffix ? '<span class="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-zinc-400 font-medium">' + step.suffix + '</span>' : '') +
+            '</div></div>';
+        }).join('');
 
         panel.innerHTML = '<div class="fade-in">' +
-          '<div class="flex items-center gap-2 mb-2">' +
+          '<div class="flex items-center gap-2 mb-3">' +
           '<span class="inline-flex h-8 w-8 items-center justify-center rounded-lg border text-sm ' + meta.badge + '">' + meta.icon + '</span>' +
           '<div><p class="text-base font-semibold leading-tight">' + meta.label + '</p>' +
-          '<p class="text-sm text-zinc-500">' + (dialogMode === 'add' ? '新規追加' : labelFor(processes.find(function (p) { return p.id === selectedId; }))) + '</p></div></div>' +
-          stepDots(steps.length, dialogStep) +
-          '<label class="block text-base font-semibold text-zinc-800">' + step.label +
-          (step.optional ? ' <span class="text-sm font-normal text-zinc-400">任意</span>' : '') + '</label>' +
-          '<p class="text-sm text-zinc-500 mt-0.5 mb-3">' + step.hint + '</p>' +
-          '<div class="relative">' +
-          '<input type="text" id="dialog-input" value="' + val + '" placeholder="' + (step.placeholder || '') + '" class="input-field text-base pr-12" />' +
-          (step.suffix ? '<span class="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-zinc-400 font-medium">' + step.suffix + '</span>' : '') +
-          '</div>' +
-          preview +
-          '<div class="flex gap-2 mt-4">' +
-          (dialogStep > 0 ? '<button type="button" id="dialog-back" class="rounded-lg border border-zinc-200 px-4 py-2.5 text-base font-medium hover:bg-zinc-50">戻る</button>' : '') +
-          '<button type="button" id="dialog-next" class="btn-primary flex-1 px-4 py-3 text-base">' +
-          (dialogStep < steps.length - 1 ? '次へ' : '確定') + '</button></div></div>';
+          '<p class="text-sm text-zinc-500">' + (dialogMode === 'add' ? '新規追加' : (currentProc ? labelFor(currentProc) : '')) +
+          ' · ' + steps.length + '項目</p></div></div>' +
+          '<div class="dialog-fields">' + fieldsHtml + '</div>' +
+          (dialogType === 'od' ? odPreview : '') +
+          '</div>';
 
-        var input = $('dialog-input');
-        input.focus();
-        input.select();
-
-        function goNext() {
-          dialogDraft[step.key] = input.value;
-          if (dialogStep < steps.length - 1) {
-            dialogStep++;
-            renderDialog();
-          } else {
-            finishDialog();
-          }
-        }
-
-        input.addEventListener('keydown', function (e) {
-          if (e.key === 'Enter') { e.preventDefault(); goNext(); }
-        });
-        $('dialog-next').addEventListener('click', goNext);
-        var back = $('dialog-back');
-        if (back) back.addEventListener('click', function () { dialogStep--; renderDialog(); });
+        renderDialogActions();
+        wireDialogFieldInputs(steps);
       }
 
       function finishDialog() {
+        collectDialogDraftFromFields();
         if (dialogMode === 'add') {
           var newId = processes.reduce(function (m, p) { return Math.max(m, p.id); }, 0) + 1;
           processes.push({ id: newId, type: dialogType, data: Object.assign({}, dialogDraft) });
@@ -2946,9 +3100,11 @@
         var p = processes.find(function (x) { return x.id === selectedId; });
         if (!p) return;
         $('pane2-row-label').textContent = labelFor(p);
-        $('status-bar').textContent = labelFor(p) + ' を編集中 · Enter で次へ · + 追加 · ↑↓ 移動';
+        $('status-bar').textContent = labelFor(p) + ' を編集中 · Enter で次項目 · ↑↓ 工程移動 · + 追加';
 
         var cond = readConditions();
+        var lim = getMaterialRpmLimits(getCurrentMaterialId());
+        refreshPane2NmaxLabels();
         var turnEl = $('pane2-turning');
         var holeEl = $('pane2-hole');
         turnEl.className = 'rounded-md border p-2 transition';
@@ -2959,20 +3115,21 @@
           holeEl.classList.add('border-zinc-200', 'opacity-50');
           var start = parseFloat(p.data.startDia) || parseFloat(materialDia());
           var finish = parseFloat(p.data.finishDia) || 40;
-          var n = (1000 * cond.vc) / (Math.PI * (start + finish) / 2);
-          $('pane2-n-turn').textContent = String(Math.round(n));
-          $('pane2-n-hole').textContent = '—';
+          var turnRpm = effectiveRpm(calcRpmFromVc(cond.vc, (start + finish) / 2), lim.nMaxTurn);
+          setPane2RpmDisplay('pane2-n-turn', 'pane2-n-turn-hint', turnRpm, lim.nMaxTurn);
+          setPane2RpmDisplay('pane2-n-hole', 'pane2-n-hole-hint', null, lim.nMaxHole);
         } else if (p.type === 'hole') {
           holeEl.classList.add('ring-2', 'ring-violet-500/25', 'border-violet-200', 'bg-violet-50/40');
           turnEl.classList.add('border-zinc-200', 'opacity-50');
           var hd = parseFloat(p.data.holeDia) || 10;
-          $('pane2-n-hole').textContent = String(Math.round((1000 * cond.vcHole) / (Math.PI * hd)));
-          $('pane2-n-turn').textContent = '—';
+          var holeRpm = effectiveRpm(calcRpmFromVc(cond.vcHole, hd), lim.nMaxHole);
+          setPane2RpmDisplay('pane2-n-hole', 'pane2-n-hole-hint', holeRpm, lim.nMaxHole);
+          setPane2RpmDisplay('pane2-n-turn', 'pane2-n-turn-hint', null, lim.nMaxTurn);
         } else {
           turnEl.classList.add('border-zinc-200', 'opacity-50');
           holeEl.classList.add('border-zinc-200', 'opacity-50');
-          $('pane2-n-turn').textContent = '—';
-          $('pane2-n-hole').textContent = '—';
+          setPane2RpmDisplay('pane2-n-turn', 'pane2-n-turn-hint', null, lim.nMaxTurn);
+          setPane2RpmDisplay('pane2-n-hole', 'pane2-n-hole-hint', null, lim.nMaxHole);
         }
       }
 
@@ -5288,12 +5445,16 @@
       }
 
       function readMasterForm() {
+        var nMaxTurn = parseFloat($('master-nmax-turn').value);
+        var nMaxHole = parseFloat($('master-nmax-hole').value);
         return {
           vc: parseFloat($('master-vc').value) || 100,
           f: parseFloat($('master-f').value) || 0.12,
           ap: parseFloat($('master-ap').value) || 1.0,
           vcHole: parseFloat($('master-vc-hole').value) || 70,
           fHole: parseFloat($('master-f-hole').value) || 0.07,
+          nMaxTurn: Number.isFinite(nMaxTurn) && nMaxTurn > 0 ? Math.round(nMaxTurn) : 0,
+          nMaxHole: Number.isFinite(nMaxHole) && nMaxHole > 0 ? Math.round(nMaxHole) : 0,
           density: parseFloat($('master-density').value) || 7.85,
           priceKg: parseFloat($('master-price-kg').value) || 200,
         };
@@ -5402,6 +5563,8 @@
         $('master-ap').value = m.ap;
         $('master-vc-hole').value = m.vcHole;
         $('master-f-hole').value = m.fHole;
+        $('master-nmax-turn').value = m.nMaxTurn > 0 ? m.nMaxTurn : '';
+        $('master-nmax-hole').value = m.nMaxHole > 0 ? m.nMaxHole : '';
         $('master-density').value = m.density;
         $('master-price-kg').value = m.priceKg;
         $('master-form-error').classList.add('hidden');
@@ -5428,6 +5591,8 @@
         $('master-ap').value = '1.0';
         $('master-vc-hole').value = '70';
         $('master-f-hole').value = '0.07';
+        $('master-nmax-turn').value = '3000';
+        $('master-nmax-hole').value = '4000';
         $('master-density').value = '7.85';
         $('master-price-kg').value = '200';
         $('master-form-error').classList.add('hidden');
@@ -5532,7 +5697,7 @@
           var sel = (masterEditingMode === 'material' && masterEditingId === id) ? ' bg-indigo-600 text-white border-indigo-600' : ' bg-white hover:bg-indigo-50/50 border-slate-200';
           return '<li><button type="button" class="master-pick w-full text-left rounded-lg border px-3 py-2 text-sm transition' + sel + '" data-id="' + id + '">' +
             '<span class="font-semibold">' + id + '</span>' +
-            '<span class="block text-sm font-mono mt-0.5 opacity-80">Vc ' + m.vc + ' · f ' + m.f + ' · ap ' + m.ap + '</span>' +
+            '<span class="block text-sm font-mono mt-0.5 opacity-80">Vc ' + m.vc + ' · f ' + m.f + ' · n↑' + (m.nMaxTurn || '—') + '</span>' +
             '</button></li>';
         }).join('');
         $('master-list').querySelectorAll('.master-pick').forEach(function (btn) {
