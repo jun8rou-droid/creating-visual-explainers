@@ -399,6 +399,19 @@
       color: #94a3b8;
       font-family: "IBM Plex Mono", monospace;
     }
+    .similar-ai-box {
+      margin-bottom: 0.5rem;
+      padding: 0.5rem 0.625rem;
+      border-radius: 0.5rem;
+      background: rgba(99, 102, 241, 0.12);
+      border: 1px solid rgba(129, 140, 248, 0.35);
+    }
+    .similar-ai-line {
+      display: block;
+      font-size: 0.75rem;
+      line-height: 1.45;
+      color: #c7d2fe;
+    }
     @keyframes fade-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
     .fade-in { animation: fade-in 0.22s cubic-bezier(0.22, 1, 0.36, 1); }
     .panes-23 {
@@ -1037,7 +1050,7 @@
   <footer class="app-footer flex-shrink-0 px-5 py-2.5 flex flex-wrap items-center justify-between gap-2 text-sm text-zinc-500">
     <span id="status-bar">材料と工程を入力してください</span>
     <span class="hidden md:inline text-zinc-400">+ 追加 · ↑↓ 移動 · Esc 閉じる</span>
-    <span>v12 · 図面送信の実体表示</span>
+    <span>v13 · 類似差分 AI</span>
   </footer>
 
   <!-- 図面プレビュー（O1） -->
@@ -1961,6 +1974,116 @@
         renderMaterial();
       }
 
+      var lastSimilarMatches = [];
+      var similarAiInFlight = false;
+      var similarDiffClientPromise = null;
+
+      function loadSimilarDiffClient() {
+        if (!similarDiffClientPromise) {
+          similarDiffClientPromise = import('./js/similar-diff/client.mjs');
+        }
+        return similarDiffClientPromise;
+      }
+
+      function summarizeProcessListForSimilar() {
+        var labels = { od: '外径', hole: '穴', face: '端面', groove: '溝', other: 'その他' };
+        var counts = {};
+        processes.forEach(function (p) {
+          if (!p || !p.type) return;
+          counts[p.type] = (counts[p.type] || 0) + 1;
+        });
+        var keys = Object.keys(counts);
+        if (!keys.length) return '（工程なし）';
+        return keys.map(function (t) { return (labels[t] || t) + counts[t]; }).join(' · ');
+      }
+
+      function buildCurrentSimilarSnapshot() {
+        var totals = calcTotals();
+        var matPiece = estimateMaterialCost();
+        var isSupplied = materialMode === 'supplied';
+        return {
+          quote_id: getDraftHeaderLabel(),
+          material: getCurrentMaterialId(),
+          dia: parseFloat(materialDia()) || 0,
+          len: materialLength(),
+          qty: getQuantity(),
+          material_mode: materialMode,
+          setup_minutes: getSetupMinutes(),
+          process_count: processes.length,
+          process_summary: summarizeProcessListForSimilar(),
+          unit_machining: Math.round(totals.unitAfter || 0),
+          unit_material: isSupplied ? 0 : Math.round(matPiece || 0),
+          product: getProductDisplayLabel(),
+        };
+      }
+
+      function buildSimilarSnapshotFromCase(c) {
+        return {
+          quote_id: c.id,
+          material: c.material,
+          dia: c.dia,
+          len: c.len,
+          qty: c.qty,
+          material_mode: c.materialMode,
+          setup_minutes: c.setupMin,
+          process_count: c.processCount,
+          process_summary: c.processSummary,
+          unit_machining: c.unitMachining,
+          unit_material: c.unitMaterial,
+          product: c.productKey || '',
+        };
+      }
+
+      function renderSimilarAiSummaryResult(payload) {
+        var box = $('similar-ai-result');
+        if (!box) return;
+        if (!payload || !payload.lines || !payload.lines.length) {
+          box.classList.add('hidden');
+          box.innerHTML = '';
+          return;
+        }
+        var srcLabel = payload.source === 'gemini' ? 'Gemini' : 'ルール';
+        box.classList.remove('hidden');
+        box.innerHTML = '<p class="text-[10px] text-indigo-300/80 mb-1">AI差分要約 · ' + srcLabel + '</p>'
+          + payload.lines.map(function (line) {
+            return '<span class="similar-ai-line">' + escapeHtml(line) + '</span>';
+          }).join('');
+      }
+
+      function requestSimilarAiSummary() {
+        if (similarAiInFlight || !lastSimilarMatches.length) return;
+        var top = lastSimilarMatches[0].case;
+        var btn = $('btn-similar-ai-summary');
+        similarAiInFlight = true;
+        if (btn) {
+          btn.disabled = true;
+          btn.textContent = '要約中…';
+        }
+        loadSimilarDiffClient().then(function (mod) {
+          return mod.fetchSimilarDiffSummary({
+            current: buildCurrentSimilarSnapshot(),
+            similar: buildSimilarSnapshotFromCase(top),
+          });
+        }).then(function (payload) {
+          renderSimilarAiSummaryResult(payload);
+        }).catch(function (err) {
+          alert('差分要約に失敗しました: ' + (err && err.message ? err.message : String(err)));
+        }).finally(function () {
+          similarAiInFlight = false;
+          if (btn) {
+            btn.disabled = false;
+            btn.textContent = 'AI差分要約（' + top.id + '）';
+          }
+        });
+      }
+
+      function wireSimilarAiPanel() {
+        var btn = $('btn-similar-ai-summary');
+        if (!btn || btn.__wired) return;
+        btn.__wired = true;
+        btn.addEventListener('click', requestSimilarAiSummary);
+      }
+
       /** デモ用過去見積（保存 JSON 想定） */
       var SIMILAR_CASES_DB = [
         { id: 'Q-2025-118', material: 'S45C', dia: 50, len: 120, qty: 50, unitMachining: 1080, unitMaterial: 160, materialMode: 'included', setupMin: 30, processCount: 5, processSummary: '外径2 · 穴1 · 端面1 · 面取り1', date: '20251108', productKey: 'c:shaft' },
@@ -2020,15 +2143,24 @@
           productKey: productMatchKey(),
         };
         var matches = findSimilarCases(current);
+        lastSimilarMatches = matches;
         $('similar-summary-label').textContent = matches.length
           ? '類似案件（' + matches.length + '件）'
           : '類似案件';
         var list = $('similar-list');
         if (!matches.length) {
           list.innerHTML = '<p class="text-sm text-zinc-500 py-1 leading-relaxed">類似案件なし（材質·φ·Lが近い過去見積がありません）</p>';
+          renderSimilarAiSummaryResult(null);
           return;
         }
-        list.innerHTML = matches.map(function (m) {
+        var aiPanel = '<div class="similar-ai-box">' +
+          '<button type="button" id="btn-similar-ai-summary" class="text-xs font-medium text-indigo-200 hover:text-white underline-offset-2 hover:underline">' +
+          'AI差分要約（' + matches[0].case.id + '）' +
+          '</button>' +
+          '<p class="text-[10px] text-indigo-300/70 mt-1 leading-snug">1位の類似案件と、今の工程・段取り・単価の差を3行で要約（参照のみ）</p>' +
+          '<div id="similar-ai-result" class="hidden mt-2"></div>' +
+          '</div>';
+        list.innerHTML = aiPanel + matches.map(function (m) {
           var c = m.case;
           var warn = c.materialMode !== materialMode
             ? ' <span class="text-amber-400" title="材料込み/支給が異なります">⚠</span>' : '';
@@ -2055,6 +2187,7 @@
             fmt(c.unitMachining) + '/個 · ' + expandMat +
             '</div></details>';
         }).join('');
+        wireSimilarAiPanel();
       }
 
       function getCurrentMaterialId() { return $('sel-material').value; }

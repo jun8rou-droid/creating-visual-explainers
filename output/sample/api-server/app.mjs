@@ -33,6 +33,12 @@ import {
 } from './quotes-db.mjs';
 import { analyzeDrawing, getVisionStatus, isVisionEnabled } from './vision-router.mjs';
 import { ocrDrawingRegion } from './gemini-analyze.mjs';
+import {
+  isSimilarDiffAiEnabled,
+  summarizeSimilarDiffRuleOnly,
+  summarizeSimilarDiffWithGemini,
+} from './similar-diff.mjs';
+import { API_PATH_SIMILAR_DIFF } from '../js/similar-diff/shared.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.join(__dirname, '.env') });
@@ -352,6 +358,54 @@ app.post(API_PATH_ANALYZE, analyzeUpload, async (req, res) => {
   } catch (err) {
     console.error('[analyze]', err);
     res.status(500).json({ error: err.message || '解析に失敗しました' });
+  }
+});
+
+app.post(API_PATH_SIMILAR_DIFF, async (req, res) => {
+  try {
+    const body = req.body || {};
+    const current = body.current;
+    const similar = body.similar;
+    if (!current || !similar) {
+      return res.status(400).json({ error: 'current と similar が必要です' });
+    }
+    if (!current.quote_id || !similar.quote_id) {
+      return res.status(400).json({ error: 'quote_id が必要です' });
+    }
+
+    const ruleOnly = summarizeSimilarDiffRuleOnly(current, similar);
+
+    if (!isSimilarDiffAiEnabled()) {
+      return res.json({
+        summary: ruleOnly.summary,
+        lines: ruleOnly.lines,
+        source: 'rule',
+        model: ruleOnly.model,
+      });
+    }
+
+    try {
+      const ai = await summarizeSimilarDiffWithGemini(current, similar);
+      return res.json({
+        summary: ai.summary,
+        lines: ai.lines,
+        source: 'gemini',
+        model: ai.model,
+        ruleLines: ai.ruleLines,
+      });
+    } catch (aiErr) {
+      console.warn('[similar-diff] gemini failed:', aiErr.message || aiErr);
+      return res.json({
+        summary: ruleOnly.summary,
+        lines: ruleOnly.lines,
+        source: 'rule-fallback',
+        model: ruleOnly.model,
+        visionError: aiErr.message || String(aiErr),
+      });
+    }
+  } catch (err) {
+    console.error('[similar-diff]', err);
+    res.status(500).json({ error: err.message || '差分要約に失敗しました' });
   }
 });
 
