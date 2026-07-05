@@ -2835,6 +2835,8 @@
       }
 
       function applyApiField(apiKey, value, confidence) {
+        if (value === '' || value === null || value === undefined) return;
+        if (typeof value === 'object') return;
         if (apiKey === 'drawing_no') {
           applyOcrValue('drawing', String(value), false);
           setOcrPending('drawing', confidenceNeedsReview(confidence));
@@ -3583,6 +3585,8 @@
             statusText.textContent = 'Gemini エラー: ' + result.visionError;
           } else if (statusText && demoWarning) {
             statusText.textContent = 'デモデータが入りました。API キーを確認してください。';
+          } else if (statusText) {
+            statusText.textContent = '解析: ' + via;
           }
           var chatBox = $('ai-chat-messages');
           if (chatBox) chatBox.innerHTML = '';

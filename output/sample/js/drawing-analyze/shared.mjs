@@ -163,21 +163,43 @@ function normConfidence(c) {
 }
 
 /**
+ * @param {unknown} fieldOrValue
+ * @returns {{ value: unknown, confidence: Confidence|string|undefined }}
+ */
+function unwrapFieldInput(fieldOrValue) {
+  let v = fieldOrValue;
+  let confidence;
+  if (v && typeof v === 'object' && v !== null && 'value' in /** @type {object} */ (v)) {
+    const box = /** @type {{ value?: unknown, confidence?: Confidence|string }} */ (v);
+    confidence = box.confidence;
+    v = box.value;
+    if (v && typeof v === 'object' && v !== null && 'value' in /** @type {object} */ (v)) {
+      const inner = /** @type {{ value?: unknown, confidence?: Confidence|string }} */ (v);
+      confidence = inner.confidence || confidence;
+      v = inner.value;
+    }
+  }
+  return { value: v, confidence: confidence };
+}
+
+/**
  * @param {unknown} value
- * @param {Confidence} confidence
+ * @param {Confidence|string} [confidence]
  * @returns {FieldValue}
  */
 function normField(value, confidence) {
+  const unwrapped = unwrapFieldInput(value);
+  const v = unwrapped.value;
   return {
-    value: value === null || value === undefined ? '' : value,
-    confidence: normConfidence(confidence),
+    value: v === null || v === undefined || v === '' ? '' : v,
+    confidence: normConfidence(confidence || unwrapped.confidence || 'low'),
   };
 }
 
 /**
  * Vision / Claude の生出力を DrawingAnalyzeResponse に正規化
  * @param {unknown} raw
- * @param {{ modelId?: string, fileName?: string }} [options]
+ * @param {{ modelId?: string, fileName?: string, allowDemoProcessFallback?: boolean }} [options]
  * @returns {DrawingAnalyzeResponse}
  */
 export function normalizeVisionResponse(raw, options) {
@@ -191,27 +213,14 @@ export function normalizeVisionResponse(raw, options) {
     : {};
 
   const fields = {
-    drawing_no: normField(
-      fieldsIn.drawing_no?.value ?? fieldsIn.drawing_no,
-      fieldsIn.drawing_no?.confidence || 'low',
-    ),
-    material: normField(
-      fieldsIn.material?.value ?? fieldsIn.material,
-      fieldsIn.material?.confidence || 'low',
-    ),
-    diameter_mm: normField(
-      numOrEmpty(fieldsIn.diameter_mm?.value ?? fieldsIn.diameter_mm),
-      fieldsIn.diameter_mm?.confidence || 'low',
-    ),
-    length_mm: normField(
-      numOrEmpty(fieldsIn.length_mm?.value ?? fieldsIn.length_mm),
-      fieldsIn.length_mm?.confidence || 'low',
-    ),
-    product: normField(
-      normProduct(fieldsIn.product?.value ?? fieldsIn.product),
-      fieldsIn.product?.confidence || 'low',
-    ),
+    drawing_no: normField(fieldsIn.drawing_no, fieldsIn.drawing_no?.confidence),
+    material: normField(fieldsIn.material, fieldsIn.material?.confidence),
+    diameter_mm: normField(fieldsIn.diameter_mm, fieldsIn.diameter_mm?.confidence),
+    length_mm: normField(fieldsIn.length_mm, fieldsIn.length_mm?.confidence),
+    product: normField(fieldsIn.product, fieldsIn.product?.confidence),
   };
+  fields.diameter_mm.value = numOrEmpty(fields.diameter_mm.value);
+  fields.length_mm.value = numOrEmpty(fields.length_mm.value);
 
   let processes = null;
   if (o.processes && typeof o.processes === 'object') {
@@ -228,13 +237,20 @@ export function normalizeVisionResponse(raw, options) {
     }
   }
 
-  if (!processes || !processes.rows.length) {
+  if ((!processes || !processes.rows.length) && options.allowDemoProcessFallback !== false) {
     const demo = buildDemoAnalyzeResponse(options.fileName || 'drawing.pdf');
     processes = {
       confidence: 'low',
       preset_id: 'shaft-basic',
       rationale: '図面から工程を確定できなかったため、類似シャフトのたたき台を提示',
       rows: demo.processes.rows,
+    };
+  } else if (!processes || !processes.rows.length) {
+    processes = {
+      confidence: 'low',
+      preset_id: null,
+      rationale: '図面から工程を読み取れませんでした。手入力してください。',
+      rows: [],
     };
   }
 

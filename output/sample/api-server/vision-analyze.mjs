@@ -81,5 +81,6 @@ export async function analyzeDrawingWithVision(file, options) {
   return normalizeVisionResponse(parsed, {
     modelId: 'claude:' + model,
     fileName: file.originalname,
+    allowDemoProcessFallback: false,
   });
 }

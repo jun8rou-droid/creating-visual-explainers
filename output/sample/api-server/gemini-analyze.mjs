@@ -64,5 +64,6 @@ export async function analyzeDrawingWithGemini(file, options) {
   return normalizeVisionResponse(parsed, {
     modelId: 'gemini:' + modelId,
     fileName: file.originalname,
+    allowDemoProcessFallback: false,
   });
 }
