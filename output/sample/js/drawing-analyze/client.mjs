@@ -54,11 +54,19 @@ function joinUrl(base, path) {
  */
 async function parseJsonOrThrow(res) {
   const text = await res.text();
+  if (res.status === 413) {
+    throw new Error(
+      'ファイルが大きすぎます（サーバー上限 4.5MB）。図面部分だけ切り出した JPEG/PNG にしてください。',
+    );
+  }
   let body;
   try {
     body = text ? JSON.parse(text) : null;
   } catch (_e) {
-    throw new Error('API 応答が JSON ではありません (' + res.status + ')');
+    const hint = res.status === 502
+      ? 'AI 解析がタイムアウトした可能性があります。もう一度試すか、画像を小さくしてください。'
+      : '通信エラー (' + res.status + ')';
+    throw new Error(hint);
   }
   if (!res.ok) {
     const msg = body && body.error ? body.error : res.statusText || 'API error';

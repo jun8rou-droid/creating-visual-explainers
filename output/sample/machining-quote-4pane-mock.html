@@ -743,6 +743,7 @@
             <div id="drawing-panel" class="px-3 pb-2 pt-0">
             <p id="drawing-drop-hint" class="text-xs text-indigo-800/80 mb-2 leading-relaxed">
               PDF / PNG / JPEG を、下の枠にドロップ。または「ファイルを選ぶ」をクリック。
+              CamScanner 等の大きい写真は <strong class="font-semibold">送信前に自動圧縮</strong> します（4.5MB 上限対策）。
             </p>
             <div id="vision-off-banner" class="hidden mb-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-950 leading-relaxed">
               <strong class="font-semibold">いまはデモモードです。</strong>
@@ -3643,6 +3644,71 @@
         updateOcrFieldStyles();
       }
 
+      var VERCEL_UPLOAD_SAFE_BYTES = 3.4 * 1024 * 1024;
+      var DRAWING_COMPRESS_MAX_EDGE = 2400;
+
+      function compressDrawingFileForApi(file) {
+        if (!file) return Promise.resolve(file);
+        var isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name || '');
+        if (isPdf) {
+          if (file.size > VERCEL_UPLOAD_SAFE_BYTES) {
+            return Promise.reject(new Error(
+              'PDF が大きすぎます（約 ' + Math.round(file.size / 1024 / 1024) + 'MB）。'
+              + '4MB 以下にするか、図面ページを JPEG/PNG で保存し直してください。',
+            ));
+          }
+          return Promise.resolve(file);
+        }
+        var isImage = /^image\//i.test(file.type || '') || /\.(jpe?g|png|webp)$/i.test(file.name || '');
+        if (!isImage || file.size <= VERCEL_UPLOAD_SAFE_BYTES) {
+          return Promise.resolve(file);
+        }
+
+        function encode(quality) {
+          return new Promise(function (resolve, reject) {
+            var url = URL.createObjectURL(file);
+            var img = new Image();
+            img.onload = function () {
+              URL.revokeObjectURL(url);
+              var w = img.naturalWidth || img.width;
+              var h = img.naturalHeight || img.height;
+              var scale = Math.min(1, DRAWING_COMPRESS_MAX_EDGE / Math.max(w, h, 1));
+              var cw = Math.max(1, Math.round(w * scale));
+              var ch = Math.max(1, Math.round(h * scale));
+              var canvas = document.createElement('canvas');
+              canvas.width = cw;
+              canvas.height = ch;
+              var ctx = canvas.getContext('2d');
+              if (!ctx) {
+                resolve(file);
+                return;
+              }
+              ctx.drawImage(img, 0, 0, cw, ch);
+              canvas.toBlob(function (blob) {
+                if (!blob) {
+                  resolve(file);
+                  return;
+                }
+                var base = (file.name || 'drawing').replace(/\.[^.]+$/, '');
+                var out = new File([blob], base + '.jpg', { type: 'image/jpeg' });
+                if (out.size > VERCEL_UPLOAD_SAFE_BYTES && quality > 0.55) {
+                  encode(quality - 0.12).then(resolve).catch(reject);
+                  return;
+                }
+                resolve(out);
+              }, 'image/jpeg', quality);
+            };
+            img.onerror = function () {
+              URL.revokeObjectURL(url);
+              resolve(file);
+            };
+            img.src = url;
+          });
+        }
+
+        return encode(0.88);
+      }
+
       function dataUrlToFile(dataUrl, fileName, mime) {
         var parts = String(dataUrl).split(',');
         if (parts.length < 2) throw new Error('data URL が不正です');
@@ -3658,38 +3724,47 @@
       }
 
       function resolveDrawingFileForAnalyze() {
+        var filePromise;
         var fileInput = $('drawing-file-input');
         if (fileInput && fileInput.files && fileInput.files[0]) {
-          return Promise.resolve(fileInput.files[0]);
-        }
-        var meta = getCurrentDrawingMeta();
-        if (meta && meta.rawFile) {
-          return Promise.resolve(meta.rawFile);
-        }
-        var previewUrl = meta && meta.previewUrl;
-        if (previewUrl && previewUrl.indexOf('data:') === 0) {
-          try {
-            return Promise.resolve(dataUrlToFile(
-              previewUrl,
-              (meta && meta.fileName) || 'drawing.jpg',
-              meta && meta.mime
-            ));
-          } catch (e) {
-            return Promise.reject(e);
+          filePromise = Promise.resolve(fileInput.files[0]);
+        } else {
+          var meta = getCurrentDrawingMeta();
+          if (meta && meta.rawFile) {
+            filePromise = Promise.resolve(meta.rawFile);
+          } else {
+            var previewUrl = meta && meta.previewUrl;
+            if (previewUrl && previewUrl.indexOf('data:') === 0) {
+              try {
+                filePromise = Promise.resolve(dataUrlToFile(
+                  previewUrl,
+                  (meta && meta.fileName) || 'drawing.jpg',
+                  meta && meta.mime
+                ));
+              } catch (e) {
+                return Promise.reject(e);
+              }
+            } else {
+              var url = meta && (meta.blobUrl || meta.previewUrl);
+              if (url) {
+                filePromise = fetch(url).then(function (res) {
+                  if (!res.ok) throw new Error('図面プレビューの読み込みに失敗しました');
+                  return res.blob();
+                }).then(function (blob) {
+                  var name = (meta && meta.fileName) || 'drawing.jpg';
+                  var type = (meta && meta.mime) || blob.type || guessMimeFromName(name);
+                  return new File([blob], name, { type: type });
+                });
+              } else {
+                return Promise.resolve(null);
+              }
+            }
           }
         }
-        var url = meta && (meta.blobUrl || meta.previewUrl);
-        if (url) {
-          return fetch(url).then(function (res) {
-            if (!res.ok) throw new Error('図面プレビューの読み込みに失敗しました');
-            return res.blob();
-          }).then(function (blob) {
-            var name = (meta && meta.fileName) || 'drawing.jpg';
-            var type = (meta && meta.mime) || blob.type || guessMimeFromName(name);
-            return new File([blob], name, { type: type });
-          });
-        }
-        return Promise.resolve(null);
+        return filePromise.then(function (file) {
+          if (!file) return null;
+          return compressDrawingFileForApi(file);
+        });
       }
 
       function runDrawingAnalyze() {
@@ -3697,6 +3772,10 @@
         resolveDrawingFileForAnalyze().then(function (file) {
           if (!file) {
             alert('図面ファイルが見つかりません。\n「ファイルを選ぶ」から再度アップロードしてください。');
+            return;
+          }
+          if (file.size > VERCEL_UPLOAD_SAFE_BYTES) {
+            alert('圧縮後もファイルが大きすぎます（約 ' + Math.round(file.size / 1024 / 1024) + 'MB）。\n図面部分だけ切り出して再試してください。');
             return;
           }
           requestDrawingApiAnalysis(file, { forceReanalyze: true });
@@ -3714,7 +3793,12 @@
         if (details) details.open = true;
         updateAiUi();
         updateDrawingUI();
-        $('status-bar').textContent = '図面を AI で解析中…';
+        var bar = $('status-bar');
+        if (bar) {
+          bar.textContent = (fileOrName && fileOrName.size > VERCEL_UPLOAD_SAFE_BYTES)
+            ? '図面を圧縮して AI 解析中…'
+            : '図面を AI で解析中…';
+        }
 
         loadDrawingApiModule().then(function (api) {
           return api.analyzeDrawing(fileOrName, {
@@ -3876,7 +3960,15 @@
           updateDrawingUI();
           renderInlineDrawingPreview();
           renderDrawingPreviewPanel();
-          requestDrawingApiAnalysis(file, { forceReanalyze: true });
+          if ($('status-bar') && file.size > VERCEL_UPLOAD_SAFE_BYTES) {
+            $('status-bar').textContent = '大きい写真を圧縮中… ' + originalName;
+          }
+          compressDrawingFileForApi(file).then(function (compressed) {
+            requestDrawingApiAnalysis(compressed, { forceReanalyze: true });
+          }).catch(function (err) {
+            alert((err && err.message) || '図面の圧縮に失敗しました');
+            if ($('status-bar')) $('status-bar').textContent = '図面の準備に失敗しました';
+          });
           renderMaterial();
         }
 
