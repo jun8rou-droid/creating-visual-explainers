@@ -30,9 +30,11 @@ export const VISION_USER_PROMPT = `添付の旋盤加工図面（写真スキャ
 - drawing_no: 「図番」「図面No.」「DWG No.」「Part No.」「品番」等の欄の文字列をそのまま
 - material: 「材質」「Material」欄（S45C, SS400, SUS304, A5052 等）
 - product: 名称欄や形状から shaft(シャフト) / spacer(スペーサー) / collar(カラー) / bush(ブッシュ) / pin(ピン) / nozzle(ノズル) / fitting(継手) / other
+- 品名がリストのどれにも明確に当てはまらない場合（ボルト・ボス・フランジ等）は、無理に選ばず **other** にする
 
 寸法（優先順位を守ること）:
-- 最優先: 表題欄・商品名欄の「φA×B」表記（例: 「φ10×140」→ diameter_mm=10, length_mm=140）
+- 最優先: 表題欄・商品名欄・サイズ欄の「φA×B」表記（例: 「φ10×140」→ diameter_mm=10, length_mm=140）
+- 「φ25xφ23xφ20.5x10L」のように複数 φ が並ぶ場合は最大 φ が diameter_mm、末尾の「10L」のような L 付き数値が length_mm（10L → length_mm=10）
 - 次点: 図中の φ 付き寸法（複数段なら最大径）と全長寸法
 - 「R10」「R12.8」のような R 表記は端部の丸み半径であり **直径にも長さにも使わない**
 - φ 表記が一つも無い場合のみ、形状から推定し confidence を low にする
