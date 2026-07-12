@@ -8,3 +8,4 @@ deploy-history.log
 **/.env
 !**/.env.example
 **/node_modules/
+.wrangler/

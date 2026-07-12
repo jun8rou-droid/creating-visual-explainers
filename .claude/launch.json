@@ -12,6 +12,24 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["--prefix", "/Users/yamadajunichirou/src/my-closet", "run", "dev"],
       "port": 5173
+    },
+    {
+      "name": "task-manager-dev",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["wrangler", "dev", "--config", "/Users/yamadajunichirou/src/task-manager/wrangler.jsonc", "--port", "8787", "--test-scheduled"],
+      "port": 8787
+    },
+    {
+      "name": "gaichu-kanri-dev",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "/Users/yamadajunichirou/src/gaichu-kanri", "run", "dev"],
+      "port": 3000
+    },
+    {
+      "name": "hitonote-dev",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "/Users/yamadajunichirou/src/hitonote", "run", "dev", "--", "--port", "5175"],
+      "port": 5175
     }
   ]
 }
