@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="robots" content="noindex, nofollow">
   <meta name="color-scheme" content="light">
-  <title>加工費見積 — 4ペイン UI（モック v25）</title>
+  <title>加工費見積 — 4ペイン UI（モック v26）</title>
   <meta name="drawing-api-base" content="">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1308,7 +1308,7 @@
   <footer class="app-footer flex-shrink-0 px-5 py-2.5 flex flex-wrap items-center justify-between gap-2 text-sm text-zinc-500">
     <span id="status-bar">材料と工程を入力してください</span>
     <span class="hidden md:inline text-zinc-400">+ 追加 · ↑↓ 移動 · 区切りをドラッグでサイズ調整</span>
-    <span>v25 · モバイル対応</span>
+    <span>v26 · 起動時に案件を自動作成</span>
   </footer>
 
   <nav id="mobile-pane-nav" class="mobile-pane-nav" aria-label="ペイン切替">
@@ -1699,8 +1699,15 @@
       let customerCustomText = '';
       /** REV1: draft | rev1 | rev2 */
       let quoteViewMode = 'draft';
-      /** 編集中の下書き番号（DB の draft_no） */
-      let currentDraftRef = 'D-0042';
+      /** 編集中の下書き番号（DB の draft_no）。起動時は前回の案件を復元、なければ新規作成（v26） */
+      var LAST_DRAFT_REF_KEY = 'mq_last_draft_ref';
+      let currentDraftRef = null;
+      try { currentDraftRef = localStorage.getItem(LAST_DRAFT_REF_KEY) || null; } catch (e) {}
+
+      function setCurrentDraftRef(ref) {
+        currentDraftRef = ref;
+        try { localStorage.setItem(LAST_DRAFT_REF_KEY, ref); } catch (e) {}
+      }
       /** 案件一覧（API 取得 · オフライン時は QUOTE_LIST_DB へフォールバック） */
       let quoteListRows = [];
       let quoteListSource = 'none';
@@ -5536,7 +5543,7 @@
 
       function switchToDraftQuote(draftNo) {
         if (!draftNo) return Promise.resolve();
-        currentDraftRef = draftNo;
+        setCurrentDraftRef(draftNo);
         quoteViewMode = 'draft';
         applyQuoteViewMode();
         return refreshQuoteRevisionMeta().then(function () {
@@ -6791,8 +6798,40 @@
 
       loadMastersFromLocalStorage();
 
-      loadDraftWithFallback().then(function (draftResult) {
-        finishBoot(draftResult, null);
+      /** 起動時の案件決定: 前回の案件があればそれ、なければ新規 draft を作成。
+          API 不通時のみ従来の共有下書き D-0042 に退避（localStorage には残さない）。 */
+      function resolveStartupDraftRef() {
+        if (currentDraftRef) {
+          return Promise.resolve({ ref: currentDraftRef, created: false });
+        }
+        return fetch('/api/quotes', { method: 'POST' })
+          .then(function (res) {
+            return res.json().then(function (body) {
+              if (!res.ok) throw new Error(body && body.error ? body.error : res.statusText);
+              return body;
+            });
+          })
+          .then(function (result) {
+            return { ref: result.draft_no, created: true };
+          })
+          .catch(function (err) {
+            console.warn('[startup draft]', err);
+            return { ref: 'D-0042', created: false, offline: true };
+          });
+      }
+
+      resolveStartupDraftRef().then(function (start) {
+        if (start.offline) {
+          currentDraftRef = start.ref;
+        } else {
+          setCurrentDraftRef(start.ref);
+        }
+        return loadDraftWithFallback().then(function (draftResult) {
+          if (start.created && draftResult && draftResult.applied) {
+            draftResult.message = '新規下書き ' + start.ref + ' を作成しました · 前回の案件は「案件一覧」から';
+          }
+          finishBoot(draftResult, null);
+        });
       }).catch(function (loadErr) {
         console.error('[draft boot]', loadErr);
         finishBoot(

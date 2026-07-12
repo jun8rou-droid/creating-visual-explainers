@@ -8,6 +8,12 @@
       "port": 3030
     },
     {
+      "name": "quote-dev",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "/Users/yamadajunichirou/src/creating-visual-explainers/output/sample", "run", "dev"],
+      "port": 3847
+    },
+    {
       "name": "my-closet",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["--prefix", "/Users/yamadajunichirou/src/my-closet", "run", "dev"],
