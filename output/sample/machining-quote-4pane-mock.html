@@ -2,10 +2,10 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="robots" content="noindex, nofollow">
   <meta name="color-scheme" content="light">
-  <title>加工費見積 — 4ペイン UI（モック v21）</title>
+  <title>加工費見積 — 4ペイン UI（モック v25）</title>
   <meta name="drawing-api-base" content="">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -720,6 +720,177 @@
         border-top: 2px solid rgba(79, 70, 229, 0.12);
         min-height: 16rem;
       }
+      .app-header { padding-left: 0.75rem; padding-right: 0.75rem; }
+      .input-field, select.input-field { min-height: 2.75rem; font-size: 1rem; }
+      .pane1-step-btn { min-width: 2.75rem; min-height: 2.75rem; }
+      .btn-ghost, .btn-primary { min-height: 2.75rem; }
+    }
+    /* タブレット: 4ペイン縦積み + ページスクロール */
+    @media (max-width: 1279px) {
+      body.app-shell:not(.mobile-tabs-active) {
+        height: auto;
+        min-height: 100dvh;
+        min-height: 100svh;
+        overflow-x: hidden;
+        overflow-y: auto;
+      }
+      body.app-shell:not(.mobile-tabs-active) > main {
+        flex: none;
+        min-height: auto;
+        overflow: visible;
+        padding: 0.75rem;
+      }
+      body.app-shell:not(.mobile-tabs-active) .workspace.split-h {
+        height: auto !important;
+        min-height: 0;
+        gap: 0.75rem;
+      }
+      body.app-shell:not(.mobile-tabs-active) .right-panes.split-v,
+      body.app-shell:not(.mobile-tabs-active) .pane1-left-half {
+        min-height: auto;
+        height: auto !important;
+      }
+      body.app-shell:not(.mobile-tabs-active) .pane1-lr-wrap {
+        min-height: auto;
+        flex: none;
+      }
+      body.app-shell:not(.mobile-tabs-active) .pane1-upper-scroll {
+        height: auto;
+        max-height: none;
+        overflow: visible;
+      }
+      body.app-shell:not(.mobile-tabs-active) .pane1-process-area {
+        min-height: 18rem;
+        height: auto;
+      }
+      body.app-shell:not(.mobile-tabs-active) .pane1-process-grid {
+        min-height: 22rem;
+      }
+      body.app-shell:not(.mobile-tabs-active) .split-pane.pane-card {
+        min-height: 14rem;
+      }
+      body.app-shell:not(.mobile-tabs-active) .summary-pane {
+        min-height: 20rem;
+      }
+    }
+    /* スマホ: 下部タブで1ペイン表示 */
+    .mobile-pane-nav {
+      display: none;
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 40;
+      padding: 0.35rem 0.5rem calc(0.35rem + env(safe-area-inset-bottom, 0px));
+      background: rgba(246, 241, 232, 0.94);
+      backdrop-filter: blur(12px);
+      border-top: 1px solid var(--app-border);
+      box-shadow: 0 -4px 24px rgba(68, 52, 32, 0.08);
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 0.25rem;
+    }
+    body.mobile-tabs-active .mobile-pane-nav { display: grid; }
+    .mobile-tab-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.125rem;
+      min-height: 3rem;
+      padding: 0.25rem 0.125rem;
+      border-radius: 0.625rem;
+      border: 1px solid transparent;
+      background: transparent;
+      color: #71717a;
+      font-size: 0.625rem;
+      font-weight: 600;
+      line-height: 1.2;
+      transition: background 0.12s, color 0.12s;
+    }
+    .mobile-tab-btn-num {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 1.375rem;
+      height: 1.375rem;
+      border-radius: 0.375rem;
+      font-size: 0.6875rem;
+      font-weight: 700;
+      background: #e4e4e7;
+      color: #52525b;
+    }
+    .mobile-tab-btn-active {
+      background: var(--app-surface-alt);
+      border-color: rgba(79, 70, 229, 0.2);
+      color: #312e81;
+    }
+    .mobile-tab-btn-active .mobile-tab-btn-num {
+      background: linear-gradient(135deg, #4f46e5, #6366f1);
+      color: #fff;
+    }
+    @media (max-width: 767px) {
+      body.mobile-tabs-active {
+        height: 100dvh;
+        height: 100svh;
+        overflow: hidden;
+      }
+      body.mobile-tabs-active > main {
+        flex: 1;
+        min-height: 0;
+        overflow: hidden;
+        padding: 0.5rem 0.5rem 0;
+      }
+      body.mobile-tabs-active .workspace.split-h {
+        height: 100% !important;
+        min-height: 0;
+        gap: 0;
+      }
+      body.mobile-tabs-active .right-panes,
+      body.mobile-tabs-active .panes-23 {
+        display: contents;
+      }
+      body.mobile-tabs-active .mobile-tab-pane.mobile-tab-hidden {
+        display: none !important;
+      }
+      body.mobile-tabs-active .mobile-tab-pane:not(.mobile-tab-hidden) {
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+        min-height: 0;
+        max-height: 100%;
+        overflow: hidden;
+      }
+      body.mobile-tabs-active .mobile-tab-pane:not(.mobile-tab-hidden) > .flex-1,
+      body.mobile-tabs-active .mobile-tab-pane:not(.mobile-tab-hidden) .pane1-lr-wrap,
+      body.mobile-tabs-active .mobile-tab-pane:not(.mobile-tab-hidden) .dialog-panel-inner {
+        min-height: 0;
+      }
+      body.mobile-tabs-active .pane1-left-half:not(.mobile-tab-hidden) .pane1-lr-wrap {
+        flex: 1;
+        min-height: 0;
+        overflow: hidden;
+      }
+      body.mobile-tabs-active .pane1-process-area {
+        flex: 1;
+        min-height: 0;
+        border-top-width: 1px;
+      }
+      body.mobile-tabs-active .pane1-upper-scroll {
+        flex: 0 1 auto;
+        max-height: 42%;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+      }
+      body.mobile-tabs-active .cond-input {
+        min-height: 2.5rem;
+        min-width: 3.25rem;
+        font-size: 0.875rem;
+      }
+      body.mobile-tabs-active .app-footer {
+        flex-shrink: 0;
+        padding-bottom: calc(0.5rem + 3.75rem + env(safe-area-inset-bottom, 0px));
+      }
+      body.mobile-tabs-active #header-material-mode > span:first-child { display: none; }
     }
     .pane1-process-area > .pane1-process-grid {
       flex: 1;
@@ -768,6 +939,10 @@
         <p id="header-unit" class="text-sm font-mono font-semibold text-slate-700 leading-none mt-0.5">¥—/個</p>
         <p id="header-total" class="text-xl font-bold font-mono text-slate-900 leading-tight">¥—</p>
       </div>
+      <div class="md:hidden price-chip text-right min-w-0 max-w-[7.5rem] shrink-0">
+        <p id="header-unit-mobile" class="text-[10px] font-mono font-semibold text-slate-600 leading-none truncate">¥—/個</p>
+        <p id="header-total-mobile" class="text-sm font-bold font-mono text-slate-900 leading-tight truncate">¥—</p>
+      </div>
       <button type="button" id="btn-open-master" class="btn-ghost px-4 py-2 text-sm font-medium text-slate-700">マスタ管理</button>
       <span class="rounded-full bg-indigo-50 border border-indigo-100 px-3 py-1 text-xs font-semibold text-indigo-700 tracking-wide" title="開発用モック">試用</span>
     </div>
@@ -776,7 +951,7 @@
   <main class="flex-1 min-h-0 p-4">
     <div class="workspace split-h h-full" data-split-id="main-lr" data-split-default="50" data-split-min-a="360" data-split-min-b="360" data-split-disabled-below="1280">
       <!-- 左半分: ①入力 | 工程リスト・工程入力 -->
-      <section class="split-pane pane pane-card pane1-left-half flex flex-col min-h-[420px] xl:min-h-0">
+      <section class="split-pane pane pane-card pane1-left-half mobile-tab-pane flex flex-col min-h-[420px] xl:min-h-0" data-mobile-tab="input">
         <div class="pane-head flex items-center justify-between shrink-0">
           <h2 class="font-semibold text-zinc-900 text-base tracking-tight flex items-center gap-2">
             <span class="pane-num">1</span>
@@ -954,7 +1129,7 @@
       <div class="split-pane right-panes min-h-0 flex flex-col xl:h-full split-v" data-split-id="right-tb" data-split-default="52" data-split-min-a="240" data-split-min-b="220" data-split-disabled-below="1280">
         <div class="panes-23 split-pane min-h-[280px] md:min-h-[320px] xl:min-h-0 split-h" data-split-id="panes-23" data-split-default="38" data-split-min-a="200" data-split-min-b="220" data-split-disabled-below="768">
       <!-- 2: 加工条件 -->
-      <section class="split-pane pane pane-card flex flex-col min-h-0 h-full">
+      <section class="split-pane pane pane-card mobile-tab-pane flex flex-col min-h-0 h-full" data-mobile-tab="cond">
         <div class="pane-head flex justify-between items-center gap-1 shrink-0">
           <h2 class="font-semibold text-zinc-900 text-base tracking-tight flex items-center gap-2">
             <span class="pane-num pane-num-muted">2</span>
@@ -1032,7 +1207,7 @@
       </section>
 
       <!-- 3: 内訳 -->
-      <section class="split-pane pane pane-card flex flex-col min-h-0 h-full">
+      <section class="split-pane pane pane-card mobile-tab-pane flex flex-col min-h-0 h-full" data-mobile-tab="break">
         <div class="pane-head shrink-0">
           <h2 class="font-semibold text-zinc-900 text-base tracking-tight flex items-center gap-2">
             <span class="pane-num pane-num-muted">3</span>
@@ -1055,7 +1230,7 @@
         </div>
 
       <!-- 4: サマリ -->
-      <section class="split-pane pane summary-pane flex flex-col text-zinc-50 overflow-hidden min-h-[280px] xl:min-h-0">
+      <section class="split-pane pane summary-pane mobile-tab-pane flex flex-col text-zinc-50 overflow-hidden min-h-[280px] xl:min-h-0" data-mobile-tab="summary">
         <div class="border-b border-white/10 px-4 py-3">
           <h2 class="font-semibold text-base tracking-tight flex items-center gap-2">
             <span class="pane-num">4</span>
@@ -1133,8 +1308,27 @@
   <footer class="app-footer flex-shrink-0 px-5 py-2.5 flex flex-wrap items-center justify-between gap-2 text-sm text-zinc-500">
     <span id="status-bar">材料と工程を入力してください</span>
     <span class="hidden md:inline text-zinc-400">+ 追加 · ↑↓ 移動 · 区切りをドラッグでサイズ調整</span>
-    <span>v21 · ベージュUI</span>
+    <span>v25 · モバイル対応</span>
   </footer>
+
+  <nav id="mobile-pane-nav" class="mobile-pane-nav" aria-label="ペイン切替">
+    <button type="button" class="mobile-tab-btn mobile-tab-btn-active" data-mobile-tab="input">
+      <span class="mobile-tab-btn-num">1</span>
+      <span>入力</span>
+    </button>
+    <button type="button" class="mobile-tab-btn" data-mobile-tab="cond">
+      <span class="mobile-tab-btn-num">2</span>
+      <span>条件</span>
+    </button>
+    <button type="button" class="mobile-tab-btn" data-mobile-tab="break">
+      <span class="mobile-tab-btn-num">3</span>
+      <span>内訳</span>
+    </button>
+    <button type="button" class="mobile-tab-btn" data-mobile-tab="summary">
+      <span class="mobile-tab-btn-num">4</span>
+      <span>サマリ</span>
+    </button>
+  </nav>
 
   <!-- FAX用 PDF プレビュー（L2 · CT-FAX） -->
   <div id="fax-pdf-modal" class="hidden fixed inset-0 z-[60] flex items-center justify-center p-4">
@@ -1310,7 +1504,7 @@
         <div id="master-material-panel" class="flex flex-col min-h-0 flex-1">
         <div class="border-b px-4 py-2.5">
           <p id="master-form-title" class="text-sm font-semibold text-zinc-900">材質を編集</p>
-          <p id="master-form-sub" class="text-sm text-zinc-500 mt-0.5">加工条件は見積のペイン2に反映されます</p>
+          <p id="master-form-sub" class="text-sm text-zinc-500 mt-0.5">加工条件は見積のペイン2に反映 · マスタはこのブラウザに保存</p>
         </div>
         <div class="flex-1 overflow-y-auto p-4 space-y-4">
           <div>
@@ -1742,6 +1936,93 @@
       let templateEditingMode = 'included';
       /** 案件ごとの材質別上書き { materialId: { vc?, f?, ... } } */
       let caseOverrides = {};
+
+      var MASTER_STORAGE_KEY = 'mq-master-v1';
+      var DEFAULT_MASTER_BUNDLE = {
+        version: 1,
+        shopMaster: JSON.parse(JSON.stringify(shopMaster)),
+        materialMaster: JSON.parse(JSON.stringify(materialMaster)),
+        productMaster: JSON.parse(JSON.stringify(productMaster)),
+        customerMaster: JSON.parse(JSON.stringify(customerMaster)),
+        responseTemplates: JSON.parse(JSON.stringify(responseTemplates)),
+      };
+      var masterLoadedFromBrowser = false;
+
+      function normalizeMaterialEntry(m, fallback) {
+        var fb = fallback || DEFAULT_MASTER_BUNDLE.materialMaster.S45C || {};
+        var src = m || {};
+        var nMaxTurn = parseFloat(src.nMaxTurn);
+        var nMaxHole = parseFloat(src.nMaxHole);
+        return {
+          vc: parseFloat(src.vc) || fb.vc || 100,
+          f: parseFloat(src.f) || fb.f || 0.12,
+          ap: parseFloat(src.ap) || fb.ap || 1,
+          vcHole: parseFloat(src.vcHole) || fb.vcHole || 70,
+          fHole: parseFloat(src.fHole) || fb.fHole || 0.07,
+          nMaxTurn: Number.isFinite(nMaxTurn) && nMaxTurn > 0 ? Math.round(nMaxTurn) : (fb.nMaxTurn || 0),
+          nMaxHole: Number.isFinite(nMaxHole) && nMaxHole > 0 ? Math.round(nMaxHole) : (fb.nMaxHole || 0),
+          density: parseFloat(src.density) || fb.density || 7.85,
+          priceKg: parseFloat(src.priceKg) || fb.priceKg || 200,
+        };
+      }
+
+      function buildMasterStoragePayload() {
+        return {
+          version: 1,
+          savedAt: new Date().toISOString(),
+          shopMaster: JSON.parse(JSON.stringify(shopMaster)),
+          materialMaster: JSON.parse(JSON.stringify(materialMaster)),
+          productMaster: JSON.parse(JSON.stringify(productMaster)),
+          customerMaster: JSON.parse(JSON.stringify(customerMaster)),
+          responseTemplates: JSON.parse(JSON.stringify(responseTemplates)),
+        };
+      }
+
+      function applyMasterStoragePayload(data) {
+        if (!data || typeof data !== 'object') return false;
+        if (!data.materialMaster || typeof data.materialMaster !== 'object') return false;
+        if (!data.productMaster || typeof data.productMaster !== 'object') return false;
+        if (!data.customerMaster || typeof data.customerMaster !== 'object') return false;
+        if (!Object.keys(data.materialMaster).length) return false;
+        var fbMat = DEFAULT_MASTER_BUNDLE.materialMaster.S45C;
+        var mats = {};
+        Object.keys(data.materialMaster).forEach(function (id) {
+          mats[id] = normalizeMaterialEntry(data.materialMaster[id], fbMat);
+        });
+        shopMaster = Object.assign({}, DEFAULT_MASTER_BUNDLE.shopMaster, data.shopMaster || {});
+        materialMaster = mats;
+        productMaster = JSON.parse(JSON.stringify(data.productMaster));
+        customerMaster = JSON.parse(JSON.stringify(data.customerMaster));
+        if (data.responseTemplates && data.responseTemplates.included) {
+          responseTemplates = {
+            included: String(data.responseTemplates.included),
+            supplied: String(data.responseTemplates.supplied || DEFAULT_RESPONSE_TEMPLATES.supplied),
+          };
+        }
+        return true;
+      }
+
+      function saveMastersToLocalStorage() {
+        try {
+          localStorage.setItem(MASTER_STORAGE_KEY, JSON.stringify(buildMasterStoragePayload()));
+        } catch (e) {
+          console.warn('[master save]', e);
+        }
+      }
+
+      function loadMastersFromLocalStorage() {
+        try {
+          var raw = localStorage.getItem(MASTER_STORAGE_KEY);
+          if (!raw) return false;
+          var data = JSON.parse(raw);
+          if (!applyMasterStoragePayload(data)) return false;
+          masterLoadedFromBrowser = true;
+          return true;
+        } catch (e) {
+          console.warn('[master load]', e);
+          return false;
+        }
+      }
 
       /** 確定 rev 閲覧用のサンプル工程（デモ · DB に保存されたイメージ） */
       var DEMO_PROCESSES_SNAPSHOT = [
@@ -2232,6 +2513,7 @@
         responseTemplates[templateEditingMode] = body;
         syncTemplateEditorUI();
         renderMaterial();
+        saveMastersToLocalStorage();
       }
 
       var lastSimilarMatches = [];
@@ -5475,6 +5757,7 @@
           $('total-label').textContent = '見積未完了 · ' + qty + '本';
           $('header-unit').textContent = '¥—/個';
           $('header-total').textContent = '¥—';
+          syncHeaderMobilePrices();
           $('memo-amount').textContent = '工程が未入力のため、合計は確定できません';
           renderSummaryAmounts({
             incomplete: true,
@@ -5484,6 +5767,7 @@
         } else {
           $('header-unit').textContent = '¥' + fmt(unitTotal) + '/個';
           $('header-total').textContent = '¥' + fmt(lotTotal);
+          syncHeaderMobilePrices();
           renderSummaryAmounts({
             incomplete: false,
             isSupplied: isSupplied,
@@ -5880,6 +6164,7 @@
         renderProcessList();
         renderBreakdown();
         renderMaterial();
+        saveMastersToLocalStorage();
       }
 
       function saveCustomerForm() {
@@ -5919,6 +6204,7 @@
         renderMasterList();
         updateMasterCustomersPreview();
         err.classList.add('hidden');
+        saveMastersToLocalStorage();
       }
 
       function saveProductForm() {
@@ -5948,6 +6234,7 @@
         renderMasterList();
         renderMaterial();
         err.classList.add('hidden');
+        saveMastersToLocalStorage();
       }
 
       function saveMasterForm() {
@@ -6003,6 +6290,7 @@
         $('master-name').classList.add('bg-zinc-50');
         renderMasterList();
         err.classList.add('hidden');
+        saveMastersToLocalStorage();
       }
 
       function isMasterScreenOpen() {
@@ -6163,6 +6451,61 @@
       }
 
       var SPLIT_STORAGE_PREFIX = 'mq-split-v1-';
+      var mobileTabId = 'input';
+      var MOBILE_TAB_BREAKPOINT = 768;
+
+      function syncHeaderMobilePrices() {
+        var u = $('header-unit');
+        var t = $('header-total');
+        var um = $('header-unit-mobile');
+        var tm = $('header-total-mobile');
+        if (um && u) um.textContent = u.textContent;
+        if (tm && t) tm.textContent = t.textContent;
+      }
+
+      function useMobileTabs() {
+        return window.innerWidth < MOBILE_TAB_BREAKPOINT;
+      }
+
+      function applyMobileTabLayout() {
+        var use = useMobileTabs();
+        document.body.classList.toggle('mobile-tabs-active', use);
+        document.querySelectorAll('.mobile-tab-pane').forEach(function (el) {
+          if (!use) {
+            el.classList.remove('mobile-tab-hidden');
+            return;
+          }
+          el.classList.toggle('mobile-tab-hidden', el.getAttribute('data-mobile-tab') !== mobileTabId);
+        });
+        document.querySelectorAll('.mobile-tab-btn').forEach(function (btn) {
+          btn.classList.toggle('mobile-tab-btn-active', btn.getAttribute('data-mobile-tab') === mobileTabId);
+        });
+      }
+
+      function setMobileTab(id) {
+        mobileTabId = id;
+        applyMobileTabLayout();
+        if (id === 'cond') updatePane2Highlight();
+      }
+
+      function bindMobilePaneNav() {
+        var nav = $('mobile-pane-nav');
+        if (!nav) return;
+        nav.querySelectorAll('.mobile-tab-btn').forEach(function (btn) {
+          btn.addEventListener('click', function () {
+            setMobileTab(btn.getAttribute('data-mobile-tab'));
+          });
+        });
+        var mobileResizeTimer;
+        window.addEventListener('resize', function () {
+          clearTimeout(mobileResizeTimer);
+          mobileResizeTimer = setTimeout(function () {
+            applyMobileTabLayout();
+            initSplitResizers();
+          }, 120);
+        });
+        applyMobileTabLayout();
+      }
 
       function splitOrientation(container) {
         return container.classList.contains('split-v') ? 'v' : 'h';
@@ -6359,6 +6702,8 @@
         var bar = $('status-bar');
         if (draftResult.message && bar) {
           bar.textContent = draftResult.message;
+        } else if (masterLoadedFromBrowser && bar) {
+          bar.textContent = '前回のマスタを復元しました · 材料と工程を入力してください';
         } else if (draftResult.source === 'error' && bar) {
           bar.textContent =
             '下書きの読み込みに失敗: ' + (draftResult.error && draftResult.error.message
@@ -6367,6 +6712,8 @@
         }
         refreshQuoteRevisionMeta();
         initSplitResizers();
+        applyMobileTabLayout();
+        syncHeaderMobilePrices();
       }
 
       window.addEventListener('beforeunload', function () {
@@ -6416,6 +6763,7 @@
       var drawEl = $('input-drawing');
       if (drawEl) drawEl.addEventListener('input', function () { renderMaterial(); });
       bindKeyboardShortcuts();
+      bindMobilePaneNav();
       }
 
       function finishBoot(draftResult, initErr) {
@@ -6440,6 +6788,8 @@
           }
         }
       }
+
+      loadMastersFromLocalStorage();
 
       loadDraftWithFallback().then(function (draftResult) {
         finishBoot(draftResult, null);
