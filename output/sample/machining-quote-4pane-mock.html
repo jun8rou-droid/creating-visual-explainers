@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="robots" content="noindex, nofollow">
   <meta name="color-scheme" content="light">
-  <title>加工費見積 — 4ペイン UI（モック v26）</title>
+  <title>加工費見積 — 4ペイン UI（モック v27）</title>
   <meta name="drawing-api-base" content="">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -908,6 +908,10 @@
     body.app-shell main .border-zinc-200 {
       border-color: rgba(74, 58, 38, 0.12);
     }
+    /* v27: ペイン1 図面プレビュー */
+    #drawing-inline-preview { max-height: 300px; }
+    #drawing-inline-preview img { width: 100%; height: auto; display: block; }
+    #drawing-inline-preview embed { width: 100%; height: 280px; }
   </style>
 </head>
 <body class="app-shell h-screen flex flex-col text-zinc-900 antialiased text-base overflow-hidden">
@@ -976,6 +980,19 @@
             <div class="pane1-field">
               <label class="pane1-field-label" for="input-drawing">図番 <span class="optional">任意</span></label>
               <input type="text" id="input-drawing" value="DWG-S45C-001" class="input-field font-sans text-base py-2" placeholder="例: A-12345" />
+            </div>
+
+            <div class="pane1-field">
+              <label class="pane1-field-label" for="drawing-file-input">図面 <span class="optional">任意 · AIが図番・材質などを読み取り</span></label>
+              <input type="file" id="drawing-file-input" accept="image/*,application/pdf" class="hidden" />
+              <div class="flex items-center gap-2">
+                <button type="button" id="btn-drawing-pick" class="input-field font-sans text-base py-2 text-left text-zinc-600 flex-1 min-w-0 truncate">📎 図面を選ぶ（写真・PDF）</button>
+                <button type="button" id="btn-ai-analyze" class="btn-primary px-3 py-2 text-sm shrink-0 hidden">AIで読み取る</button>
+              </div>
+              <details id="drawing-details" class="mt-1.5">
+                <summary class="text-sm text-zinc-500 cursor-pointer select-none">プレビュー · <span id="drawing-status-text">未添付</span></summary>
+                <div id="drawing-inline-preview" class="mt-1.5 rounded-lg border border-zinc-200 bg-white overflow-auto"></div>
+              </details>
             </div>
 
             <div class="pane1-field">
@@ -1308,7 +1325,7 @@
   <footer class="app-footer flex-shrink-0 px-5 py-2.5 flex flex-wrap items-center justify-between gap-2 text-sm text-zinc-500">
     <span id="status-bar">材料と工程を入力してください</span>
     <span class="hidden md:inline text-zinc-400">+ 追加 · ↑↓ 移動 · 区切りをドラッグでサイズ調整</span>
-    <span>v26 · 起動時に案件を自動作成</span>
+    <span>v27 · 図面添付とAI読み取り</span>
   </footer>
 
   <nav id="mobile-pane-nav" class="mobile-pane-nav" aria-label="ペイン切替">
@@ -3560,11 +3577,12 @@
       }
 
       function getCurrentDrawingMeta() {
-        return null;
+        /* v27: 下書き編集中のみ。図面はメモリ上だけで DB には保存しない（SCOPE-LOCKED） */
+        return isConfirmedRevView() ? null : draftDrawing;
       }
 
       function hasDrawingForView() {
-        return false;
+        return !!getCurrentDrawingMeta();
       }
 
       function revokeBlobUrl(meta) {
@@ -4854,7 +4872,25 @@
       }
 
       function ingestDrawingFile(file) {
-        /* v14: 図面はアプリに載せない */
+        if (!file || isConfirmedRevView()) return;
+        if (file.size > DRAWING_MAX_BYTES) {
+          alert('ファイルが大きすぎます（上限 ' + Math.round(DRAWING_MAX_BYTES / 1024 / 1024) + 'MB）。\n図面部分だけ切り出すか、解像度を下げてください。');
+          return;
+        }
+        setDraftDrawing({
+          rawFile: file,
+          blobUrl: URL.createObjectURL(file),
+          fileName: file.name || 'drawing',
+          mime: file.type || guessMimeFromName(file.name || ''),
+        });
+        var details = $('drawing-details');
+        if (details) details.open = true;
+        var statusText = $('drawing-status-text');
+        if (statusText) statusText.textContent = (file.name || '図面') + ' を添付';
+        updateDrawingUI();
+        updateAiUi();
+        var bar = $('status-bar');
+        if (bar) bar.textContent = '図面を添付しました · 「AIで読み取る」で図番・材質などを自動入力できます';
       }
 
       function isPdfDrawingMeta(meta) {
@@ -5150,7 +5186,22 @@
       }
 
       function updateDrawingUI() {
-        /* v14: 図面 UI なし */
+        var meta = getCurrentDrawingMeta();
+        var pickBtn = $('btn-drawing-pick');
+        if (pickBtn) {
+          pickBtn.textContent = meta ? '📎 ' + (meta.fileName || '図面') : '📎 図面を選ぶ（写真・PDF）';
+          pickBtn.disabled = isConfirmedRevView();
+        }
+        var statusText = $('drawing-status-text');
+        if (statusText && !aiAnalyzeInFlight && !meta) statusText.textContent = '未添付';
+        var box = $('drawing-inline-preview');
+        if (box) {
+          if (meta) {
+            renderDrawingPreviewContent(box, meta, false);
+          } else {
+            box.innerHTML = '<p class="p-3 text-sm text-zinc-500 text-center">図面がありません · 写真か PDF を選ぶと AI 読み取りが使えます</p>';
+          }
+        }
       }
 
       function isDrawingOpenModalOpen() {
@@ -5169,6 +5220,20 @@
       function bindDrawingDropZone() {}
 
       function bindDrawingUI() {
+        var fileInput = $('drawing-file-input');
+        var pickBtn = $('btn-drawing-pick');
+        if (pickBtn && fileInput) {
+          pickBtn.addEventListener('click', function () {
+            if (isConfirmedRevView()) return;
+            fileInput.click();
+          });
+          fileInput.addEventListener('change', function () {
+            var f = fileInput.files && fileInput.files[0];
+            if (f) ingestDrawingFile(f);
+          });
+        }
+        var btnAnalyze = $('btn-ai-analyze');
+        if (btnAnalyze) btnAnalyze.addEventListener('click', runDrawingAnalyze);
         var btnConfirmRev = $('btn-confirm-rev');
         if (btnConfirmRev) {
           btnConfirmRev.addEventListener('click', confirmRevisionToApi);

@@ -31,7 +31,8 @@ export function resolveApiBase(options) {
     if (meta && meta.content) return meta.content.replace(/\/$/, '');
   }
   if (typeof location !== 'undefined') {
-    if (location.protocol === 'file:') return '';
+    /* file: 直開きのみ API 無し（null）。'' は同一オリジン相対パスを意味する */
+    if (location.protocol === 'file:') return null;
     if (location.port === '3847') return '';
     if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
       return DEFAULT_REMOTE_BASE;
@@ -96,7 +97,7 @@ export async function analyzeDrawing(fileOrName, options) {
   options = options || {};
   const apiBase = resolveApiBase(options);
 
-  if (options.forceLocal || !apiBase) {
+  if (options.forceLocal || apiBase == null) {
     const name = typeof fileOrName === 'string'
       ? fileOrName
       : (fileOrName && fileOrName.name) || 'drawing.pdf';
@@ -159,7 +160,7 @@ export async function analyzeDrawing(fileOrName, options) {
 export async function ocrDrawingCrop(cropFile, options) {
   options = options || {};
   const apiBase = resolveApiBase(options);
-  if (!apiBase) {
+  if (apiBase == null) {
     throw new Error('OCR API が利用できません');
   }
   const form = new FormData();
@@ -188,7 +189,7 @@ export async function ocrDrawingCrop(cropFile, options) {
 export async function submitFeedback(payload, options) {
   options = options || {};
   const apiBase = resolveApiBase(options);
-  if (!apiBase) {
+  if (apiBase == null) {
     return { ok: true, local: true, payload: payload };
   }
 

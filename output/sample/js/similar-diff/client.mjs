@@ -19,7 +19,8 @@ export function resolveApiBase(options) {
     if (meta && meta.content) return meta.content.replace(/\/$/, '');
   }
   if (typeof location !== 'undefined') {
-    if (location.protocol === 'file:') return '';
+    /* file: 直開きのみ API 無し（null）。'' は同一オリジン相対パスを意味する */
+    if (location.protocol === 'file:') return null;
     if (location.port === '3847') return '';
     if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
       return DEFAULT_REMOTE_BASE;
@@ -36,7 +37,7 @@ export function resolveApiBase(options) {
 export async function fetchSimilarDiffSummary(payload, options) {
   options = options || {};
   const apiBase = resolveApiBase(options);
-  if (!apiBase) {
+  if (apiBase == null) {
     throw new Error('API が利用できません');
   }
 
