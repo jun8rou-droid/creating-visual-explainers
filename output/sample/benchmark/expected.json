@@ -1,0 +1,8 @@
+{
+  "A-shaft-clean.png":          { "drawing_no": "K-1023", "material": "S45C",  "diameter_mm": 45, "length_mm": 150, "product": "シャフト" },
+  "A-shaft-lowres.jpg":         { "drawing_no": "K-1023", "material": "S45C",  "diameter_mm": 45, "length_mm": 150, "product": "シャフト" },
+  "B-bush-toplabel.png":        { "drawing_no": "M-88-2", "material": "C3604", "diameter_mm": 20, "length_mm": 35,  "product": "ブッシュ" },
+  "C-spacer-noisy.png":         { "drawing_no": "SP-771", "material": "A5056", "diameter_mm": 60, "length_mm": 15,  "product": "スペーサー" },
+  "C-spacer-noisy-lowres.jpg":  { "drawing_no": "SP-771", "material": "A5056", "diameter_mm": 60, "length_mm": 15,  "product": "スペーサー" },
+  "C-spacer-noisy-lowres-rot.jpg": { "drawing_no": "SP-771", "material": "A5056", "diameter_mm": 60, "length_mm": 15, "product": "スペーサー" }
+}
