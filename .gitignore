@@ -10,3 +10,8 @@ deploy-history.log
 **/node_modules/
 .wrangler/
 output/sample/api-server/feedback-log.jsonl
+# 実物図面（機密: 取引先名入り）はコミットしない
+output/sample/benchmark/drawings/real-*
+output/sample/benchmark/drawings/*図面*
+output/sample/benchmark/drawings/*zumen*
+output/sample/benchmark/expected.local.json

@@ -43,7 +43,7 @@ async function generate(ai, modelId, parts, opts) {
     config: {
       systemInstruction: VISION_SYSTEM_PROMPT,
       responseMimeType: opts.json === false ? undefined : 'application/json',
-      temperature: opts.json === false ? 0 : 0.15,
+      temperature: 0,
       maxOutputTokens: opts.maxTokens || 8192,
     },
   });
@@ -206,7 +206,17 @@ export async function analyzeDrawingWithGemini(file, options) {
       const cropResult = await analyzeTitleCrop(options.titleCrop, ai, modelId, file.originalname);
       if (cropResult.ocrText) ocrChunks.push(cropResult.ocrText);
       if (cropResult.response) {
-        response = mergeVisionResponses(response, cropResult.response);
+        /* 切り出し位置は右下固定なので、表題欄が別の場所にある図面ではクロップに
+           図番・材質が写らない。その場合の寸法値は手描き部の R 表記などの誤読が
+           多いため、フィールドのマージをスキップする */
+        const cf = cropResult.response.fields || {};
+        const cropHasTitleBlock = (cf.drawing_no && cf.drawing_no.value) ||
+          (cf.material && cf.material.value);
+        if (cropHasTitleBlock) {
+          response = mergeVisionResponses(response, cropResult.response);
+        } else {
+          console.log('[gemini] title crop lacks title block, skip field merge');
+        }
       }
     } catch (cropErr) {
       console.warn('[gemini] title crop failed:', cropErr.message || cropErr);

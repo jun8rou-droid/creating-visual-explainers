@@ -66,8 +66,15 @@ async function analyzeOne(filePath) {
 }
 
 const expected = JSON.parse(await readFile(EXPECTED_PATH, 'utf8'));
+/* 実物図面の正解は expected.local.json（git 管理外）に置ける。同名キーはこちらが勝つ */
+try {
+  Object.assign(expected, JSON.parse(await readFile(path.join(HERE, 'expected.local.json'), 'utf8')));
+} catch { /* 無ければスキップ */ }
+/* 引数でファイル名の部分一致フィルタ: node run-benchmark.mjs real */
+const filter = process.argv[2] || '';
 const files = (await readdir(DRAWINGS_DIR))
   .filter((f) => /\.(png|jpe?g|pdf)$/i.test(f))
+  .filter((f) => !filter || f.includes(filter))
   .sort();
 
 if (!files.length) {
