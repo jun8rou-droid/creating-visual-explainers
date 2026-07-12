@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>タスク管理（管理画面モック）</title>
+<style>
+  :root {
+    --app-bg: #ebe4d6;
+    --app-surface: #f6f1e8;
+    --app-surface-alt: #fffbf5;
+    --app-surface-muted: #f0e9dd;
+    --app-border: rgba(74, 58, 38, 0.12);
+    --ink: #3d3226;
+    --ink-soft: #7a6c58;
+    --accent: #4f46e5;
+    --accent-soft: rgba(79, 70, 229, 0.1);
+    --danger: #c2410c;
+    --warn: #b45309;
+    --ok: #15803d;
+    --shadow-pane: 0 1px 2px rgba(68, 52, 32, 0.05), 0 12px 32px rgba(68, 52, 32, 0.07);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Noto Sans JP", sans-serif;
+    color: var(--ink);
+    background:
+      radial-gradient(ellipse 80% 60% at 0% 0%, rgba(196, 160, 108, 0.14), transparent 50%),
+      radial-gradient(ellipse 60% 50% at 100% 100%, rgba(210, 185, 145, 0.12), transparent 45%),
+      var(--app-bg);
+    min-height: 100vh;
+    padding: 12px 12px calc(24px + env(safe-area-inset-bottom));
+  }
+  .wrap { max-width: 480px; margin: 0 auto; display: flex; flex-direction: column; gap: 12px; }
+  header.app {
+    display: flex; align-items: baseline; justify-content: space-between; padding: 4px 4px 0;
+  }
+  header.app h1 { font-size: 18px; letter-spacing: 0.04em; }
+  header.app .sub { font-size: 11px; color: var(--ink-soft); }
+  .pane {
+    background: var(--app-surface);
+    border: 1px solid var(--app-border);
+    border-radius: 16px;
+    box-shadow: var(--shadow-pane);
+    padding: 14px;
+  }
+  .pane-title {
+    font-size: 11px; font-weight: 600; color: var(--ink-soft);
+    letter-spacing: 0.12em; margin-bottom: 10px;
+  }
+  .pane-title .num {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 18px; height: 18px; border-radius: 50%;
+    background: var(--ink); color: var(--app-surface-alt);
+    font-size: 10px; margin-right: 6px; vertical-align: -3px;
+  }
+  /* ペイン1: カテゴリ */
+  .cats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .cat {
+    border: 1.5px solid var(--app-border); border-radius: 12px;
+    background: var(--app-surface-alt);
+    padding: 12px 4px; font-size: 14px; font-weight: 600; color: var(--ink);
+    text-align: center; cursor: pointer; transition: all .12s;
+  }
+  .cat.sel { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+  /* ペイン2: 入力 */
+  .field { margin-bottom: 10px; }
+  .field label { display: block; font-size: 12px; color: var(--ink-soft); margin-bottom: 4px; }
+  .field input[type="text"], .field input[type="date"] {
+    width: 100%; padding: 12px; font-size: 16px;
+    border: 1.5px solid var(--app-border); border-radius: 10px;
+    background: var(--app-surface-alt); color: var(--ink);
+  }
+  .field input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  /* ペイン3: 納期 */
+  .due-row { display: flex; gap: 8px; }
+  .due-row .field { flex: 1; margin-bottom: 0; }
+  .ampm { display: flex; gap: 6px; }
+  .ampm button {
+    flex: 1; padding: 12px 0; font-size: 14px; font-weight: 600;
+    border: 1.5px solid var(--app-border); border-radius: 10px;
+    background: var(--app-surface-alt); color: var(--ink-soft); cursor: pointer;
+  }
+  .ampm button.sel { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+  .add-btn {
+    width: 100%; padding: 15px; margin-top: 2px;
+    font-size: 16px; font-weight: 700; letter-spacing: 0.1em;
+    color: #fff; background: var(--accent); border: none; border-radius: 14px;
+    cursor: pointer; box-shadow: 0 4px 14px rgba(79, 70, 229, 0.3);
+  }
+  .add-btn:active { transform: translateY(1px); }
+  /* ペイン4: 一覧 */
+  .list-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .tabs { display: flex; gap: 4px; background: var(--app-surface-muted); border-radius: 10px; padding: 3px; }
+  .tabs button {
+    padding: 6px 14px; font-size: 12px; font-weight: 600; border: none; border-radius: 8px;
+    background: transparent; color: var(--ink-soft); cursor: pointer;
+  }
+  .tabs button.sel { background: var(--app-surface-alt); color: var(--ink); box-shadow: 0 1px 3px rgba(68,52,32,.12); }
+  .task {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--app-surface-alt); border: 1px solid var(--app-border);
+    border-radius: 12px; padding: 10px 12px; margin-bottom: 8px;
+  }
+  .task .due {
+    flex-shrink: 0; text-align: center; min-width: 52px;
+    border-radius: 10px; padding: 6px 4px;
+    background: var(--app-surface-muted);
+  }
+  .task .due .d { font-size: 15px; font-weight: 700; line-height: 1.1; }
+  .task .due .ap { font-size: 10px; color: var(--ink-soft); }
+  .task .due.overdue { background: rgba(194, 65, 12, 0.12); }
+  .task .due.overdue .d, .task .due.overdue .ap { color: var(--danger); }
+  .task .due.soon { background: rgba(180, 83, 9, 0.12); }
+  .task .due.soon .d, .task .due.soon .ap { color: var(--warn); }
+  .task .body { flex: 1; min-width: 0; }
+  .task .tags { display: flex; gap: 5px; align-items: center; margin-bottom: 3px; flex-wrap: wrap; }
+  .tag {
+    font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 999px;
+    background: var(--app-surface-muted); color: var(--ink-soft);
+  }
+  .tag.cat-見積もり { background: rgba(79,70,229,.1); color: var(--accent); }
+  .tag.cat-注文 { background: rgba(21,128,61,.1); color: var(--ok); }
+  .tag.cat-加工依頼 { background: rgba(180,83,9,.12); color: var(--warn); }
+  .tag.cat-引き取り { background: rgba(14,116,144,.1); color: #0e7490; }
+  .tag.cat-単価回答 { background: rgba(190,24,93,.1); color: #be185d; }
+  .tag.new { background: var(--danger); color: #fff; }
+  .tag.from-cust { background: rgba(61,50,38,.08); color: var(--ink-soft); }
+  .task .txt { font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .task .cust { font-size: 11px; color: var(--ink-soft); }
+  .st-btn {
+    flex-shrink: 0; padding: 8px 10px; font-size: 12px; font-weight: 700;
+    border-radius: 10px; border: 1.5px solid var(--app-border);
+    background: var(--app-surface); color: var(--ink-soft); cursor: pointer; min-width: 68px;
+  }
+  .st-btn.st-受付済み { border-color: rgba(79,70,229,.4); color: var(--accent); }
+  .st-btn.st-対応中 { border-color: rgba(180,83,9,.5); color: var(--warn); }
+  .st-btn.st-完了 { border-color: rgba(21,128,61,.4); color: var(--ok); background: rgba(21,128,61,.06); }
+  .empty { text-align: center; font-size: 13px; color: var(--ink-soft); padding: 18px 0; }
+  .hint { font-size: 11px; color: var(--ink-soft); margin-top: 8px; line-height: 1.6; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="app">
+    <h1>📋 タスク管理</h1>
+    <span class="sub">管理画面モック v1</span>
+  </header>
+
+  <!-- ペイン1: カテゴリ -->
+  <section class="pane">
+    <div class="pane-title"><span class="num">1</span>カテゴリ</div>
+    <div class="cats" id="cats"></div>
+  </section>
+
+  <!-- ペイン2: タスク入力 -->
+  <section class="pane">
+    <div class="pane-title"><span class="num">2</span>タスク入力</div>
+    <div class="field">
+      <label for="cust">客先名</label>
+      <input type="text" id="cust" list="custList" placeholder="例）山田鉄工">
+      <datalist id="custList"></datalist>
+    </div>
+    <div class="field" style="margin-bottom:0">
+      <label for="txt">内容</label>
+      <input type="text" id="txt" placeholder="例）ブラケット10個 見積もり提出">
+    </div>
+  </section>
+
+  <!-- ペイン3: 納期 -->
+  <section class="pane">
+    <div class="pane-title"><span class="num">3</span>納期</div>
+    <div class="due-row">
+      <div class="field">
+        <label for="due">日付</label>
+        <input type="date" id="due">
+      </div>
+      <div class="field">
+        <label>午前 / 午後</label>
+        <div class="ampm">
+          <button type="button" id="am" class="sel">午前</button>
+          <button type="button" id="pm">午後</button>
+        </div>
+      </div>
+    </div>
+    <button class="add-btn" id="add" style="margin-top:12px">登録する</button>
+  </section>
+
+  <!-- ペイン4: 一覧 -->
+  <section class="pane">
+    <div class="list-head">
+      <div class="pane-title" style="margin:0"><span class="num">4</span>納期の近い順</div>
+      <div class="tabs">
+        <button id="tabOpen" class="sel">残りタスク</button>
+        <button id="tabDone">完了</button>
+      </div>
+    </div>
+    <div id="list"></div>
+    <p class="hint">進捗ボタンをタップすると 受付済み → 対応中 → 完了 と進みます。<br>「新着」はお客さんが追加した未確認の依頼です（タップで確認済みに）。</p>
+  </section>
+</div>
+
+<script>
+const KEY = "taskman-tasks-v1";
+const CATS = ["見積もり", "注文", "加工依頼", "引き取り", "単価回答"];
+const STATUS = ["受付済み", "対応中", "完了"];
+
+function load() {
+  try { return JSON.parse(localStorage.getItem(KEY)) || []; } catch { return []; }
+}
+function save(tasks) { localStorage.setItem(KEY, JSON.stringify(tasks)); }
+
+function seed() {
+  if (localStorage.getItem(KEY)) return;
+  const d = (n) => {
+    const t = new Date(); t.setDate(t.getDate() + n);
+    return t.toISOString().slice(0, 10);
+  };
+  save([
+    { id: 1, cat: "引き取り", cust: "佐藤精機", txt: "シャフト20本 引き取り", due: d(0), ampm: "午前", status: "対応中", from: "own", seen: true },
+    { id: 2, cat: "見積もり", cust: "山田鉄工", txt: "ブラケット10個 見積もり", due: d(1), ampm: "午後", status: "受付済み", from: "cust", seen: false },
+    { id: 3, cat: "単価回答", cust: "鈴木製作所", txt: "プレート単価の問い合わせ", due: d(2), ampm: "午前", status: "受付済み", from: "cust", seen: false },
+    { id: 4, cat: "注文", cust: "田中商事", txt: "SUS304 丸棒 発注", due: d(3), ampm: "午後", status: "受付済み", from: "own", seen: true },
+    { id: 5, cat: "加工依頼", cust: "協力工場A", txt: "フランジ穴あけ 依頼", due: d(-1), ampm: "午後", status: "対応中", from: "own", seen: true },
+    { id: 6, cat: "見積もり", cust: "山田鉄工", txt: "カバー5個 見積もり", due: d(-3), ampm: "午前", status: "完了", from: "own", seen: true },
+  ]);
+}
+
+let selCat = null, ampm = "午前", tab = "open";
+
+function renderCats() {
+  const box = document.getElementById("cats");
+  box.innerHTML = "";
+  CATS.forEach((c) => {
+    const b = document.createElement("button");
+    b.className = "cat" + (selCat === c ? " sel" : "");
+    b.textContent = c;
+    b.onclick = () => { selCat = c; renderCats(); };
+    box.appendChild(b);
+  });
+}
+
+function fmtDue(t) {
+  if (!t.due) return { d: "未定", ap: "" };
+  const [, m, day] = t.due.split("-");
+  return { d: `${+m}/${+day}`, ap: t.ampm };
+}
+function dueClass(t) {
+  if (!t.due) return "";
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const due = new Date(t.due + "T00:00:00");
+  const diff = (due - today) / 86400000;
+  if (diff < 0) return "overdue";
+  if (diff <= 1) return "soon";
+  return "";
+}
+function sorted(tasks) {
+  return tasks.slice().sort((a, b) =>
+    (a.due || "9999") + (a.ampm === "午後" ? "b" : "a") <
+    (b.due || "9999") + (b.ampm === "午後" ? "b" : "a") ? -1 : 1);
+}
+
+function renderList() {
+  const tasks = load();
+  const list = document.getElementById("list");
+  list.innerHTML = "";
+  const shown = sorted(tasks).filter((t) => tab === "open" ? t.status !== "完了" : t.status === "完了");
+  if (!shown.length) {
+    list.innerHTML = `<p class="empty">${tab === "open" ? "残りタスクはありません 🎉" : "完了したタスクはまだありません"}</p>`;
+  }
+  shown.forEach((t) => {
+    const el = document.createElement("div");
+    el.className = "task";
+    const f = fmtDue(t);
+    el.innerHTML = `
+      <div class="due ${t.status === "完了" ? "" : dueClass(t)}"><div class="d">${f.d}</div><div class="ap">${f.ap}</div></div>
+      <div class="body">
+        <div class="tags">
+          <span class="tag cat-${t.cat}">${t.cat}</span>
+          ${t.from === "cust" ? '<span class="tag from-cust">客先から</span>' : ""}
+          ${t.from === "cust" && !t.seen ? '<span class="tag new">新着</span>' : ""}
+        </div>
+        <div class="txt">${t.txt}</div>
+        <div class="cust">${t.cust}</div>
+      </div>
+      <button class="st-btn st-${t.status}">${t.status}</button>`;
+    el.querySelector(".body").onclick = () => {
+      if (!t.seen) { mutate(t.id, (x) => { x.seen = true; }); }
+    };
+    el.querySelector(".st-btn").onclick = () => {
+      mutate(t.id, (x) => {
+        const i = STATUS.indexOf(x.status);
+        x.status = STATUS[(i + 1) % STATUS.length];
+        x.seen = true;
+      });
+    };
+    list.appendChild(el);
+  });
+  const dl = document.getElementById("custList");
+  dl.innerHTML = [...new Set(tasks.map((t) => t.cust))].map((c) => `<option value="${c}">`).join("");
+}
+
+function mutate(id, fn) {
+  const tasks = load();
+  const t = tasks.find((x) => x.id === id);
+  if (t) fn(t);
+  save(tasks);
+  renderList();
+}
+
+document.getElementById("am").onclick = () => { ampm = "午前"; setAmpm(); };
+document.getElementById("pm").onclick = () => { ampm = "午後"; setAmpm(); };
+function setAmpm() {
+  document.getElementById("am").classList.toggle("sel", ampm === "午前");
+  document.getElementById("pm").classList.toggle("sel", ampm === "午後");
+}
+document.getElementById("tabOpen").onclick = () => { tab = "open"; setTab(); };
+document.getElementById("tabDone").onclick = () => { tab = "done"; setTab(); };
+function setTab() {
+  document.getElementById("tabOpen").classList.toggle("sel", tab === "open");
+  document.getElementById("tabDone").classList.toggle("sel", tab === "done");
+  renderList();
+}
+document.getElementById("add").onclick = () => {
+  const cust = document.getElementById("cust").value.trim();
+  const txt = document.getElementById("txt").value.trim();
+  const due = document.getElementById("due").value;
+  if (!selCat) { alert("カテゴリを選んでください"); return; }
+  if (!txt) { alert("内容を入力してください"); return; }
+  const tasks = load();
+  tasks.push({
+    id: Date.now(), cat: selCat, cust: cust || "（客先未記入）", txt, due, ampm,
+    status: "受付済み", from: "own", seen: true,
+  });
+  save(tasks);
+  document.getElementById("txt").value = "";
+  selCat = null;
+  renderCats();
+  renderList();
+};
+
+seed();
+renderCats();
+renderList();
+</script>
+</body>
+</html>

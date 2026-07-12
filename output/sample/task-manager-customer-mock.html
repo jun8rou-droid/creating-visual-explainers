@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>ご依頼ページ（客先画面モック）</title>
+<style>
+  :root {
+    --app-bg: #ebe4d6;
+    --app-surface: #f6f1e8;
+    --app-surface-alt: #fffbf5;
+    --app-surface-muted: #f0e9dd;
+    --app-border: rgba(74, 58, 38, 0.12);
+    --ink: #3d3226;
+    --ink-soft: #7a6c58;
+    --accent: #4f46e5;
+    --accent-soft: rgba(79, 70, 229, 0.1);
+    --warn: #b45309;
+    --ok: #15803d;
+    --shadow-pane: 0 1px 2px rgba(68, 52, 32, 0.05), 0 12px 32px rgba(68, 52, 32, 0.07);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Noto Sans JP", sans-serif;
+    color: var(--ink);
+    background:
+      radial-gradient(ellipse 80% 60% at 0% 0%, rgba(196, 160, 108, 0.14), transparent 50%),
+      radial-gradient(ellipse 60% 50% at 100% 100%, rgba(210, 185, 145, 0.12), transparent 45%),
+      var(--app-bg);
+    min-height: 100vh;
+    padding: 12px 12px calc(24px + env(safe-area-inset-bottom));
+  }
+  .wrap { max-width: 480px; margin: 0 auto; display: flex; flex-direction: column; gap: 12px; }
+  header.app { padding: 4px 4px 0; }
+  header.app h1 { font-size: 18px; letter-spacing: 0.04em; }
+  header.app .sub { font-size: 12px; color: var(--ink-soft); margin-top: 2px; }
+  .pane {
+    background: var(--app-surface);
+    border: 1px solid var(--app-border);
+    border-radius: 16px;
+    box-shadow: var(--shadow-pane);
+    padding: 14px;
+  }
+  .pane-title {
+    font-size: 11px; font-weight: 600; color: var(--ink-soft);
+    letter-spacing: 0.12em; margin-bottom: 10px;
+  }
+  .cats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .cat {
+    border: 1.5px solid var(--app-border); border-radius: 12px;
+    background: var(--app-surface-alt);
+    padding: 12px 4px; font-size: 13px; font-weight: 600; color: var(--ink);
+    text-align: center; cursor: pointer;
+  }
+  .cat.sel { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+  .field { margin-bottom: 10px; }
+  .field label { display: block; font-size: 12px; color: var(--ink-soft); margin-bottom: 4px; }
+  .field input[type="text"], .field input[type="date"], .field textarea {
+    width: 100%; padding: 12px; font-size: 16px;
+    border: 1.5px solid var(--app-border); border-radius: 10px;
+    background: var(--app-surface-alt); color: var(--ink);
+    font-family: inherit;
+  }
+  .field textarea { resize: vertical; min-height: 70px; }
+  .field input:focus, .field textarea:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .due-row { display: flex; gap: 8px; }
+  .due-row .field { flex: 1; margin-bottom: 0; }
+  .ampm { display: flex; gap: 6px; }
+  .ampm button {
+    flex: 1; padding: 12px 0; font-size: 14px; font-weight: 600;
+    border: 1.5px solid var(--app-border); border-radius: 10px;
+    background: var(--app-surface-alt); color: var(--ink-soft); cursor: pointer;
+  }
+  .ampm button.sel { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+  .notice {
+    margin-top: 10px; padding: 10px 12px; border-radius: 10px;
+    background: rgba(180, 83, 9, 0.08); color: var(--warn);
+    font-size: 12px; line-height: 1.6;
+  }
+  .add-btn {
+    width: 100%; padding: 15px; margin-top: 12px;
+    font-size: 16px; font-weight: 700; letter-spacing: 0.1em;
+    color: #fff; background: var(--accent); border: none; border-radius: 14px;
+    cursor: pointer; box-shadow: 0 4px 14px rgba(79, 70, 229, 0.3);
+  }
+  .add-btn:active { transform: translateY(1px); }
+  .req {
+    background: var(--app-surface-alt); border: 1px solid var(--app-border);
+    border-radius: 12px; padding: 12px; margin-bottom: 8px;
+  }
+  .req .top { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+  .tag {
+    font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 999px;
+    background: var(--app-surface-muted); color: var(--ink-soft);
+  }
+  .tag.cat { background: var(--accent-soft); color: var(--accent); }
+  .req .txt { font-size: 14px; font-weight: 600; margin-bottom: 2px; }
+  .req .due-txt { font-size: 12px; color: var(--ink-soft); margin-bottom: 10px; }
+  .steps { display: flex; align-items: center; }
+  .step { flex: 1; text-align: center; position: relative; }
+  .step .dot {
+    width: 22px; height: 22px; border-radius: 50%; margin: 0 auto 4px;
+    background: var(--app-surface-muted); border: 2px solid var(--app-border);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; color: var(--ink-soft); position: relative; z-index: 1;
+  }
+  .step .lbl { font-size: 10px; color: var(--ink-soft); }
+  .step::before {
+    content: ""; position: absolute; top: 11px; left: -50%; width: 100%; height: 2px;
+    background: var(--app-border);
+  }
+  .step:first-child::before { display: none; }
+  .step.on .dot { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .step.on .lbl { color: var(--accent); font-weight: 700; }
+  .step.past .dot { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+  .step.done-final .dot { background: var(--ok); border-color: var(--ok); color: #fff; }
+  .step.done-final .lbl { color: var(--ok); font-weight: 700; }
+  .empty { text-align: center; font-size: 13px; color: var(--ink-soft); padding: 18px 0; }
+  .toast {
+    display: none; margin-top: 10px; padding: 10px 12px; border-radius: 10px;
+    background: rgba(21, 128, 61, 0.1); color: var(--ok);
+    font-size: 13px; font-weight: 600; text-align: center;
+  }
+  .toast.show { display: block; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="app">
+    <h1>🏭 ヤマダ製作所 ご依頼ページ</h1>
+    <div class="sub">サンプル商事 様 専用ページ（モック）</div>
+  </header>
+
+  <!-- 依頼の種類 -->
+  <section class="pane">
+    <div class="pane-title">1. ご依頼の種類</div>
+    <div class="cats" id="cats"></div>
+  </section>
+
+  <!-- 内容と希望日 -->
+  <section class="pane">
+    <div class="pane-title">2. 内容とご希望日</div>
+    <div class="field">
+      <label for="txt">ご依頼内容</label>
+      <textarea id="txt" placeholder="例）添付図面のブラケット10個、見積もりをお願いします"></textarea>
+    </div>
+    <div class="due-row">
+      <div class="field">
+        <label for="due">ご希望日</label>
+        <input type="date" id="due">
+      </div>
+      <div class="field">
+        <label>午前 / 午後</label>
+        <div class="ampm">
+          <button type="button" id="am" class="sel">午前</button>
+          <button type="button" id="pm">午後</button>
+        </div>
+      </div>
+    </div>
+    <div class="notice">⚠️ ご希望日はそのまま納期予定として登録されます。<strong>お急ぎの場合や日程のご相談は、お電話にてご連絡ください。</strong></div>
+    <button class="add-btn" id="add">この内容で依頼する</button>
+    <div class="toast" id="toast">✅ ご依頼を受け付けました。進捗は下の一覧でご確認いただけます。</div>
+  </section>
+
+  <!-- 依頼一覧と進捗 -->
+  <section class="pane">
+    <div class="pane-title">3. ご依頼の進捗</div>
+    <div id="list"></div>
+  </section>
+</div>
+
+<script>
+const KEY = "taskman-tasks-v1";
+const CUST = "サンプル商事";
+// 客先向け表示名 → 管理側カテゴリ の対応
+const CUST_CATS = [
+  { label: "見積もり依頼", cat: "見積もり" },
+  { label: "注文", cat: "注文" },
+  { label: "単価問い合わせ", cat: "単価回答" },
+];
+const STATUS = ["受付済み", "対応中", "完了"];
+
+function load() {
+  try { return JSON.parse(localStorage.getItem(KEY)) || []; } catch { return []; }
+}
+function save(tasks) { localStorage.setItem(KEY, JSON.stringify(tasks)); }
+
+let selIdx = null, ampm = "午前";
+
+function renderCats() {
+  const box = document.getElementById("cats");
+  box.innerHTML = "";
+  CUST_CATS.forEach((c, i) => {
+    const b = document.createElement("button");
+    b.className = "cat" + (selIdx === i ? " sel" : "");
+    b.textContent = c.label;
+    b.onclick = () => { selIdx = i; renderCats(); };
+    box.appendChild(b);
+  });
+}
+
+function fmtDue(t) {
+  if (!t.due) return "希望日：未指定";
+  const [y, m, d] = t.due.split("-");
+  return `希望日：${y}年${+m}月${+d}日 ${t.ampm}`;
+}
+
+function renderList() {
+  const list = document.getElementById("list");
+  list.innerHTML = "";
+  const mine = load().filter((t) => t.from === "cust" && t.cust === CUST)
+    .sort((a, b) => (b.id || 0) - (a.id || 0));
+  if (!mine.length) {
+    list.innerHTML = '<p class="empty">まだご依頼はありません。上のフォームからどうぞ。</p>';
+    return;
+  }
+  mine.forEach((t) => {
+    const custLabel = (CUST_CATS.find((c) => c.cat === t.cat) || {}).label || t.cat;
+    const si = STATUS.indexOf(t.status);
+    const el = document.createElement("div");
+    el.className = "req";
+    el.innerHTML = `
+      <div class="top"><span class="tag cat">${custLabel}</span></div>
+      <div class="txt">${t.txt}</div>
+      <div class="due-txt">${fmtDue(t)}</div>
+      <div class="steps">
+        ${STATUS.map((s, i) => {
+          let cls = "step";
+          if (i < si) cls += " past";
+          else if (i === si) cls += s === "完了" ? " done-final" : " on";
+          return `<div class="${cls}"><div class="dot">${i < si || s === "完了" && i === si ? "✓" : i + 1}</div><div class="lbl">${s}</div></div>`;
+        }).join("")}
+      </div>`;
+    list.appendChild(el);
+  });
+}
+
+document.getElementById("am").onclick = () => { ampm = "午前"; setAmpm(); };
+document.getElementById("pm").onclick = () => { ampm = "午後"; setAmpm(); };
+function setAmpm() {
+  document.getElementById("am").classList.toggle("sel", ampm === "午前");
+  document.getElementById("pm").classList.toggle("sel", ampm === "午後");
+}
+
+document.getElementById("add").onclick = () => {
+  const txt = document.getElementById("txt").value.trim();
+  const due = document.getElementById("due").value;
+  if (selIdx === null) { alert("ご依頼の種類を選んでください"); return; }
+  if (!txt) { alert("ご依頼内容を入力してください"); return; }
+  const tasks = load();
+  tasks.push({
+    id: Date.now(), cat: CUST_CATS[selIdx].cat, cust: CUST, txt, due, ampm,
+    status: "受付済み", from: "cust", seen: false,
+  });
+  save(tasks);
+  document.getElementById("txt").value = "";
+  selIdx = null;
+  renderCats();
+  renderList();
+  const toast = document.getElementById("toast");
+  toast.classList.add("show");
+  setTimeout(() => toast.classList.remove("show"), 4000);
+};
+
+renderCats();
+renderList();
+</script>
+</body>
+</html>
