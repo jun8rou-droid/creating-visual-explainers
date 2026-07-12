@@ -9,3 +9,4 @@ deploy-history.log
 !**/.env.example
 **/node_modules/
 .wrangler/
+output/sample/api-server/feedback-log.jsonl
