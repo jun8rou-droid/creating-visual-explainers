@@ -377,7 +377,7 @@
     <p class="lead">
       請求書の明細を<strong>CSVで取り込む</strong>か<strong>手入力</strong>して蓄積します。同じ径・長さでも本数・仕入先で単価が違う前提で、
       類似サイズの過去データから<strong>今の目安（円/kg）</strong>を出し、許容内データを<strong>仕入先別</strong>にまとめた<strong>予想金額</strong>も表示します。候補一覧と<strong>手動での単価変更</strong>に対応します。
-      データはこのブラウザ内（端末）に保存されます。<strong>スキャン画像</strong>は「スキャンOCR」タブからドラッグ＆ドロップで文字起こしできます（完全自動は難しく、確認・修正が前提です）。
+      データは<strong>共有DB</strong>に保存され、どのPCからでも同じ記録が見えます（DB未接続時はこの端末に一時保存）。<strong>請求書の写真</strong>は「CSV取込」タブの<strong>写真からAI取り込み</strong>にドロップすると明細を自動で表に起こせます（登録前にプレビュー確認が前提です）。
     </p>
     <p class="lead" style="margin-top:-6px;">
       <a href="index.html" style="color:var(--cyan);font-weight:800;text-decoration:none;border-bottom:1px solid rgba(56,189,248,0.35);">← シンプル材料費計算（丸棒・角棒・板・歩留まり）</a>
@@ -617,6 +617,15 @@
         <strong>1本単価</strong>（円/本×本数で行計）… 本単価, 1本単価, 単価（本）, price_each など ※ヘッダが単に「単価」だけの表は、多くの請求で<strong>1本分</strong>とみなします（キロ売りなら列名を「キロ単価」にしてください）<br>
         共通：<strong>日付, 仕入先, 材質, 径, 長さ, 本数</strong>（英語 date, supplier, material, d, l, qty）<br>
         材質例：SS400磨、SUS304磨、SUS304酸洗六角、XM-19、Alloy718、SUS420J2HT、S25C など。<strong>材質セルが空、またはマスタに該当しない材質名の行は取り込みません</strong>。
+      </div>
+      <div class="card">
+        <h2>写真からAI取り込み（おすすめ）</h2>
+        <div id="aiDropZone" style="border:2px dashed #94a3b8;border-radius:10px;padding:22px;text-align:center;cursor:pointer;">
+          請求書・納品書の<strong>写真やPDFをここにドロップ</strong>（クリックで選択 · スマホなら撮影）<br>
+          <span class="stat">AIが明細を表に起こします。登録前に下のプレビューで必ず確認してください</span>
+        </div>
+        <input type="file" id="aiDropFile" accept="image/*,application/pdf" style="display:none;">
+        <p class="stat" id="aiDropStatus"></p>
       </div>
       <div class="card">
         <h2>CSVファイル</h2>
@@ -2569,6 +2578,85 @@
     };
     r.readAsText(f, 'UTF-8');
   });
+
+  /* v29: 請求書・納品書の写真 → Gemini で明細 TSV → 既存の貼り付けプレビューへ */
+  (function () {
+    var zone = document.getElementById('aiDropZone');
+    var fileEl = document.getElementById('aiDropFile');
+    var statusEl = document.getElementById('aiDropStatus');
+    if (!zone || !fileEl) return;
+
+    function setStat(t, isErr) {
+      statusEl.textContent = t;
+      statusEl.style.color = isErr ? '#b91c1c' : '';
+    }
+
+    /* Vercel のボディ上限（約4.5MB）に収まるよう、大きい写真は縮小して送る */
+    function shrinkImageIfNeeded(f) {
+      var LIMIT = 3.5 * 1024 * 1024;
+      if (f.size <= LIMIT || !/^image\//.test(f.type)) return Promise.resolve(f);
+      return new Promise(function (resolve) {
+        var url = URL.createObjectURL(f);
+        var img = new Image();
+        img.onload = function () {
+          URL.revokeObjectURL(url);
+          var scale = Math.min(1, 2400 / Math.max(img.naturalWidth, img.naturalHeight, 1));
+          var c = document.createElement('canvas');
+          c.width = Math.round(img.naturalWidth * scale);
+          c.height = Math.round(img.naturalHeight * scale);
+          c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+          c.toBlob(function (blob) {
+            resolve(blob ? new File([blob], (f.name || 'photo').replace(/\.[^.]+$/, '') + '.jpg', { type: 'image/jpeg' }) : f);
+          }, 'image/jpeg', 0.85);
+        };
+        img.onerror = function () { URL.revokeObjectURL(url); resolve(f); };
+        img.src = url;
+      });
+    }
+
+    function handleFile(f) {
+      if (!f) return;
+      if (/pdf$/i.test(f.type) && f.size > 4 * 1024 * 1024) {
+        setStat('PDF が大きすぎます（4MBまで）。写真で撮り直すか分割してください', true);
+        return;
+      }
+      setStat('AIが明細を読み取り中…（20〜30秒かかります）');
+      shrinkImageIfNeeded(f).then(function (sendFile) {
+        var fd = new FormData();
+        fd.append('file', sendFile, sendFile.name || 'invoice.jpg');
+        return fetch('/api/material-purchases/extract', { method: 'POST', body: fd });
+      }).then(function (res) {
+        return res.json().then(function (b) {
+          if (!res.ok) throw new Error((b && b.error) || res.statusText);
+          return b;
+        });
+      }).then(function (body) {
+        var lines = (body.table || '').split(/\r?\n/).filter(function (l) { return l.trim(); });
+        if (lines.length <= 1) {
+          setStat('明細を読み取れませんでした。明るい場所で表全体が写るよう撮り直してください', true);
+          return;
+        }
+        document.getElementById('csvPaste').value = body.table;
+        setStat('読み取り ' + (lines.length - 1) + ' 行 → 下のプレビューを確認して取り込んでください');
+        document.getElementById('btnParsePastePreview').click();
+      }).catch(function (err) {
+        setStat('AI読み取りに失敗: ' + (err && err.message ? err.message : err), true);
+      });
+    }
+
+    zone.addEventListener('click', function () { fileEl.click(); });
+    fileEl.addEventListener('change', function () {
+      handleFile(fileEl.files && fileEl.files[0]);
+      fileEl.value = '';
+    });
+    zone.addEventListener('dragover', function (e) { e.preventDefault(); zone.style.background = 'rgba(148,163,184,.15)'; });
+    zone.addEventListener('dragleave', function () { zone.style.background = ''; });
+    zone.addEventListener('drop', function (e) {
+      e.preventDefault();
+      zone.style.background = '';
+      handleFile(e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]);
+    });
+  })();
 
   runEstimate();
   loadRecordsFromApi();

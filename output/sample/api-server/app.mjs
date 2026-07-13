@@ -34,7 +34,7 @@ import {
 import { getMasterBundle, saveMasterBundle } from './masters-db.mjs';
 import { listPurchases, purchaseSummaryFor, replacePurchases } from './purchases-db.mjs';
 import { analyzeDrawing, getVisionStatus, isVisionEnabled } from './vision-router.mjs';
-import { ocrDrawingRegion } from './gemini-analyze.mjs';
+import { extractPurchaseTable, ocrDrawingRegion } from './gemini-analyze.mjs';
 import {
   isSimilarDiffAiEnabled,
   summarizeSimilarDiffRuleOnly,
@@ -167,6 +167,22 @@ app.put('/api/material-purchases', async (req, res) => {
   } catch (err) {
     console.error('[purchases put]', err);
     res.status(500).json({ error: err.message || '仕入れ記録の保存に失敗しました' });
+  }
+});
+
+app.post('/api/material-purchases/extract', upload.single('file'), async (req, res) => {
+  if (!VISION_ENABLED) {
+    return res.status(503).json({ error: 'AI 読み取りが無効です（GOOGLE_API_KEY 未設定）' });
+  }
+  if (!req.file || !req.file.buffer || !req.file.buffer.length) {
+    return res.status(400).json({ error: 'ファイルが届いていません' });
+  }
+  try {
+    const table = await extractPurchaseTable(req.file);
+    res.json({ table });
+  } catch (err) {
+    console.error('[purchases extract]', err);
+    res.status(500).json({ error: err.message || 'AI 読み取りに失敗しました' });
   }
 });
 

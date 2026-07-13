@@ -135,6 +135,43 @@ export async function ocrDrawingRegion(file, options) {
   return extractOcrPlainText(ai, modelId, imagePart);
 }
 
+const PURCHASE_EXTRACT_PROMPT = `添付は材料（丸棒・六角材）の請求書・納品書・見積書などの写真またはスキャンです。
+材料の明細行を読み取り、次のヘッダーのタブ区切り（TSV）だけを出力してください。説明文は不要です。
+
+日付	仕入先	材質	径	長さ	本数	合計金額
+
+ルール:
+- 日付は YYYY-MM-DD（明細ごとの日付がなければ書類の日付を全行に使う）
+- 仕入先は書類の発行元の会社名（全行同じでよい）
+- 材質は次の表記に寄せる: SS400磨 / SS400黒皮 / S25C / SCM435H / SNB7 / SNB16 / S45CH / S45C磨 / S45C黒皮 / SUS304磨 / SUS304ピーリング / SUS304酸 / SUS304スキンパス六角 / SUS304酸洗六角 / SUS304磨き六角 / SUS403 / SUS316 / SUS316L / SUS321 / XM-19 / Alloy718 / SUS420J2HT。どれにも該当しなければ原文のまま
+- 径は mm 数値のみ（φ25×4000 のような表記から 25）。六角材は対辺寸法
+- 長さは mm 数値のみ（4m は 4000）
+- 合計金額はその明細行の金額（円・数値のみ・カンマ不可）。単価しか無ければ 単価×本数
+- 送料・消費税・値引き・材料以外の行は出力しない
+- 読み取れる明細が無ければヘッダー行だけを出力する`;
+
+/**
+ * 請求書・納品書の写真から材料明細を TSV で抽出（material-pricing.html の AI 取り込み用）
+ * @param {{ originalname?: string, mimetype?: string, buffer: Buffer }} file
+ * @param {{ apiKey?: string, model?: string }} [options]
+ * @returns {Promise<string>} TSV テキスト
+ */
+export async function extractPurchaseTable(file, options) {
+  options = options || {};
+  const apiKey = options.apiKey || process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
+  if (!apiKey) throw new Error('GOOGLE_API_KEY が未設定です');
+
+  const mediaType = detectDrawingMediaType(file);
+  if (!mediaType) throw new Error('JPEG/PNG/PDF のみ対応です');
+
+  const modelId = options.model || process.env.GOOGLE_MODEL || process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+  const ai = new GoogleGenAI({ apiKey });
+  const data = bufferToBase64(mediaType, file.buffer);
+  const part = createPartFromBase64(data, mediaType, PartMediaResolutionLevel.MEDIA_RESOLUTION_HIGH);
+  const text = await generate(ai, modelId, [part, { text: PURCHASE_EXTRACT_PROMPT }], { json: false });
+  return text.replace(/^```(?:tsv|csv)?\s*/i, '').replace(/```\s*$/, '').trim();
+}
+
 /**
  * @param {{ originalname?: string, mimetype?: string, buffer: Buffer }} cropFile
  * @param {import('@google/genai').GoogleGenAI} ai
