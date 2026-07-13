@@ -32,6 +32,7 @@ import {
   saveDraftQuote,
 } from './quotes-db.mjs';
 import { getMasterBundle, saveMasterBundle } from './masters-db.mjs';
+import { listPurchases, purchaseSummaryFor, replacePurchases } from './purchases-db.mjs';
 import { analyzeDrawing, getVisionStatus, isVisionEnabled } from './vision-router.mjs';
 import { ocrDrawingRegion } from './gemini-analyze.mjs';
 import {
@@ -142,6 +143,43 @@ app.put('/api/masters', async (req, res) => {
   } catch (err) {
     console.error('[masters put]', err);
     res.status(500).json({ error: err.message || 'マスタの保存に失敗しました' });
+  }
+});
+
+app.get('/api/material-purchases', async (req, res) => {
+  if (!isDbEnabled()) {
+    return res.status(503).json({ error: 'DATABASE_URL が未設定です' });
+  }
+  try {
+    res.json({ records: await listPurchases() });
+  } catch (err) {
+    console.error('[purchases get]', err);
+    res.status(500).json({ error: '仕入れ記録の取得に失敗しました' });
+  }
+});
+
+app.put('/api/material-purchases', async (req, res) => {
+  if (!isDbEnabled()) {
+    return res.status(503).json({ error: 'DATABASE_URL が未設定です' });
+  }
+  try {
+    res.json(await replacePurchases(req.body && req.body.records));
+  } catch (err) {
+    console.error('[purchases put]', err);
+    res.status(500).json({ error: err.message || '仕入れ記録の保存に失敗しました' });
+  }
+});
+
+app.get('/api/material-purchases/summary', async (req, res) => {
+  if (!isDbEnabled()) {
+    return res.status(503).json({ error: 'DATABASE_URL が未設定です' });
+  }
+  try {
+    const summary = await purchaseSummaryFor(req.query.material);
+    res.json({ summary });
+  } catch (err) {
+    console.error('[purchases summary]', err);
+    res.status(500).json({ error: '実勢単価の取得に失敗しました' });
   }
 });
 

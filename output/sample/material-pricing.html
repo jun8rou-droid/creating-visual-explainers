@@ -1,0 +1,2578 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>材料単価 蓄積・見積もり（β版）</title>
+  <style>
+    :root {
+      --bg: #0a0c12;
+      --card: #12161f;
+      --border: rgba(255,255,255,0.07);
+      --text: #e8edf5;
+      --muted: #7d8a9e;
+      --cyan: #38bdf8;
+      --green: #34d399;
+      --amber: #fbbf24;
+      --red: #f87171;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      padding: 20px 14px 48px;
+      font-size: 14px;
+      line-height: 1.55;
+    }
+    .wrap { max-width: 920px; margin: 0 auto; }
+    .title-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin-bottom: 6px; }
+    h1 { font-size: 1.35rem; font-weight: 800; margin: 0; }
+    .beta-pill {
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      padding: 5px 10px;
+      border-radius: 999px;
+      background: linear-gradient(135deg, rgba(251,191,36,0.25), rgba(245,158,11,0.12));
+      border: 1px solid rgba(251,191,36,0.45);
+      color: var(--amber);
+    }
+    .beta-banner {
+      font-size: 12px;
+      color: var(--amber);
+      background: rgba(251,191,36,0.08);
+      border: 1px solid rgba(251,191,36,0.22);
+      border-radius: 10px;
+      padding: 10px 14px;
+      margin-bottom: 16px;
+      line-height: 1.55;
+    }
+    .lead { color: var(--muted); font-size: 13px; margin-bottom: 20px; max-width: 720px; }
+    .tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 20px;
+    }
+    .tabs button {
+      padding: 10px 16px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--card);
+      color: var(--muted);
+      font-weight: 700;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    .tabs button.active {
+      background: rgba(56,189,248,0.12);
+      border-color: rgba(56,189,248,0.35);
+      color: var(--cyan);
+    }
+    .panel { display: none; }
+    .panel.active { display: block; }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 20px;
+      margin-bottom: 16px;
+    }
+    .card h2 {
+      font-size: 15px;
+      font-weight: 800;
+      margin: 0 0 14px;
+      color: var(--cyan);
+    }
+    label {
+      display: block;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--muted);
+      margin-bottom: 5px;
+      letter-spacing: 0.04em;
+    }
+    input, select, textarea {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: rgba(0,0,0,0.35);
+      color: var(--text);
+      font-size: 15px;
+    }
+    textarea { min-height: 120px; font-family: ui-monospace, monospace; font-size: 12px; }
+    .row { margin-bottom: 14px; }
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    @media (max-width: 640px) {
+      .grid2, .grid3 { grid-template-columns: 1fr; }
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 11px 18px;
+      border-radius: 10px;
+      border: none;
+      font-weight: 800;
+      font-size: 14px;
+      cursor: pointer;
+      margin-right: 8px;
+      margin-top: 6px;
+    }
+    .btn-primary { background: var(--cyan); color: #041018; }
+    .btn-secondary { background: rgba(255,255,255,0.08); color: var(--text); }
+    .btn-danger { background: rgba(248,113,113,0.2); color: var(--red); }
+    .suggest-box {
+      background: linear-gradient(135deg, rgba(52,211,153,0.08), rgba(56,189,248,0.06));
+      border: 1px solid rgba(52,211,153,0.25);
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+    .suggest-box .big {
+      font-size: 1.75rem;
+      font-weight: 900;
+      color: var(--green);
+      font-variant-numeric: tabular-nums;
+    }
+    .suggest-box .meta { font-size: 12px; color: var(--muted); margin-top: 10px; }
+    .suggest-box-title {
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 12px;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+    }
+    .suggest-split {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px 24px;
+      margin-bottom: 4px;
+    }
+    @media (max-width: 520px) {
+      .suggest-split { grid-template-columns: 1fr; }
+    }
+    .suggest-cell .suggest-lbl {
+      font-size: 11px;
+      font-weight: 800;
+      color: var(--muted);
+      letter-spacing: 0.06em;
+      margin-bottom: 4px;
+    }
+    .suggest-big-sub { font-size: 1.45rem !important; }
+    .suggest-total-block {
+      margin-top: 12px;
+      padding-top: 14px;
+      border-top: 1px solid rgba(52, 211, 153, 0.3);
+    }
+    .suggest-total-block .suggest-lbl { margin-bottom: 6px; }
+    .suggest-total-val {
+      font-size: 1.55rem;
+      font-weight: 900;
+      color: var(--green);
+      font-variant-numeric: tabular-nums;
+      line-height: 1.2;
+    }
+    .supplier-est-card {
+      background: linear-gradient(145deg, rgba(56, 189, 248, 0.08), rgba(52, 211, 153, 0.05));
+      border: 1px solid rgba(56, 189, 248, 0.32);
+      border-radius: 14px;
+      padding: 18px 20px 16px;
+      margin-bottom: 16px;
+    }
+    .supplier-est-title {
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      color: var(--cyan);
+      margin-bottom: 8px;
+    }
+    .supplier-est-note {
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.6;
+      margin: 0 0 12px;
+    }
+    .sup-est-table td.num,
+    .sup-est-table th.num {
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+    .sup-est-table td.yen-est {
+      font-weight: 900;
+      color: var(--green);
+      font-size: 13px;
+    }
+    .sup-est-table tbody tr:hover td { background: rgba(255,255,255,0.03); }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+    th, td {
+      padding: 8px 10px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+    th { color: var(--muted); font-weight: 700; font-size: 10px; text-transform: uppercase; }
+    .draft-table input, .draft-table select {
+      min-width: 72px;
+      padding: 6px 8px;
+      font-size: 13px;
+    }
+    /* プレビュー：材質はラベルが長いので列・select を広く（閉じたまま全文に近い幅） */
+    /* 材質：閉じた select でおおよそ10文字分（em＝当列のフォントサイズ基準） */
+    .draft-table th:nth-child(3),
+    .draft-table td:nth-child(3) {
+      font-size: 14px;
+      width: 10em;
+      min-width: 10em;
+      max-width: 10.5em;
+      vertical-align: middle;
+    }
+    .draft-table select.d-mat {
+      display: block;
+      width: 100%;
+      max-width: 100%;
+      box-sizing: border-box;
+      font-size: 14px;
+      line-height: 1.35;
+    }
+    .draft-table .btn-draft-del {
+      padding: 6px 10px;
+      font-size: 11px;
+      border-radius: 8px;
+      border: none;
+      background: rgba(248,113,113,0.2);
+      color: var(--red);
+      cursor: pointer;
+      font-weight: 700;
+    }
+    .draft-table th.draft-col-ykg {
+      color: var(--green) !important;
+      font-weight: 900;
+      font-size: 11px;
+      letter-spacing: 0.06em;
+      text-transform: none;
+      background: rgba(52, 211, 153, 0.14);
+      border-left: 2px solid rgba(52, 211, 153, 0.5);
+      border-right: 2px solid rgba(52, 211, 153, 0.5);
+      box-shadow: inset 0 0 0 1px rgba(52, 211, 153, 0.2);
+    }
+    .draft-table td.d-ykg {
+      font-family: ui-monospace, 'Courier New', monospace;
+      font-size: clamp(14px, 2.2vw, 17px);
+      font-weight: 900;
+      font-variant-numeric: tabular-nums;
+      color: var(--green);
+      background: rgba(52, 211, 153, 0.12);
+      border-left: 2px solid rgba(52, 211, 153, 0.45);
+      border-right: 2px solid rgba(52, 211, 153, 0.45);
+      text-align: right;
+      white-space: nowrap;
+      vertical-align: middle;
+      line-height: 1.35;
+    }
+    tr:hover td { background: rgba(255,255,255,0.02); }
+    tr:hover td.d-ykg { background: rgba(52, 211, 153, 0.24); }
+    .draft-table td.d-ykg.d-ykg--past-high {
+      color: #fde047;
+      background: rgba(250, 204, 21, 0.14);
+      border-left-color: rgba(250, 204, 21, 0.55);
+      border-right-color: rgba(250, 204, 21, 0.55);
+    }
+    tr:hover td.d-ykg.d-ykg--past-high { background: rgba(250, 204, 21, 0.22); }
+    .draft-table td.d-ykg.d-ykg--kg-warn {
+      color: #fb923c;
+      background: rgba(251, 146, 60, 0.16);
+      border-left-color: rgba(251, 146, 60, 0.55);
+      border-right-color: rgba(251, 146, 60, 0.55);
+    }
+    tr:hover td.d-ykg.d-ykg--kg-warn { background: rgba(251, 146, 60, 0.24); }
+    .draft-table td.d-ykg.d-ykg--kg-high {
+      color: #f87171;
+      background: rgba(248, 113, 113, 0.18);
+      border-left-color: rgba(248, 113, 113, 0.6);
+      border-right-color: rgba(248, 113, 113, 0.6);
+    }
+    tr:hover td.d-ykg.d-ykg--kg-high { background: rgba(248, 113, 113, 0.28); }
+    .badge { font-size: 10px; padding: 2px 6px; border-radius: 4px; background: rgba(56,189,248,0.15); color: var(--cyan); }
+    .warn {
+      font-size: 12px;
+      color: var(--amber);
+      padding: 12px;
+      background: rgba(251,191,36,0.08);
+      border-radius: 10px;
+      margin-bottom: 14px;
+      border: 1px solid rgba(251,191,36,0.2);
+    }
+    .file-label {
+      display: inline-block;
+      padding: 10px 16px;
+      background: rgba(255,255,255,0.08);
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: 700;
+      margin-bottom: 10px;
+    }
+    input[type="file"] { display: none; }
+    .stat { font-size: 12px; color: var(--muted); margin-top: 8px; }
+    .dropzone {
+      border: 2px dashed rgba(56,189,248,0.35);
+      border-radius: 16px;
+      padding: 36px 20px;
+      text-align: center;
+      background: rgba(56,189,248,0.04);
+      color: var(--muted);
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+    }
+    .dropzone.drag { border-color: var(--cyan); background: rgba(56,189,248,0.1); color: var(--text); }
+    .dropzone strong { color: var(--cyan); display: block; margin-bottom: 8px; font-size: 15px; }
+    #ocrProgress { font-size: 13px; color: var(--cyan); margin-top: 12px; min-height: 1.4em; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <datalist id="matDiameterMmList">
+      <option value="6"></option>
+      <option value="8"></option>
+      <option value="10"></option>
+      <option value="12"></option>
+      <option value="14"></option>
+      <option value="16"></option>
+      <option value="20"></option>
+      <option value="22"></option>
+      <option value="24"></option>
+      <option value="25"></option>
+      <option value="27"></option>
+      <option value="28"></option>
+      <option value="30"></option>
+      <option value="33"></option>
+      <option value="36"></option>
+      <option value="38"></option>
+      <option value="40"></option>
+      <option value="42"></option>
+      <option value="45"></option>
+      <option value="50"></option>
+      <option value="55"></option>
+      <option value="60"></option>
+      <option value="65"></option>
+    </datalist>
+    <datalist id="quoSupplierDatalist"></datalist>
+    <div class="title-row">
+      <h1>材料単価 蓄積・見積もり</h1>
+      <span class="beta-pill">β BETA</span>
+      <span id="db-sync-status" style="font-size:12px;margin-left:10px;"></span>
+      <a href="machining-quote-4pane-mock.html" style="font-size:13px;margin-left:auto;text-decoration:underline;">← 加工費見積へ戻る</a>
+    </div>
+    <div class="beta-banner">
+      <strong>ベータ版です。</strong>OCR・推測取込・目安単価は誤りやすいので、実務の見積・請求は必ずご自身で確認してください。仕様は更新されることがあります。
+    </div>
+    <p class="lead">
+      請求書の明細を<strong>CSVで取り込む</strong>か<strong>手入力</strong>して蓄積します。同じ径・長さでも本数・仕入先で単価が違う前提で、
+      類似サイズの過去データから<strong>今の目安（円/kg）</strong>を出し、許容内データを<strong>仕入先別</strong>にまとめた<strong>予想金額</strong>も表示します。候補一覧と<strong>手動での単価変更</strong>に対応します。
+      データはこのブラウザ内（端末）に保存されます。<strong>スキャン画像</strong>は「スキャンOCR」タブからドラッグ＆ドロップで文字起こしできます（完全自動は難しく、確認・修正が前提です）。
+    </p>
+    <p class="lead" style="margin-top:-6px;">
+      <a href="index.html" style="color:var(--cyan);font-weight:800;text-decoration:none;border-bottom:1px solid rgba(56,189,248,0.35);">← シンプル材料費計算（丸棒・角棒・板・歩留まり）</a>
+    </p>
+
+    <div class="tabs">
+      <button type="button" class="tab-btn active" data-panel="p-est">見積もり</button>
+      <button type="button" class="tab-btn" data-panel="p-add">データ追加</button>
+      <button type="button" class="tab-btn" data-panel="p-ocr">スキャンOCR</button>
+      <button type="button" class="tab-btn" data-panel="p-import">CSV取込</button>
+      <button type="button" class="tab-btn" data-panel="p-list">履歴・バックアップ</button>
+    </div>
+
+    <!-- 見積もり -->
+    <div id="p-est" class="panel active">
+      <div class="card">
+        <h2>条件入力</h2>
+        <div class="grid3">
+          <div class="row">
+            <label>材質</label>
+            <select id="estMaterial"></select>
+          </div>
+          <div class="row">
+            <label for="estD">径 D（mm）<span style="font-weight:600;color:var(--muted);font-size:10px;">（▼候補／そのまま入力可）</span></label>
+            <input type="number" id="estD" list="matDiameterMmList" step="1" min="0" placeholder="例: 25">
+          </div>
+          <div class="row">
+            <label>長さ L（mm）</label>
+            <input type="number" id="estL" step="1" min="0" placeholder="100">
+          </div>
+        </div>
+        <div class="grid2">
+          <div class="row">
+            <label>本数</label>
+            <input type="number" id="estQty" min="1" value="1" step="1">
+          </div>
+          <div class="row">
+            <label>類似判定（径の許容 mm）</label>
+            <input type="number" id="tolD" value="0" min="0" step="0.5" title="0＝径は一致のみ。数値を上げると±そのmm以内の過去データも候補に含めます">
+          </div>
+        </div>
+        <div class="row">
+          <label>類似判定（長さの許容 mm）</label>
+          <input type="number" id="tolL" value="10" min="0" step="1" title="±このmm以内を「近い長さ」。長さLが1000mm超で自動100→短く戻すと自動で10に戻ります（手動の値は長尺未満のあいだは維持）">
+        </div>
+      </div>
+
+      <div class="suggest-box" id="suggestBox">
+        <div class="suggest-box-title">データから推した目安（税別）</div>
+        <div class="suggest-split">
+          <div class="suggest-cell">
+            <div class="suggest-lbl">キロ単価</div>
+            <div class="big" id="suggestYenKg">—</div>
+          </div>
+          <div class="suggest-cell">
+            <div class="suggest-lbl">1本あたり</div>
+            <div class="big suggest-big-sub" id="suggestYenEach">—</div>
+          </div>
+        </div>
+        <div class="suggest-total-block">
+          <div class="suggest-lbl">合計金額（入力の本数ぶん・目安）</div>
+          <div class="suggest-total-val" id="suggestYenTotal">—</div>
+        </div>
+        <div class="meta" id="suggestMeta"></div>
+      </div>
+
+      <div class="supplier-est-card" id="supplierEstCard">
+        <div class="supplier-est-title">仕入先別 予想金額（税別・類似判定の許容内データ）</div>
+        <p class="supplier-est-note" id="supplierEstNote"></p>
+        <div style="overflow-x:auto;">
+          <table class="sup-est-table">
+            <thead>
+              <tr>
+                <th>仕入先</th>
+                <th class="num">参照 円/kg</th>
+                <th class="num">予想金額</th>
+                <th class="num">件数</th>
+              </tr>
+            </thead>
+            <tbody id="supplierEstBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>候補（過去データ・近い数値）</h2>
+        <p class="stat" id="candStat"></p>
+        <div style="overflow-x:auto;">
+          <table>
+            <thead>
+              <tr>
+                <th>日付</th>
+                <th>仕入先</th>
+                <th>径</th>
+                <th>長さ</th>
+                <th>本</th>
+                <th>kg計</th>
+                <th>円/kg</th>
+                <th>合計¥</th>
+                <th>近さ</th>
+              </tr>
+            </thead>
+            <tbody id="candBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>単価（手動変更可）</h2>
+        <div class="grid2">
+          <div class="row">
+            <label>採用する円/kg</label>
+            <input type="number" id="manualYenKg" step="1" min="0" placeholder="上の目安を編集">
+          </div>
+          <div class="row">
+            <label>材料費（合計・税別目安）</label>
+            <input type="text" id="estCostOut" readonly style="font-weight:800;color:var(--green);">
+          </div>
+        </div>
+        <button type="button" class="btn btn-secondary" id="btnApplySuggest">目安をこの欄にコピー</button>
+      </div>
+
+      <div class="card">
+        <h2>見積り依頼書</h2>
+        <p class="stat" style="margin-top:0">
+          仕入先へ送る<strong>見積り依頼</strong>用です。依頼書には<strong>材質・寸法・本数</strong>のみを記載します（金額・単価・重量は<strong>記載しません</strong>）。印刷・PDF・メール用です。<br>
+          <strong>送付先</strong>は蓄積した仕入先名を▼から選べます。会社名だけでも可で、文面では自動的に「御中」付きに整えます（画面上のラベルは入力のための案内であり、依頼書本文には出しません）。
+        </p>
+        <div class="grid2">
+          <div class="row">
+            <label for="quoDate">依頼日</label>
+            <input type="date" id="quoDate">
+          </div>
+          <div class="row">
+            <label for="quoTo">送付先</label>
+            <input type="text" id="quoTo" list="quoSupplierDatalist" placeholder="会社名（▼候補可）。「御中」は未入力でも文面に付きます" autocomplete="off">
+          </div>
+        </div>
+        <div class="grid2">
+          <div class="row">
+            <label for="quoFrom">依頼元（発行会社）</label>
+            <input type="text" id="quoFrom" value="有限会社日勝ネジ工業" autocomplete="organization">
+          </div>
+          <div class="row">
+            <label for="quoTitle">件名</label>
+            <input type="text" id="quoTitle" value="見積り依頼" placeholder="変更する場合のみ編集">
+          </div>
+        </div>
+        <div class="row">
+          <label for="quoNote">備考（任意）</label>
+          <textarea id="quoNote" placeholder="希望納期・材質の補足など"></textarea>
+        </div>
+        <div class="row" style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:0">
+          <button type="button" class="btn btn-primary" id="btnOpenQuote">見積り依頼書を作成</button>
+          <button type="button" class="btn btn-secondary" id="btnMailQuote">メールで送る</button>
+          <button type="button" class="btn btn-secondary" id="btnCopyQuote">本文をコピー</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 手動追加 -->
+    <div id="p-add" class="panel">
+      <div class="warn">請求書1行分：径・長さ・本数・その行の<strong>材料合計金額（円）</strong>を入れると、自動で kg と 円/kg を計算して保存します。</div>
+      <div class="card">
+        <h2>手動で1件追加</h2>
+        <div class="grid2">
+          <div class="row"><label>日付</label><input type="date" id="addDate"></div>
+          <div class="row"><label>仕入先</label><input type="text" id="addSupplier" placeholder="例：○○金属"></div>
+        </div>
+        <div class="row">
+          <label>材質</label>
+          <select id="addMaterial"></select>
+        </div>
+        <div class="grid3">
+          <div class="row"><label for="addD">径 D（mm）</label><input type="number" id="addD" list="matDiameterMmList" step="1" min="0" placeholder="▼候補可"></div>
+          <div class="row"><label>長さ L（mm）</label><input type="number" id="addL" step="1" min="0"></div>
+          <div class="row"><label>本数</label><input type="number" id="addQty" min="1" value="1" step="1"></div>
+        </div>
+        <div class="row">
+          <label>この明細の合計金額（円）</label>
+          <input type="number" id="addTotal" min="0" step="1" placeholder="請求書の該当行の金額">
+        </div>
+        <div class="row">
+          <label>メモ（任意）</label>
+          <input type="text" id="addMemo" placeholder="伝票番号など">
+        </div>
+        <button type="button" class="btn btn-primary" id="btnAdd">保存する</button>
+        <p class="stat" id="addPreview"></p>
+      </div>
+    </div>
+
+    <!-- スキャン OCR -->
+    <div id="p-ocr" class="panel">
+      <div class="warn">
+        <strong>できること：</strong>プリンタスキャンした<strong>画像（JPEG / PNG）</strong>をここにドロップすると、ブラウザ内で文字起こしします。<br>
+        <strong>流れ：</strong>スキャン → テキスト化 → <strong>プレビュー表で人が修正</strong> → <strong>確定して蓄積</strong>。<br>
+        <strong>限界：</strong>レイアウトは会社ごとに違うため自動は不完全です。表形式なら「表としてプレビュー」、数値だけ並ぶ明細なら「推測してプレビュー」。<strong>PDF</strong>はJPEG等にしてください。初回OCRは1〜2分かかることがあります。
+      </div>
+      <div class="card">
+        <h2>① 画像をドラッグ＆ドロップ</h2>
+        <div class="dropzone" id="ocrDrop" tabindex="0">
+          <strong>スキャン画像をここにドロップ</strong>
+          またはクリックしてファイル選択（.jpg / .jpeg / .png）
+        </div>
+        <input type="file" id="ocrFile" accept="image/jpeg,image/png,image/jpg" style="display:none">
+        <div id="ocrProgress"></div>
+      </div>
+      <div class="card">
+        <h2>② 読み取り結果（編集OK）</h2>
+        <textarea id="ocrText" placeholder="ここに文字が入ります。誤字は直してから次へ。" style="min-height:200px"></textarea>
+        <div class="grid2" style="margin-top:14px">
+          <div class="row">
+            <label>このスキャン分の仕入先（共通）</label>
+            <input type="text" id="ocrSupplier" placeholder="請求書に書いてある名前">
+          </div>
+          <div class="row">
+            <label>日付</label>
+            <input type="date" id="ocrDate">
+          </div>
+        </div>
+        <div class="row">
+          <label>材質（推測取込・表取込で未指定のとき）</label>
+          <select id="ocrMaterial"></select>
+        </div>
+        <button type="button" class="btn btn-primary" id="btnOcrAsTable">表としてプレビューへ（1行目＝見出し）</button>
+        <button type="button" class="btn btn-secondary" id="btnOcrHeuristic">推測してプレビューへ（β）… 行ごとの数値から推測</button>
+        <p class="stat" id="ocrImportResult"></p>
+      </div>
+    </div>
+
+    <!-- CSV -->
+    <div id="p-import" class="panel">
+      <div class="warn">
+        1行＝1明細。ヘッダ行あり（カンマ or タブ区切り）。<strong>金額は次のどれか1つ</strong>があれば取り込めます（複数あるときは <strong>合計金額 → キロ単価 → 1本単価</strong> の優先）：<br>
+        <strong>合計金額</strong>（行の合計¥）… 金額, 計, total, 行計, 小計, 税抜金額 など<br>
+        <strong>キロ単価</strong>（円/kg）… 円/kg, kg単価, yen_per_kg, yenkg など<br>
+        <strong>1本単価</strong>（円/本×本数で行計）… 本単価, 1本単価, 単価（本）, price_each など ※ヘッダが単に「単価」だけの表は、多くの請求で<strong>1本分</strong>とみなします（キロ売りなら列名を「キロ単価」にしてください）<br>
+        共通：<strong>日付, 仕入先, 材質, 径, 長さ, 本数</strong>（英語 date, supplier, material, d, l, qty）<br>
+        材質例：SS400磨、SUS304磨、SUS304酸洗六角、XM-19、Alloy718、SUS420J2HT、S25C など。<strong>材質セルが空、またはマスタに該当しない材質名の行は取り込みません</strong>。
+      </div>
+      <div class="card">
+        <h2>CSVファイル</h2>
+        <label class="file-label"><input type="file" id="csvFile" accept=".csv,.txt">ファイルを選ぶ（プレビュー後に確定）</label>
+        <button type="button" class="btn btn-secondary" id="btnDlTemplate">テンプレCSVをダウンロード</button>
+      </div>
+      <div class="card">
+        <h2>貼り付けで取込</h2>
+        <textarea id="csvPaste" placeholder="Excelからコピーした表をそのまま貼ってもOK（タブ区切り）"></textarea>
+        <button type="button" class="btn btn-secondary" id="btnClearCsvPaste" style="margin-top:10px;">貼り付けを全削除</button>
+        <button type="button" class="btn btn-primary" id="btnParsePastePreview">プレビューで確認（推奨）</button>
+        <button type="button" class="btn btn-secondary" id="btnParsePaste">確認せず即時取り込む</button>
+        <p class="stat" id="importResult"></p>
+      </div>
+    </div>
+
+    <!-- 一覧 -->
+    <div id="p-list" class="panel">
+      <div class="card">
+        <h2>保存件数・バックアップ</h2>
+        <p id="listCount" class="stat"></p>
+        <button type="button" class="btn btn-secondary" id="btnExportJson">JSONエクスポート</button>
+        <button type="button" class="btn btn-secondary" id="btnExportCsv">CSVエクスポート</button>
+        <label class="file-label" style="margin-top:12px;"><input type="file" id="jsonImport" accept=".json">JSONを復元（上書き追加）</label>
+      </div>
+      <div class="card">
+        <h2>全件一覧（削除可）</h2>
+        <div class="row" style="margin-bottom:12px">
+          <label for="listSearch">検索</label>
+          <input type="search" id="listSearch" placeholder="日付・仕入先・材質・径・長さ・本数・金額・メモなど（スペース区切りで複数キーワード）" autocomplete="off">
+        </div>
+        <p id="listFilterStat" class="stat" style="margin-top:-4px;margin-bottom:10px;font-size:12px;color:var(--muted)"></p>
+        <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:12px">
+          <button type="button" class="btn btn-danger" id="btnListBulkDelete" disabled>選択した0件を削除</button>
+          <button type="button" class="btn btn-secondary" id="btnListClearSelection">選択をすべて解除</button>
+        </div>
+        <div style="overflow-x:auto;max-height:420px;overflow-y:auto;">
+          <table>
+            <thead>
+              <tr>
+                <th style="width:40px;text-align:center" title="表示中の行をまとめて選択">
+                  <input type="checkbox" id="listCheckAll" aria-label="表示中をすべて選択" style="width:18px;height:18px;cursor:pointer">
+                </th>
+                <th style="width:72px">操作</th>
+                <th>日付</th>
+                <th>仕入先</th>
+                <th>材質</th>
+                <th>D</th>
+                <th>L</th>
+                <th>本</th>
+                <th>kg</th>
+                <th>¥/kg</th>
+                <th>計</th>
+              </tr>
+            </thead>
+            <tbody id="listBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- 取込プレビュー（全タブ共通・確定まで未保存） -->
+    <div class="card" id="draftCard" style="display:none;margin-top:20px">
+      <h2>取込プレビュー（修正してから確定）</h2>
+      <p class="stat" style="margin-bottom:12px">
+        内容を確認・修正し、不要行は「削除」。足りなければ「行を追加」。問題なければ<strong>確定して蓄積</strong>でデータに反映（確定するまで保存されません）。
+      </p>
+      <div style="overflow-x:auto">
+        <table class="draft-table">
+          <thead>
+            <tr>
+              <th>日付</th>
+              <th>仕入先</th>
+              <th>材質</th>
+              <th>径</th>
+              <th>長さ</th>
+              <th>本</th>
+              <th>合計¥</th>
+              <th class="draft-col-ykg" title="10000円超＝赤、5000円以上＝橙、蓄積データ中央値比で著しく高い＝黄">目安¥/kg</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="draftBody"></tbody>
+        </table>
+      </div>
+      <button type="button" class="btn btn-secondary" id="btnDraftAddRow">行を追加</button>
+      <button type="button" class="btn btn-secondary" id="btnDraftClear">プレビューを捨てる</button>
+      <button type="button" class="btn btn-primary" id="btnDraftCommit">確定して蓄積</button>
+    </div>
+  </div>
+
+  <script>
+(function () {
+  var STORAGE = 'matPricingRecords_v2';
+  var MATERIALS = [
+    { key: 'SS400_MIG', label: 'SS400磨', rho: 7.85, g: 'iron' },
+    { key: 'SS400_KURO', label: 'SS400黒皮', rho: 7.85, g: 'iron' },
+    { key: 'S25C', label: 'S25C', rho: 7.85, g: 'iron' },
+    { key: 'SCM435H', label: 'SCM435H', rho: 7.85, g: 'iron' },
+    { key: 'SNB7', label: 'SNB7', rho: 7.85, g: 'iron' },
+    { key: 'SNB16', label: 'SNB16', rho: 7.85, g: 'iron' },
+    { key: 'S45CH', label: 'S45CH', rho: 7.85, g: 'iron' },
+    { key: 'S45C_MIG', label: 'S45C磨', rho: 7.85, g: 'iron' },
+    { key: 'S45C_KURO', label: 'S45C黒皮', rho: 7.85, g: 'iron' },
+    { key: 'SUS304_MIG', label: 'SUS304磨', rho: 7.93, g: 'sus' },
+    { key: 'SUS304_PL', label: 'SUS304ピーリング', rho: 7.93, g: 'sus' },
+    { key: 'SUS304_SAN', label: 'SUS304酸', rho: 7.93, g: 'sus' },
+    { key: 'SUS304_SKINPASS_HEX', label: 'SUS304スキンパス六角', rho: 7.93, g: 'hex' },
+    { key: 'SUS304_SAN_HEX', label: 'SUS304酸洗六角', rho: 7.93, g: 'hex' },
+    { key: 'SUS304_MIG_HEX', label: 'SUS304磨き六角', rho: 7.93, g: 'hex' },
+    { key: 'SUS403', label: 'SUS403', rho: 7.75, g: 'sus' },
+    { key: 'SUS316', label: 'SUS316', rho: 7.98, g: 'sus' },
+    { key: 'SUS316L', label: 'SUS316L', rho: 7.98, g: 'sus' },
+    { key: 'SUS321', label: 'SUS321', rho: 7.93, g: 'sus' },
+    { key: 'XM19', label: 'XM-19（Nitronic50）', rho: 7.88, g: 'special' },
+    { key: 'ALLOY718', label: 'Alloy718（Inconel718）', rho: 8.19, g: 'special' },
+    { key: 'SUS420J2HT', label: 'SUS420J2HT', rho: 7.75, g: 'special' },
+    { key: 'AL5052', label: 'アルミ（参考）', rho: 2.70, g: 'other' },
+    { key: 'CU', label: '銅（参考）', rho: 8.96, g: 'other' },
+    { key: 'BRASS', label: '黄銅（参考）', rho: 8.50, g: 'other' },
+    { key: 'TI', label: 'チタン（参考）', rho: 4.51, g: 'other' }
+  ];
+
+  function rhoOfKey(key) {
+    var m = MATERIALS.find(function (x) { return x.key === key; });
+    if (m) return m.rho;
+    if (key === 'steel' || key === 'SS400') return 7.85;
+    if (key === 'S45C') return 7.85;
+    if (key === 'sus' || key === 'SUS304') return 7.93;
+    if (key === 'al') return 2.7;
+    if (key === 'cu') return 8.96;
+    if (key === 'brass') return 8.5;
+    if (key === 'ti') return 4.51;
+    return 7.85;
+  }
+
+  /** OCR・Excel 由来の全角英数・ダッシュを寄せて材質判定する */
+  function normalizeMaterialCell(raw) {
+    if (raw == null) return '';
+    var str = String(raw).trim().replace(/^\uFEFF/, '');
+    try {
+      str = str.normalize('NFKC');
+    } catch (e) {
+      /* ignore */
+    }
+    str = str.replace(/\u3000/g, ' ');
+    str = str.replace(/\uFF0D|\u2212|\u2013|\u2014/g, '-');
+    return str.trim();
+  }
+
+  function materialKeyFromText(raw) {
+    var s = normalizeMaterialCell(raw);
+    if (!s) return null;
+    var u = s.toUpperCase().replace(/\s/g, '');
+    var uNoHy = u.replace(/-/g, '');
+    var t = s.toLowerCase();
+    if (
+      uNoHy === 'XM19' ||
+      /xm[-_/.\s]?19/i.test(s) ||
+      /^xm$/i.test(s) ||
+      /ニトロニック|nitronic/i.test(s)
+    )
+      return 'XM19';
+    if (
+      uNoHy === 'ALLOY718' ||
+      uNoHy === 'INCONEL718' ||
+      uNoHy === 'IN718' ||
+      /alloy[-_/.\s]*718|inconel[-_/.\s]*718|inconel718|alloy718/i.test(t) ||
+      /インコネル[-_/.\s]*718|ニッケル合金[-_/.\s]*718|inc\s*718|in\s*718/i.test(t)
+    )
+      return 'ALLOY718';
+    if (
+      /sus420j2ht|su420j2ht|420j2ht|420j2\s*ht|sus420j2\s*ht/i.test(t) ||
+      uNoHy === 'SUS420J2HT' ||
+      uNoHy === 'SU420J2HT'
+    )
+      return 'SUS420J2HT';
+    if (/sus321|321/.test(t) && !/316/.test(t)) return 'SUS321';
+    if (/sus316l|316l/.test(t)) return 'SUS316L';
+    if (/sus316|316/.test(t)) return 'SUS316';
+    if (/sus403|403/.test(t)) return 'SUS403';
+    /* 六角は丸棒系の 304酸／304磨 判定より先に見る（304酸洗六角 等） */
+    if (/六角|6角|６角|六カク|ﾛｯｶｸ/i.test(s)) {
+      if (/304|sus304|sos304/i.test(s) || /ステン|ステンレス/.test(t)) {
+        if (/スキンパス|スキン|skinpass|skin/i.test(s)) return 'SUS304_SKINPASS_HEX';
+        if (/酸洗|酸洗い|304酸|sus304.*酸|sos304.*酸/i.test(s)) return 'SUS304_SAN_HEX';
+        if (/磨き|磨|ミガキ|ﾐｶﾞｷ|migaki/i.test(s)) return 'SUS304_MIG_HEX';
+      }
+    }
+    if (/sus304.*酸|sos304.*酸|304.*酸|酸洗|酸洗い/i.test(s)) return 'SUS304_SAN';
+    if (/sus304.*ピーリ|sos304.*ピーリ|304.*ピーリ|ピーリング|ピーリ|pickl/i.test(s)) return 'SUS304_PL';
+    /* 304磨 ＝ 304ミガキ（全角・半角カナ・ローマ字）を同一 SUS304磨 扱い */
+    if (
+      /sus304.*(磨|ミガキ|ﾐｶﾞｷ)|sos304.*(磨|ミガキ|ﾐｶﾞｷ)|304.*(磨|ミガキ|ﾐｶﾞｷ)|(磨|ミガキ|ﾐｶﾞｷ).*sus304|(磨|ミガキ|ﾐｶﾞｷ).*304|ﾐｶﾞｷ|ミガキ|migaki/i.test(
+        s
+      )
+    )
+      return 'SUS304_MIG';
+    if (/sus304|sos304|304|ステン|ステンレス/.test(t)) return 'SUS304_PL';
+    if (/ss400.*黒|ss400.*くろ|黒皮|くろひ|クロヒ/i.test(s)) return 'SS400_KURO';
+    if (/ss400.*磨|ss41.*磨|磨|ﾐｶﾞｷ/i.test(s) && /ss400|ss41|400/.test(t)) return 'SS400_MIG';
+    if (/scm435h|scm435/.test(t)) return 'SCM435H';
+    if (/snb16/.test(t)) return 'SNB16';
+    if (/snb7/.test(t)) return 'SNB7';
+    if (/s45ch/.test(t)) return 'S45CH';
+    if (/s45c.*(?:黒皮|黒|くろ|クロヒ)/i.test(s)) return 'S45C_KURO';
+    if (/s45c.*(?:磨|ミガキ|ﾐｶﾞｷ|migaki)/i.test(s)) return 'S45C_MIG';
+    if (/s45c/.test(t)) return 'S45C_MIG';
+    if (/s25c/.test(t)) return 'S25C';
+    /* 「鋼」「鉄」単独は特殊鋼・ステンレス表記にも付くため SS400 にしない（誤爆防止） */
+    if (/ss400|ss41/.test(t)) return 'SS400_KURO';
+    if (u === 'SUS304_SAN' || u === 'SUS304酸') return 'SUS304_SAN';
+    if (u === 'SUS304スキンパス六角' || u === '304スキンパス六角') return 'SUS304_SKINPASS_HEX';
+    if (u === 'SUS304酸洗六角' || u === '304酸洗六角' || u === 'SUS304酸六角') return 'SUS304_SAN_HEX';
+    if (u === 'SUS304磨き六角' || u === '304磨き六角' || u === 'SUS304磨六角' || u === '304磨六角')
+      return 'SUS304_MIG_HEX';
+    if (
+      u === '304磨' ||
+      u === '304ミガキ' ||
+      u === '304ﾐｶﾞｷ' ||
+      u === 'SUS304磨' ||
+      u === 'SUS304ミガキ' ||
+      u === 'SUS304ﾐｶﾞｷ'
+    )
+      return 'SUS304_MIG';
+    if (u === 'SUS304' || u === '304') return 'SUS304_PL';
+    if (u === 'SUS403' || u === '403') return 'SUS403';
+    if (u === 'SUS316') return 'SUS316';
+    if (u === 'SUS316L') return 'SUS316L';
+    if (u === 'SUS321') return 'SUS321';
+    if (u === 'SS400') return 'SS400_KURO';
+    if (u === 'S25C') return 'S25C';
+    if (u === 'SCM435H' || u === 'SCM435') return 'SCM435H';
+    if (u === 'SNB7') return 'SNB7';
+    if (u === 'SNB16') return 'SNB16';
+    if (u === 'S45CH') return 'S45CH';
+    if (u === 'S45C黒皮' || u === 'S45Cクロヒ' || u === 'S45C黒') return 'S45C_KURO';
+    if (u === 'S45C磨' || u === 'S45Cミガキ' || u === 'S45Cﾐｶﾞｷ') return 'S45C_MIG';
+    if (u === 'S45C') return 'S45C_MIG';
+    if (/アルミ|alum|5052|6061/.test(t)) return 'AL5052';
+    if (/黄銅|brass/.test(t)) return 'BRASS';
+    if (/銅|cu\b/.test(t)) return 'CU';
+    if (/チタン|ti\b/.test(t)) return 'TI';
+    /* 空欄は上で null。ここへ来るのは「何か書いてあるがマスタに該当しない」→取り込まない */
+    return null;
+  }
+
+  function kgOneBar(d, l, rho) {
+    var volMm3 = Math.PI * (d / 2) * (d / 2) * l;
+    var volCm3 = volMm3 / 1000;
+    return (volCm3 * rho) / 1000;
+  }
+
+  /* v29: 保存先は共有 DB（/api/material-purchases）。localStorage はオフライン用キャッシュ。
+     既存コードが同期呼び出し前提なので、メモリ上のキャッシュを正とし API へは遅延同期する */
+  var recordsCache = null;
+
+  function loadRecords() {
+    if (recordsCache) return recordsCache;
+    try {
+      var j = localStorage.getItem(STORAGE);
+      recordsCache = j ? JSON.parse(j) : [];
+    } catch (e) {
+      recordsCache = [];
+    }
+    return recordsCache;
+  }
+
+  function saveRecords(arr) {
+    recordsCache = arr;
+    try { localStorage.setItem(STORAGE, JSON.stringify(arr)); } catch (e) {}
+    refreshQuoSupplierDatalist();
+    scheduleApiSave();
+  }
+
+  function setSyncStatus(text, isError) {
+    var el = document.getElementById('db-sync-status');
+    if (!el) return;
+    el.textContent = text;
+    el.style.color = isError ? '#b91c1c' : '#15803d';
+  }
+
+  var apiSaveTimer = null;
+  function scheduleApiSave() {
+    if (apiSaveTimer) clearTimeout(apiSaveTimer);
+    setSyncStatus('DBへ保存中…', false);
+    apiSaveTimer = setTimeout(pushRecordsToApi, 800);
+  }
+
+  function pushRecordsToApi() {
+    apiSaveTimer = null;
+    fetch('/api/material-purchases', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ records: loadRecords() }),
+    }).then(function (res) {
+      return res.json().then(function (body) {
+        if (!res.ok) throw new Error(body && body.error ? body.error : res.statusText);
+        setSyncStatus('DB保存済み（' + body.count + '件）', false);
+      });
+    }).catch(function (err) {
+      console.warn('[purchases api save]', err);
+      setSyncStatus('DB保存失敗 — この端末には保存済み', true);
+    });
+  }
+
+  function loadRecordsFromApi() {
+    fetch('/api/material-purchases').then(function (res) {
+      return res.json().then(function (body) {
+        if (!res.ok) throw new Error(body && body.error ? body.error : res.statusText);
+        return body;
+      });
+    }).then(function (body) {
+      var apiRecords = Array.isArray(body.records) ? body.records : [];
+      var local = loadRecords();
+      if (!apiRecords.length && local.length) {
+        /* DB が空でこの端末に記録がある → 初回移行 */
+        setSyncStatus('この端末の記録をDBへ移行中…', false);
+        scheduleApiSave();
+        return;
+      }
+      recordsCache = apiRecords;
+      try { localStorage.setItem(STORAGE, JSON.stringify(apiRecords)); } catch (e) {}
+      setSyncStatus('DB読込済み（' + apiRecords.length + '件）', false);
+      refreshQuoSupplierDatalist();
+      runEstimate();
+      renderList();
+    }).catch(function (err) {
+      console.warn('[purchases api load]', err);
+      setSyncStatus('DB未接続 — この端末の保存分を表示中', true);
+    });
+  }
+
+  function uid() {
+    return Date.now().toString(36) + Math.random().toString(36).slice(2, 9);
+  }
+
+  function buildMaterialOptionsHtml(selectedKey) {
+    function opts(list, sel) {
+      return list
+        .map(function (m) {
+          return (
+            '<option value="' +
+            m.key +
+            '"' +
+            (m.key === sel ? ' selected' : '') +
+            '>' +
+            m.label +
+            '</option>'
+          );
+        })
+        .join('');
+    }
+    var sel = selectedKey || 'SS400_KURO';
+    if (sel === 'S45C') sel = 'S45C_MIG';
+    if (!MATERIALS.some(function (x) { return x.key === sel; })) sel = 'SS400_KURO';
+    var iron = MATERIALS.filter(function (x) { return x.g === 'iron'; });
+    var sus = MATERIALS.filter(function (x) { return x.g === 'sus'; });
+    var hex = MATERIALS.filter(function (x) { return x.g === 'hex'; });
+    var special = MATERIALS.filter(function (x) { return x.g === 'special'; });
+    var other = MATERIALS.filter(function (x) { return x.g === 'other'; });
+    var h =
+      '<optgroup label="鉄系">' + opts(iron, sel) + '</optgroup>' +
+      '<optgroup label="SUS系">' + opts(sus, sel) + '</optgroup>' +
+      '<optgroup label="六角">' + opts(hex, sel) + '</optgroup>' +
+      '<optgroup label="特殊">' + opts(special, sel) + '</optgroup>' +
+      '<optgroup label="その他">' + opts(other, sel) + '</optgroup>';
+    return h;
+  }
+
+  function fillMaterialSelects() {
+    var html = buildMaterialOptionsHtml('SS400_KURO');
+    document.getElementById('estMaterial').innerHTML = html;
+    document.getElementById('addMaterial').innerHTML = html;
+    var om = document.getElementById('ocrMaterial');
+    if (om) om.innerHTML = html;
+  }
+
+  function parseCSVLine(line) {
+    var out = [];
+    var cur = '';
+    var q = false;
+    for (var i = 0; i < line.length; i++) {
+      var c = line[i];
+      if (c === '"') {
+        q = !q;
+      } else if (!q && (c === ',' || c === '\t')) {
+        out.push(cur.trim());
+        cur = '';
+      } else {
+        cur += c;
+      }
+    }
+    out.push(cur.trim());
+    return out;
+  }
+
+  function normalizeHeader(h) {
+    var raw = String(h).trim().replace(/^\uFEFF/, '');
+    var compact = raw.replace(/\s/g, '').replace(/／/g, '/');
+    var lower = raw.toLowerCase().replace(/\s/g, '');
+    var mapExact = {
+      日付: 'date', date: 'date',
+      購入日: 'date', 発注日: 'date', 請求日: 'date', 納品日: 'date', 受領日: 'date', 取引日: 'date',
+      仕入先: 'supplier', supplier: 'supplier',
+      仕入れ先: 'supplier', 仕入先名: 'supplier', 取引先: 'supplier', 取引先名: 'supplier',
+      納入先: 'supplier', 業者名: 'supplier', 売主: 'supplier',
+      材質: 'material', material: 'material', 径: 'd', d: 'd', 直径: 'd', 外径: 'd',
+      長さ: 'l', l: 'l', 長: 'l', 本数: 'qty', qty: 'qty', 数量: 'qty',
+      合計金額: 'total', 金額: 'total', 計: 'total', 行計: 'total', 小計: 'total', 明細金額: 'total', 税抜金額: 'total', 税抜: 'total',
+      キロ単価: 'yenkg', kg単価: 'yenkg', '円/kg': 'yenkg', '円／kg': 'yenkg',
+      本単価: 'each', '1本単価': 'each', '１本単価': 'each', 単価本: 'each', '単価（本）': 'each', '単価(本)': 'each'
+    };
+    if (mapExact[raw]) return mapExact[raw];
+    if (mapExact[compact]) return mapExact[compact];
+    var mapLower = {
+      date: 'date', supplier: 'supplier', material: 'material', d: 'd', l: 'l', length: 'l', qty: 'qty', quantity: 'qty',
+      total: 'total', amount: 'total',
+      yenkg: 'yenkg', yen_per_kg: 'yenkg', yenperkg: 'yenkg', price_kg: 'yenkg', unitcostkg: 'yenkg',
+      each: 'each', price_each: 'each', perpiece: 'each', unitprice: 'each'
+    };
+    if (mapLower[lower]) return mapLower[lower];
+    if (raw === '単価') return 'each';
+    return lower;
+  }
+
+  /** 見出しが別表記でも date / supplier 列を推定（Excelの「仕入れ先」等） */
+  function inferMissingColumns(hmap, rawHeaders) {
+    var headers = rawHeaders.map(function (h) {
+      return String(h == null ? '' : h).trim().replace(/^\uFEFF/, '');
+    });
+    if (hmap.date === undefined) {
+      for (var i = 0; i < headers.length; i++) {
+        var h = headers[i];
+        if (!h) continue;
+        if (/日付|日時/.test(h) && !/長さ|数量|単価/.test(h)) { hmap.date = i; break; }
+        if (/^(購入|発注|請求|納品|受領|取引)日$/.test(h)) { hmap.date = i; break; }
+      }
+    }
+    if (hmap.supplier === undefined) {
+      for (var j = 0; j < headers.length; j++) {
+        var hs = headers[j];
+        if (!hs) continue;
+        if (/仕入数量|仕入単価|仕入金額|仕入日/.test(hs)) continue;
+        if (
+          /仕入れ先|仕入先名|^仕入先$|仕入先（|取引先|納入先|売主|業者名/.test(hs) &&
+          !/数量|単価|金額/.test(hs)
+        ) {
+          hmap.supplier = j;
+          break;
+        }
+      }
+    }
+  }
+
+  function pad2(n) {
+    var x = parseInt(n, 10);
+    return (x < 10 ? '0' : '') + x;
+  }
+
+  /** type=date 用に yyyy-mm-dd へ（Excelの 2025/3/1 等） */
+  function normalizeDateCell(s) {
+    if (s == null || s === '') return '';
+    var t = String(s).trim().replace(/\./g, '/');
+    var m = t.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
+    if (m) return m[1] + '-' + pad2(m[2]) + '-' + pad2(m[3]);
+    if (/^\d{4}-\d{2}-\d{2}/.test(t)) return t.slice(0, 10);
+    return t.slice(0, 32);
+  }
+
+  function rowToRecord(cols, hmap) {
+    function get(name) {
+      var i = hmap[name];
+      if (i === undefined) return '';
+      return cols[i] != null ? String(cols[i]).trim() : '';
+    }
+    var dateRaw = get('date') || '';
+    var dateNorm = normalizeDateCell(dateRaw);
+    var date =
+      dateNorm && /^\d{4}-\d{2}-\d{2}$/.test(dateNorm)
+        ? dateNorm
+        : dateRaw
+          ? dateRaw.slice(0, 10)
+          : new Date().toISOString().slice(0, 10);
+    var supplier = get('supplier') || '';
+    var matKey = materialKeyFromText(get('material'));
+    if (matKey == null) return null;
+    var d = parseFloat(get('d'));
+    var l = parseFloat(get('l'));
+    var qty = parseInt(get('qty'), 10);
+    var totalIn = parseFloat(get('total'));
+    var yenkgIn = parseFloat(get('yenkg'));
+    var eachIn = parseFloat(get('each'));
+    if (isNaN(d) || d <= 0 || isNaN(l) || l <= 0) return null;
+    if (isNaN(qty) || qty < 1) qty = 1;
+    var rho = rhoOfKey(matKey);
+    var kg = kgOneBar(d, l, rho) * qty;
+    if (kg <= 0) return null;
+
+    var totalYen = NaN;
+    var yenKg = NaN;
+    if (!isNaN(totalIn) && totalIn >= 0) {
+      totalYen = totalIn;
+      yenKg = totalYen / kg;
+    } else if (!isNaN(yenkgIn) && yenkgIn >= 0) {
+      yenKg = yenkgIn;
+      totalYen = yenKg * kg;
+    } else if (!isNaN(eachIn) && eachIn >= 0) {
+      totalYen = eachIn * qty;
+      yenKg = totalYen / kg;
+    } else {
+      return null;
+    }
+
+    return {
+      id: uid(),
+      date: date.slice(0, 10),
+      supplier: supplier,
+      materialKey: matKey,
+      d: d,
+      l: l,
+      qty: qty,
+      totalYen: Math.round(totalYen),
+      totalKg: kg,
+      yenPerKg: Math.round(yenKg * 100) / 100,
+      memo: ''
+    };
+  }
+
+  function parseTable(text) {
+    var lines = text.split(/\r?\n/).filter(function (l) { return l.trim(); });
+    if (!lines.length) return { ok: 0, err: 0, msgs: [] };
+    var header = parseCSVLine(lines[0]);
+    var hmap = {};
+    var rawHeaderCells = header.slice();
+    header.forEach(function (h, i) {
+      var n = normalizeHeader(h);
+      if (n) hmap[n] = i;
+    });
+    inferMissingColumns(hmap, rawHeaderCells);
+    if (hmap.date === undefined && hmap.d === undefined) {
+      hmap = { date: 0, supplier: 1, material: 2, d: 3, l: 4, qty: 5, total: 6 };
+    }
+    var recs = loadRecords();
+    var ok = 0, err = 0;
+    for (var li = 1; li < lines.length; li++) {
+      var cols = parseCSVLine(lines[li]);
+      if (cols.length < 3) continue;
+      var r = rowToRecord(cols, hmap);
+      if (r) {
+        recs.push(r);
+        ok++;
+      } else err++;
+    }
+    saveRecords(recs);
+    return { ok: ok, err: err };
+  }
+
+  function parseTableToDraftArray(text) {
+    var lines = text.split(/\r?\n/).filter(function (l) { return l.trim(); });
+    if (!lines.length) return [];
+    var header = parseCSVLine(lines[0]);
+    var hmap = {};
+    var rawHeaderCells2 = header.slice();
+    header.forEach(function (h, i) {
+      var n = normalizeHeader(h);
+      if (n) hmap[n] = i;
+    });
+    inferMissingColumns(hmap, rawHeaderCells2);
+    if (hmap.date === undefined && hmap.d === undefined) {
+      hmap = { date: 0, supplier: 1, material: 2, d: 3, l: 4, qty: 5, total: 6 };
+    }
+    var drafts = [];
+    for (var li = 1; li < lines.length; li++) {
+      var cols = parseCSVLine(lines[li]);
+      if (cols.length < 3) continue;
+      var r = rowToRecord(cols, hmap);
+      if (r) {
+        drafts.push({
+          date: r.date,
+          supplier: r.supplier,
+          materialKey: r.materialKey,
+          d: r.d,
+          l: r.l,
+          qty: r.qty,
+          totalYen: r.totalYen,
+          totalKg: r.totalKg,
+          yenPerKg: r.yenPerKg
+        });
+      }
+    }
+    return drafts;
+  }
+
+  function escapeAttr(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;')
+      .replace(/"/g, '&quot;')
+      .replace(/</g, '&lt;');
+  }
+
+  /** 見積り依頼書の依頼先：蓄積レコードの仕入先名を datalist 候補にする */
+  function refreshQuoSupplierDatalist() {
+    var dl = document.getElementById('quoSupplierDatalist');
+    if (!dl) return;
+    var recs = loadRecords();
+    var seen = {};
+    var names = [];
+    recs.forEach(function (r) {
+      var s = r && r.supplier != null ? String(r.supplier).trim() : '';
+      if (!s || seen[s]) return;
+      seen[s] = true;
+      names.push(s);
+    });
+    names.sort(function (a, b) {
+      return a.localeCompare(b, 'ja');
+    });
+    dl.innerHTML = names
+      .map(function (n) {
+        return '<option value="' + escapeAttr(n) + '">';
+      })
+      .join('');
+  }
+
+  function materialSelectHtml(selected) {
+    return buildMaterialOptionsHtml(selected);
+  }
+
+  function showDraftCard() {
+    var card = document.getElementById('draftCard');
+    card.style.display = 'block';
+    card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  function updateDraftYkg(tr) {
+    var d = parseFloat(tr.querySelector('.d-d').value);
+    var l = parseFloat(tr.querySelector('.d-l').value);
+    var q = parseInt(tr.querySelector('.d-q').value, 10) || 1;
+    var mat = tr.querySelector('.d-mat').value;
+    var tot = parseFloat(tr.querySelector('.d-tot').value);
+    var el = tr.querySelector('.d-ykg');
+    el.classList.remove('d-ykg--past-high', 'd-ykg--kg-warn', 'd-ykg--kg-high');
+    if (isNaN(d) || d <= 0 || isNaN(l) || l <= 0) {
+      el.textContent = '—';
+      return;
+    }
+    var kg = kgOneBar(d, l, rhoOfKey(mat)) * q;
+    if (isNaN(tot) || tot < 0) {
+      el.textContent = kg.toFixed(3) + ' kg';
+      return;
+    }
+    var yk = Math.round(tot / kg);
+    el.textContent = yk.toLocaleString('ja-JP') + ' 円/kg';
+    if (yk > 10000) {
+      el.classList.add('d-ykg--kg-high');
+    } else if (yk >= 5000) {
+      el.classList.add('d-ykg--kg-warn');
+    } else if (isDraftYenKgMuchHigherThanPast(yk, mat, d, l)) {
+      el.classList.add('d-ykg--past-high');
+    }
+  }
+
+  function bindDraftRow(tr) {
+    tr.querySelector('.btn-draft-del').addEventListener('click', function () {
+      tr.remove();
+      if (!document.getElementById('draftBody').children.length) {
+        document.getElementById('draftCard').style.display = 'none';
+      }
+    });
+    ['.d-date', '.d-sup', '.d-mat', '.d-d', '.d-l', '.d-q', '.d-tot'].forEach(function (sel) {
+      tr.querySelector(sel).addEventListener('input', function () {
+        updateDraftYkg(tr);
+      });
+      tr.querySelector(sel).addEventListener('change', function () {
+        updateDraftYkg(tr);
+      });
+    });
+  }
+
+  function appendDraftRow(row) {
+    row = row || {};
+    var date = row.date || todayISO();
+    var supplier = row.supplier || '';
+    var mat = row.materialKey || 'SS400_KURO';
+    var d = row.d != null && !isNaN(row.d) ? row.d : '';
+    var l = row.l != null && !isNaN(row.l) ? row.l : '';
+    var qty = row.qty != null ? row.qty : 1;
+    var tot = row.totalYen != null && !isNaN(row.totalYen) ? row.totalYen : '';
+    var tr = document.createElement('tr');
+    tr.innerHTML =
+      '<td><input type="date" class="d-date" value="' +
+      escapeAttr(date) +
+      '"></td>' +
+      '<td><input type="text" class="d-sup" value="' +
+      escapeAttr(supplier) +
+      '"></td>' +
+      '<td><select class="d-mat">' +
+      materialSelectHtml(mat) +
+      '</select></td>' +
+      '<td><input type="number" class="d-d" list="matDiameterMmList" step="1" value="' +
+      d +
+      '"></td>' +
+      '<td><input type="number" class="d-l" step="1" value="' +
+      l +
+      '"></td>' +
+      '<td><input type="number" class="d-q" min="1" value="' +
+      qty +
+      '"></td>' +
+      '<td><input type="number" class="d-tot" step="1" value="' +
+      tot +
+      '"></td>' +
+      '<td class="d-ykg">—</td>' +
+      '<td><button type="button" class="btn-draft-del">削除</button></td>';
+    document.getElementById('draftBody').appendChild(tr);
+    bindDraftRow(tr);
+    updateDraftYkg(tr);
+  }
+
+  function renderDraftTable(rows) {
+    document.getElementById('draftBody').innerHTML = '';
+    if (!rows || !rows.length) return;
+    rows.forEach(function (row) {
+      appendDraftRow(row);
+    });
+    showDraftCard();
+  }
+
+  function heuristicToDraftRows(text, supplier, dateStr, matKey) {
+    var lines = text.split(/\r?\n/);
+    var drafts = [];
+    var rho = rhoOfKey(matKey);
+    lines.forEach(function (line) {
+      line = String(line).replace(/[，．]/g, function (ch) {
+        return ch === '．' ? '.' : ' ';
+      });
+      var nums = line.match(/\d+\.?\d*/g);
+      if (!nums || nums.length < 3) return;
+      nums = nums.map(parseFloat);
+      var d, l, qty, total;
+      if (nums.length >= 4) {
+        var a = nums[nums.length - 4];
+        var b = nums[nums.length - 3];
+        var c = nums[nums.length - 2];
+        var last = nums[nums.length - 1];
+        if (a >= 2 && a <= 500 && b >= 5 && b <= 30000 && c >= 1 && c <= 9999 && last >= 200) {
+          d = a;
+          l = b;
+          qty = Math.floor(c);
+          total = last;
+        } else return;
+      } else {
+        d = nums[0];
+        l = nums[1];
+        total = nums[2];
+        qty = 1;
+        if (d < 2 || d > 500 || l < 5 || l > 30000 || total < 200) return;
+      }
+      var kg = kgOneBar(d, l, rho) * qty;
+      if (kg <= 0 || total / kg > 500000) return;
+      drafts.push({
+        date: (dateStr || todayISO()).slice(0, 10),
+        supplier: String(supplier || '').trim(),
+        materialKey: matKey,
+        d: d,
+        l: l,
+        qty: qty,
+        totalYen: Math.round(total),
+        totalKg: kg,
+        yenPerKg: Math.round((total / kg) * 100) / 100
+      });
+    });
+    return drafts;
+  }
+
+  function similarityScore(d0, l0, r) {
+    var dd = Math.abs(r.d - d0);
+    var dl = Math.abs(r.l - l0);
+    return dd + dl * 0.15;
+  }
+
+  function filterCandidates(records, matKey, d0, l0, tolD, tolL) {
+    return records
+      .filter(function (r) {
+        return r.materialKey === matKey &&
+          Math.abs(r.d - d0) <= tolD &&
+          Math.abs(r.l - l0) <= tolL;
+      })
+      .sort(function (a, b) {
+        return new Date(b.date) - new Date(a.date);
+      });
+  }
+
+  /** 候補表用：同一日付かつ同一内容（仕入先・径・長さ・本数・金額・円/kg）の重複は先頭1件だけ残す */
+  function dedupeCandidateRecords(arr) {
+    var seen = Object.create(null);
+    var out = [];
+    arr.forEach(function (r) {
+      var sig = [
+        String(r.date || '').slice(0, 10),
+        String(r.supplier || '').trim(),
+        Number(r.d),
+        Number(r.l),
+        parseInt(r.qty, 10) || 0,
+        Math.round(Number(r.totalYen) || 0),
+        Math.round((Number(r.yenPerKg) || 0) * 100) / 100
+      ].join('\t');
+      if (seen[sig]) return;
+      seen[sig] = true;
+      out.push(r);
+    });
+    return out;
+  }
+
+  function widenCandidates(records, matKey, d0, l0) {
+    var all = records.filter(function (r) { return r.materialKey === matKey; });
+    return all
+      .map(function (r) {
+        return {
+          r: r,
+          score: similarityScore(d0, l0, r),
+          dd: Math.abs(r.d - d0),
+          dl: Math.abs(r.l - l0)
+        };
+      })
+      .sort(function (a, b) {
+        if (a.score !== b.score) return a.score - b.score;
+        return new Date(b.r.date) - new Date(a.r.date);
+      })
+      .slice(0, 30)
+      .map(function (x) { return x.r; });
+  }
+
+  function median(arr) {
+    if (!arr.length) return NaN;
+    var s = arr.slice().sort(function (a, b) { return a - b; });
+    var m = Math.floor(s.length / 2);
+    return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+  }
+
+  /**
+   * プレビュー行の円/kgと比較する過去データの中央値（見積タブの径・長さ許容と同一）。
+   * 許容内が0件のときは近いサイズ上位から（runEstimate と同様）。
+   */
+  function medianYenKgForDraftPreview(matKey, d0, l0) {
+    var tolDE = document.getElementById('tolD');
+    var tolLE = document.getElementById('tolL');
+    var tolD = parseFloat(tolDE ? tolDE.value : 0);
+    var tolL = parseFloat(tolLE ? tolLE.value : 10);
+    if (isNaN(tolD) || tolD < 0) tolD = 0;
+    if (isNaN(tolL) || tolL < 0) tolL = 10;
+    var records = loadRecords();
+    var tight = filterCandidates(records, matKey, d0, l0, tolD, tolL);
+    var prices = tight.map(function (r) {
+      return r.yenPerKg;
+    });
+    if (!prices.length) {
+      var loose = widenCandidates(records, matKey, d0, l0);
+      if (loose.length) {
+        prices = loose.slice(0, 15).map(function (r) {
+          return r.yenPerKg;
+        });
+      }
+    }
+    if (!prices.length) return NaN;
+    return median(prices);
+  }
+
+  /** 過去と比べて著しく高い（中央値の約1.45倍以上かつ差が十分ある） */
+  function isDraftYenKgMuchHigherThanPast(yk, matKey, d0, l0) {
+    var med = medianYenKgForDraftPreview(matKey, d0, l0);
+    if (isNaN(med) || med < 50) return false;
+    return yk > med * 1.45 && yk - med >= 400;
+  }
+
+  /** 許容内データを仕入先でまとめ、各仕入先の円/kg中央値と予想金額（kg×中央値） */
+  function supplierBreakdownEstimates(tight, kg) {
+    var map = {};
+    tight.forEach(function (r) {
+      var raw = r.supplier != null ? String(r.supplier).trim() : '';
+      var key = raw ? raw : '\u0000';
+      if (!map[key]) {
+        map[key] = { displayName: raw || '（仕入先名なし）', prices: [] };
+      }
+      map[key].prices.push(r.yenPerKg);
+    });
+    var rows = Object.keys(map).map(function (k) {
+      var g = map[k];
+      var yk = median(g.prices);
+      var totalYen =
+        !isNaN(kg) && kg > 0 && !isNaN(yk) ? Math.round(kg * yk) : NaN;
+      return {
+        name: g.displayName,
+        yenKg: yk,
+        count: g.prices.length,
+        totalYen: totalYen
+      };
+    });
+    rows.sort(function (a, b) {
+      return a.name.localeCompare(b.name, 'ja');
+    });
+    return rows;
+  }
+
+  function runEstimate() {
+    var matKey = document.getElementById('estMaterial').value;
+    var d0 = parseFloat(document.getElementById('estD').value);
+    var l0 = parseFloat(document.getElementById('estL').value);
+    var qty = parseInt(document.getElementById('estQty').value, 10) || 1;
+    var tolLEl = document.getElementById('tolL');
+    if (!isNaN(l0) && l0 > 999) {
+      tolLEl.value = '100';
+      tolLEl.dataset.autoLongTol = '1';
+    } else if (!isNaN(l0) && l0 > 0 && l0 <= 999) {
+      if (tolLEl.dataset.autoLongTol === '1') {
+        tolLEl.value = '10';
+        delete tolLEl.dataset.autoLongTol;
+      }
+    }
+    var tolD = parseFloat(document.getElementById('tolD').value);
+    var tolL = parseFloat(document.getElementById('tolL').value);
+    if (isNaN(tolD) || tolD < 0) tolD = 0;
+    if (isNaN(tolL) || tolL < 0) tolL = 10;
+
+    var rho = rhoOfKey(matKey);
+    var kgOne =
+      !isNaN(d0) && d0 > 0 && !isNaN(l0) && l0 > 0 ? kgOneBar(d0, l0, rho) : NaN;
+    var kg = !isNaN(kgOne) ? kgOne * qty : NaN;
+
+    var records = loadRecords();
+    var tight = filterCandidates(records, matKey, d0, l0, tolD, tolL);
+    var loose = tight.length ? tight : widenCandidates(records, matKey, d0, l0);
+
+    var prices = tight.map(function (r) { return r.yenPerKg; });
+    if (!prices.length && loose.length) {
+      prices = loose.slice(0, 15).map(function (r) { return r.yenPerKg; });
+    }
+    var med = median(prices);
+    var last = tight[0] || loose[0];
+
+    var suggestEl = document.getElementById('suggestYenKg');
+    var suggestEachEl = document.getElementById('suggestYenEach');
+    var suggestTotalEl = document.getElementById('suggestYenTotal');
+    var metaEl = document.getElementById('suggestMeta');
+    if (!isNaN(d0) && d0 > 0 && !isNaN(l0) && l0 > 0 && !isNaN(med)) {
+      suggestEl.textContent = med.toLocaleString('ja-JP', { maximumFractionDigits: 0 }) + ' 円/kg';
+      if (!isNaN(kgOne)) {
+        suggestEachEl.textContent =
+          Math.round(kgOne * med).toLocaleString('ja-JP') + ' 円/本';
+        suggestTotalEl.textContent =
+          Math.round(kg * med).toLocaleString('ja-JP') +
+          ' 円（' +
+          qty +
+          ' 本・' +
+          kg.toFixed(3) +
+          ' kg）';
+      } else {
+        suggestEachEl.textContent = '—';
+        suggestTotalEl.textContent = '—';
+      }
+      var src = tight.length
+        ? '厳密一致付近（径±' + tolD + 'mm・長さ±' + tolL + 'mm）' + tight.length + '件の中央値'
+        : '近いサイズ上位から算出（データが少ない場合は径・長さが離れた候補を含む）';
+      metaEl.textContent = src + (last ? '／直近例: ' + last.date + ' ' + last.supplier : '');
+    } else if (records.length === 0) {
+      suggestEl.textContent = 'データなし';
+      suggestEachEl.textContent = '—';
+      suggestTotalEl.textContent = '—';
+      metaEl.textContent = 'CSVまたは手動で請求明細を追加してください。';
+    } else {
+      suggestEl.textContent = '—';
+      suggestEachEl.textContent = '—';
+      suggestTotalEl.textContent = '—';
+      metaEl.textContent = '径・長さを入力すると目安が出ます。';
+    }
+
+    var estBody = document.getElementById('supplierEstBody');
+    var estNote = document.getElementById('supplierEstNote');
+    estBody.innerHTML = '';
+    if (
+      records.length > 0 &&
+      !isNaN(d0) &&
+      d0 > 0 &&
+      !isNaN(l0) &&
+      l0 > 0 &&
+      tight.length > 0 &&
+      !isNaN(kg) &&
+      kg > 0
+    ) {
+      var br = supplierBreakdownEstimates(tight, kg);
+      estNote.textContent =
+        '入力の径・長さ・本数・材質から算出した重量 ' +
+        kg.toFixed(3) +
+        ' kg に、仕入先ごとに「許容内の過去明細」の円/kg中央値を掛けた税別目安です。※過去請求ベースの参考値です。';
+      br.forEach(function (row) {
+        var tr = document.createElement('tr');
+        tr.innerHTML =
+          '<td>' +
+          escapeHtml(row.name) +
+          '</td>' +
+          '<td class="num">' +
+          row.yenKg.toLocaleString('ja-JP') +
+          '</td>' +
+          '<td class="num yen-est">' +
+          row.totalYen.toLocaleString('ja-JP') +
+          ' 円</td>' +
+          '<td class="num">' +
+          row.count +
+          '</td>';
+        tr.style.cursor = 'pointer';
+        tr.title = 'クリックでこの仕入先の円/kgを採用欄にコピー';
+        tr.addEventListener('click', function () {
+          document.getElementById('manualYenKg').value = Math.round(row.yenKg);
+          document.getElementById('manualYenKg').dataset.touched = '1';
+          runEstimate();
+        });
+        estBody.appendChild(tr);
+      });
+    } else {
+      estNote.textContent =
+        records.length === 0
+          ? 'データを蓄積し、径・長さを入力すると仕入先別の予想が表示されます。'
+          : !isNaN(d0) && d0 > 0 && !isNaN(l0) && l0 > 0
+            ? '許容内の過去データがありません。類似判定の許容を広げるか、データを追加してください。'
+            : '径・長さを入力すると表示されます。';
+    }
+
+    var manual = document.getElementById('manualYenKg');
+    if (!manual.dataset.touched && !isNaN(med) && d0 > 0 && l0 > 0) {
+      manual.value = Math.round(med);
+    }
+
+    var yk = parseFloat(manual.value);
+    if (!isNaN(yk) && yk >= 0 && kg > 0) {
+      document.getElementById('estCostOut').value =
+        Math.round(kg * yk).toLocaleString('ja-JP') + ' 円（' + kg.toFixed(3) + ' kg）';
+    } else {
+      document.getElementById('estCostOut').value = '—';
+    }
+
+    var body = document.getElementById('candBody');
+    body.innerHTML = '';
+    /* 候補表は「類似判定の許容」内のみ。同一日付・同一内容の重複行は1件にまとめる */
+    var dedupedTight = dedupeCandidateRecords(tight);
+    var show = dedupedTight.slice(0, 25);
+    var dupMerged = tight.length - dedupedTight.length;
+    document.getElementById('candStat').textContent =
+      show.length
+        ? '表示 ' +
+          show.length +
+          ' 件（径±' +
+          tolD +
+          'mm・長さ±' +
+          tolL +
+          'mm 以内）' +
+          (dupMerged > 0 ? '／同一日・同一内容の重複 ' + dupMerged + ' 件をまとめました' : '')
+        : '許容範囲内の過去データはありません。上の「類似判定」で径・長さの許容を広げるか、データを追加してください。';
+
+    show.forEach(function (r) {
+      var near =
+        (Math.abs(r.d - d0) <= tolD && Math.abs(r.l - l0) <= tolL ? '<span class="badge">範囲内</span> ' : '') +
+        'ΔD' + Math.abs(r.d - d0).toFixed(1) + ' ΔL' + Math.abs(r.l - l0).toFixed(0);
+      var tr = document.createElement('tr');
+      tr.innerHTML =
+        '<td>' + r.date + '</td>' +
+        '<td>' + escapeHtml(r.supplier) + '</td>' +
+        '<td>' + r.d + '</td>' +
+        '<td>' + r.l + '</td>' +
+        '<td>' + r.qty + '</td>' +
+        '<td>' + r.totalKg.toFixed(3) + '</td>' +
+        '<td>' + r.yenPerKg.toLocaleString('ja-JP') + '</td>' +
+        '<td>' + r.totalYen.toLocaleString('ja-JP') + '</td>' +
+        '<td style="font-size:10px;color:var(--muted)">' + near + '</td>';
+      tr.style.cursor = 'pointer';
+      tr.title = 'クリックでこの円/kgを採用';
+      tr.addEventListener('click', function () {
+        document.getElementById('manualYenKg').value = Math.round(r.yenPerKg);
+        document.getElementById('manualYenKg').dataset.touched = '1';
+        runEstimate();
+      });
+      body.appendChild(tr);
+    });
+  }
+
+  function escapeHtml(s) {
+    var d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
+  }
+
+  function todayISO() {
+    return new Date().toISOString().slice(0, 10);
+  }
+
+  var QUOTE_OUR_COMPANY_DEFAULT = '有限会社日勝ネジ工業';
+  var QUOTE_OUR_ADDRESS = '大阪市大正区小林西1-18-22';
+  var QUOTE_OUR_TEL = '06-6556-3820';
+  var QUOTE_OUR_FAX = '06-6556-3830';
+  var QUOTE_TITLE_DEFAULT = '見積り依頼';
+
+  /** 件名：未入力時は「見積り依頼」 */
+  function quoteFormatTitle(raw) {
+    var s = String(raw == null ? '' : raw).trim();
+    return s || QUOTE_TITLE_DEFAULT;
+  }
+
+  /** 送付先：末尾に「御中」がなければ付与（全角スペース区切り） */
+  function quoteFormatGoChu(raw) {
+    var s = String(raw == null ? '' : raw).trim();
+    if (!s) return '';
+    if (/御中\s*$/u.test(s)) return s;
+    return s + '　御中';
+  }
+
+  /** 依頼元：未入力時は当社デフォルト名 */
+  function quoteFormatFrom(raw) {
+    var s = String(raw == null ? '' : raw).trim();
+    return s || QUOTE_OUR_COMPANY_DEFAULT;
+  }
+
+  /** 依頼元の住所・電話（依頼書本文用・固定） */
+  function quoteOurContactPlainLines() {
+    return [
+      '住所　' + QUOTE_OUR_ADDRESS,
+      'TEL　' + QUOTE_OUR_TEL,
+      'FAX　' + QUOTE_OUR_FAX
+    ].join('\n');
+  }
+
+  function getQuoteContext() {
+    var matSel = document.getElementById('estMaterial');
+    var opt = matSel.options[matSel.selectedIndex];
+    var matLabel = opt ? opt.text : '';
+    var d0 = parseFloat(document.getElementById('estD').value);
+    var l0 = parseFloat(document.getElementById('estL').value);
+    var qty = parseInt(document.getElementById('estQty').value, 10) || 1;
+    var qd = document.getElementById('quoDate');
+    return {
+      matLabel: matLabel,
+      d: d0,
+      l: l0,
+      qty: qty,
+      quoDate: (qd && qd.value) || todayISO(),
+      quoTo: (document.getElementById('quoTo').value || '').trim(),
+      quoFrom: (document.getElementById('quoFrom').value || '').trim(),
+      quoTitle: (document.getElementById('quoTitle').value || '').trim(),
+      quoNote: (document.getElementById('quoNote').value || '').trim()
+    };
+  }
+
+  function validateQuoteContext(ctx) {
+    if (isNaN(ctx.d) || ctx.d <= 0 || isNaN(ctx.l) || ctx.l <= 0) {
+      return '径・長さを入力してください。';
+    }
+    return '';
+  }
+
+  function buildQuotePlainText(ctx) {
+    var lines = [];
+    lines.push('【見積り依頼書】');
+    lines.push('依頼日: ' + ctx.quoDate);
+    lines.push('依頼元: ' + quoteFormatFrom(ctx.quoFrom));
+    lines.push(quoteOurContactPlainLines());
+    var toDisp = quoteFormatGoChu(ctx.quoTo);
+    if (toDisp) lines.push('送付先: ' + toDisp);
+    lines.push('件名: ' + quoteFormatTitle(ctx.quoTitle));
+    lines.push('');
+    lines.push(
+      '品目（摘要）: ' +
+        ctx.matLabel +
+        ' 丸棒 Φ' +
+        ctx.d +
+        '×' +
+        ctx.l +
+        'mm × ' +
+        ctx.qty +
+        '本'
+    );
+    lines.push('');
+    lines.push('上記について、材料の御見積りをお願いいたします。');
+    if (ctx.quoNote) {
+      lines.push('');
+      lines.push('備考:');
+      lines.push(ctx.quoNote);
+    }
+    return lines.join('\n');
+  }
+
+  function buildQuotePrintHtml(ctx) {
+    var esc = escapeHtml;
+    var noteHtml = esc(ctx.quoNote).replace(/\r\n/g, '\n').replace(/\n/g, '<br>');
+    var toDisp = quoteFormatGoChu(ctx.quoTo);
+    var toLine = toDisp
+      ? esc(toDisp)
+      : '<span class="placeholder">（送付先をご記入ください）</span>';
+    var fromBlock =
+      '<div class="co-name">' +
+      esc(quoteFormatFrom(ctx.quoFrom)) +
+      '</div><div class="co-detail">' +
+      esc(QUOTE_OUR_ADDRESS) +
+      '<br>TEL　' +
+      esc(QUOTE_OUR_TEL) +
+      '<br>FAX　' +
+      esc(QUOTE_OUR_FAX) +
+      '</div>';
+    var titleLine = esc(quoteFormatTitle(ctx.quoTitle));
+    var css =
+      ':root{--ink:#1a1d24;--muted:#5c6570;--line:#c8cdd4;--line-strong:#2c3d52;--accent:#1e3a5f;--accent-soft:#e8eef4;--paper:#fafbfc;}' +
+      '*{box-sizing:border-box;}' +
+      'body{margin:0;background:#e9ecef;color:var(--ink);font-family:Hiragino Sans,Yu Gothic UI,YuGothic,Meiryo,"Noto Sans JP",sans-serif;font-size:13px;line-height:1.65;-webkit-font-smoothing:antialiased;}' +
+      '.toolbar{position:sticky;top:0;z-index:10;background:linear-gradient(180deg,#fff,#f3f5f7);border-bottom:1px solid var(--line);padding:12px 20px;text-align:center;}' +
+      '.toolbar button{background:var(--accent);color:#fff;border:none;padding:11px 28px;font-size:13px;font-weight:700;letter-spacing:0.06em;border-radius:6px;cursor:pointer;box-shadow:0 2px 6px rgba(30,58,95,0.25);}' +
+      '.toolbar button:hover{filter:brightness(1.08);}' +
+      '.toolbar span{display:block;margin-top:8px;font-size:11px;color:var(--muted);}' +
+      '.sheet{max-width:210mm;min-height:297mm;margin:24px auto 40px;background:var(--paper);box-shadow:0 4px 24px rgba(0,0,0,0.08),0 0 0 1px rgba(0,0,0,0.04);}' +
+      '.sheet-pad{padding:22mm 20mm 18mm;}' +
+      '.doc-bar{height:4px;background:linear-gradient(90deg,var(--accent) 0%,#2d5a87 45%,#3d7ab0 100%);border-radius:2px;margin-bottom:22px;}' +
+      '.doc-title-wrap{text-align:center;margin-bottom:26px;padding-bottom:18px;border-bottom:1px solid var(--line);}' +
+      '.doc-title{font-size:22px;font-weight:800;letter-spacing:0.28em;margin:0 0 6px;color:var(--accent);}' +
+      '.doc-title-en{font-size:10px;letter-spacing:0.2em;color:var(--muted);font-weight:600;text-transform:uppercase;margin:0;}' +
+      '.meta-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px 20px;margin-bottom:20px;}' +
+      '@media(max-width:640px){.meta-grid{grid-template-columns:1fr;}}' +
+      '.meta-card{border:1px solid var(--line);border-radius:4px;padding:14px 16px;background:#fff;}' +
+      '.meta-card.to{border-top:3px solid var(--accent);}' +
+      '.meta-card.from{border-top:3px solid var(--line-strong);}' +
+      '.meta-k{font-size:10px;font-weight:800;color:var(--muted);letter-spacing:0.12em;margin-bottom:8px;}' +
+      '.meta-v{font-size:14px;font-weight:600;line-height:1.55;min-height:2.8em;}' +
+      '.meta-card.from .meta-v{min-height:0;}' +
+      '.co-name{font-size:15px;font-weight:800;margin-bottom:10px;line-height:1.45;}' +
+      '.co-detail{font-size:12px;font-weight:600;color:#3d4654;line-height:1.8;font-variant-numeric:tabular-nums;}' +
+      '.placeholder{color:#9aa3ad;font-weight:500;}' +
+      '.placeholder.muted{font-size:13px;}' +
+      '.doc-facts{display:grid;grid-template-columns:100px 1fr;gap:6px 16px;font-size:13px;margin-bottom:22px;padding:12px 16px;background:var(--accent-soft);border-radius:4px;border:1px solid #d4dde6;}' +
+      '.doc-facts dt{margin:0;font-weight:700;color:var(--accent);font-size:11px;letter-spacing:0.08em;padding-top:3px;}' +
+      '.doc-facts dd{margin:0;font-weight:600;}' +
+      '.sec-title{font-size:11px;font-weight:800;color:var(--accent);letter-spacing:0.2em;margin:0 0 10px;padding-left:2px;border-left:3px solid var(--accent);padding-left:10px;}' +
+      'table.req{width:100%;border-collapse:collapse;font-size:13px;margin:0 0 12px;border:1px solid var(--line-strong);}' +
+      'table.req thead th{background:linear-gradient(180deg,#f4f6f9,#e8ecf1);color:var(--accent);font-weight:800;font-size:11px;letter-spacing:0.1em;padding:12px 14px;border-bottom:2px solid var(--accent);text-align:left;}' +
+      'table.req thead th.num{text-align:right;}' +
+      'table.req tbody td{padding:16px 14px;border-bottom:1px solid var(--line);vertical-align:top;background:#fff;}' +
+      'table.req tbody tr:last-child td{border-bottom:none;}' +
+      'table.req .num{text-align:right;font-variant-numeric:tabular-nums;font-weight:700;}' +
+      '.spec{display:block;margin-top:8px;font-size:12px;color:var(--muted);font-weight:500;line-height:1.5;}' +
+      '.closing{margin:20px 0 0;padding:18px 20px;background:linear-gradient(180deg,#f8fafc,#eef2f6);border:1px solid var(--line);border-radius:4px;text-align:center;font-size:14px;font-weight:700;line-height:1.7;color:var(--ink);letter-spacing:0.02em;}' +
+      '.note-sec{margin-top:22px;padding-top:18px;border-top:1px dashed var(--line);}' +
+      '.note-sec h3{font-size:11px;margin:0 0 10px;color:var(--muted);font-weight:800;letter-spacing:0.15em;}' +
+      '.note-body{font-size:12.5px;line-height:1.75;color:var(--ink);white-space:pre-wrap;}' +
+      '@page{size:A4;margin:15mm;}' +
+      '@media print{body{background:#fff;}.toolbar{display:none!important;}.sheet{margin:0;box-shadow:none;max-width:none;}.sheet-pad{padding:0;}}';
+    return (
+      '<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">' +
+      '<title>見積り依頼書</title><style>' +
+      css +
+      '</style></head><body>' +
+      '<div class="toolbar no-print"><button type="button" onclick="window.print()">印刷 / PDF保存</button>' +
+      '<span>ブラウザの印刷ダイアログで「PDFに保存」を選ぶとファイル化できます</span></div>' +
+      '<div class="sheet"><div class="sheet-pad">' +
+      '<div class="doc-bar"></div>' +
+      '<header class="doc-title-wrap"><h1 class="doc-title">見積り依頼書</h1>' +
+      '<p class="doc-title-en">Request for Quotation</p></header>' +
+      '<div class="meta-grid">' +
+      '<div class="meta-card to"><div class="meta-k">送付先</div><div class="meta-v">' +
+      toLine +
+      '</div></div>' +
+      '<div class="meta-card from"><div class="meta-k">依頼元</div><div class="meta-v">' +
+      fromBlock +
+      '</div></div></div>' +
+      '<dl class="doc-facts"><dt>依頼日</dt><dd>' +
+      esc(ctx.quoDate) +
+      '</dd><dt>件名</dt><dd>' +
+      titleLine +
+      '</dd></dl>' +
+      '<h2 class="sec-title">依頼内容</h2>' +
+      '<table class="req"><thead><tr><th>品目・仕様</th><th class="num">数量</th></tr></thead><tbody><tr>' +
+      '<td><strong>' +
+      esc(ctx.matLabel) +
+      '</strong><span class="spec">丸棒　Φ' +
+      esc(String(ctx.d)) +
+      ' × ' +
+      esc(String(ctx.l)) +
+      ' mm　× ' +
+      esc(String(ctx.qty)) +
+      ' 本</span></td>' +
+      '<td class="num">' +
+      esc(String(ctx.qty)) +
+      ' 本</td></tr></tbody></table>' +
+      '<p class="closing">上記について、材料の御見積りを賜りますようお願い申し上げます。</p>' +
+      (ctx.quoNote
+        ? '<section class="note-sec"><h3>備考</h3><div class="note-body">' + noteHtml + '</div></section>'
+        : '') +
+      '</div></div></body></html>'
+    );
+  }
+
+  function openQuoteWindow(ctx) {
+    var html = buildQuotePrintHtml(ctx);
+    var w = window.open('', '_blank');
+    if (!w) {
+      alert('ポップアップがブロックされました。ブラウザの設定を確認してください。');
+      return;
+    }
+    w.document.write(html);
+    w.document.close();
+  }
+
+  function openMailtoQuote(ctx) {
+    var body = buildQuotePlainText(ctx);
+    var subj = '見積り依頼書 — ' + quoteFormatTitle(ctx.quoTitle);
+    var a = document.createElement('a');
+    a.href =
+      'mailto:?subject=' + encodeURIComponent(subj) + '&body=' + encodeURIComponent(body);
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
+
+  fillMaterialSelects();
+  document.getElementById('addDate').value = todayISO();
+  var quoDateEl = document.getElementById('quoDate');
+  if (quoDateEl) quoDateEl.value = todayISO();
+  var quoFromEl = document.getElementById('quoFrom');
+  if (quoFromEl && !String(quoFromEl.value || '').trim()) {
+    quoFromEl.value = QUOTE_OUR_COMPANY_DEFAULT;
+  }
+  var quoTitleEl = document.getElementById('quoTitle');
+  if (quoTitleEl && !String(quoTitleEl.value || '').trim()) {
+    quoTitleEl.value = QUOTE_TITLE_DEFAULT;
+  }
+  refreshQuoSupplierDatalist();
+  var ocrDateEl = document.getElementById('ocrDate');
+  if (ocrDateEl) ocrDateEl.value = todayISO();
+
+  /* ─── スキャン OCR（Tesseract.js） ─── */
+  var tesseractPromise = null;
+  function ensureTesseract() {
+    if (typeof Tesseract !== 'undefined') return Promise.resolve(Tesseract);
+    if (tesseractPromise) return tesseractPromise;
+    tesseractPromise = new Promise(function (resolve, reject) {
+      var s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@4.1.1/dist/tesseract.min.js';
+      s.onload = function () { resolve(window.Tesseract); };
+      s.onerror = function () { reject(new Error('Tesseract読込失敗')); };
+      document.head.appendChild(s);
+    });
+    return tesseractPromise;
+  }
+
+  function runOcrOnFile(file) {
+    var prog = document.getElementById('ocrProgress');
+    var ta = document.getElementById('ocrText');
+    prog.textContent = '準備中…';
+    ensureTesseract()
+      .then(function (Tess) {
+        return Tess.recognize(file, 'jpn+eng', {
+          logger: function (m) {
+            if (m.status === 'loading tesseract core') prog.textContent = 'OCRコア読込…';
+            else if (m.status === 'loading language traineddata')
+              prog.textContent = '日本語データ読込…（初回は1〜2分かかることがあります）';
+            else if (m.status === 'initializing api') prog.textContent = '初期化…';
+            else if (m.status === 'recognizing text')
+              prog.textContent = '文字認識中 ' + Math.round((m.progress || 0) * 100) + '%';
+          }
+        });
+      })
+      .then(function (result) {
+        ta.value = result.data.text || '';
+        prog.textContent = '完了。下のテキストを確認してから取り込みボタンを押してください。';
+      })
+      .catch(function () {
+        prog.textContent = '失敗しました。画像形式（JPEG/PNG）・ネット接続を確認してください。';
+      });
+  }
+
+  var ocrDrop = document.getElementById('ocrDrop');
+  var ocrFile = document.getElementById('ocrFile');
+  if (ocrDrop && ocrFile) {
+    ocrDrop.addEventListener('click', function () { ocrFile.click(); });
+    ocrDrop.addEventListener('dragover', function (e) {
+      e.preventDefault();
+      ocrDrop.classList.add('drag');
+    });
+    ocrDrop.addEventListener('dragleave', function () { ocrDrop.classList.remove('drag'); });
+    ocrDrop.addEventListener('drop', function (e) {
+      e.preventDefault();
+      ocrDrop.classList.remove('drag');
+      var f = e.dataTransfer.files[0];
+      if (f && /^image\/(jpeg|png|jpg)$/i.test(f.type)) runOcrOnFile(f);
+      else alert('JPEG または PNG 画像をドロップしてください。');
+    });
+    ocrFile.addEventListener('change', function () {
+      var f = ocrFile.files[0];
+      if (f) runOcrOnFile(f);
+      ocrFile.value = '';
+    });
+  }
+
+  document.getElementById('btnOcrAsTable').addEventListener('click', function () {
+    var text = document.getElementById('ocrText').value.trim();
+    var el = document.getElementById('ocrImportResult');
+    if (!text) {
+      el.textContent = '先にスキャンするか、テキストを貼ってください。';
+      return;
+    }
+    var drafts = parseTableToDraftArray(text);
+    if (!drafts.length) {
+      el.textContent =
+        '解釈できた行がありません。1行目を見出しにし、金額列は「合計金額」「キロ単価」「本単価」のいずれかを含めてください（OCRの誤字も確認）。';
+      return;
+    }
+    renderDraftTable(drafts);
+    el.textContent =
+      drafts.length + ' 行をプレビューに出しました。ページ下部の表を修正し「確定して蓄積」を押してください。';
+  });
+
+  document.getElementById('btnOcrHeuristic').addEventListener('click', function () {
+    var text = document.getElementById('ocrText').value;
+    var sup = document.getElementById('ocrSupplier').value;
+    var dt = document.getElementById('ocrDate').value;
+    var mat = document.getElementById('ocrMaterial').value;
+    var el = document.getElementById('ocrImportResult');
+    var drafts = heuristicToDraftRows(text, sup, dt, mat);
+    if (!drafts.length) {
+      el.textContent =
+        '推測できた行がありません。数値の並び（径・長さ・本・金額）を確認するか、表形式でプレビューを試してください。';
+      return;
+    }
+    renderDraftTable(drafts);
+    el.textContent =
+      drafts.length + ' 行をプレビューへ（推測のため要確認）。ページ下部で修正→「確定して蓄積」。';
+  });
+
+  document.getElementById('btnDraftCommit').addEventListener('click', function () {
+    var recs = loadRecords();
+    var n = 0;
+    var err = 0;
+    document.querySelectorAll('#draftBody tr').forEach(function (tr) {
+      var date = tr.querySelector('.d-date').value || todayISO();
+      var supplier = tr.querySelector('.d-sup').value.trim();
+      var mat = tr.querySelector('.d-mat').value;
+      var d = parseFloat(tr.querySelector('.d-d').value);
+      var l = parseFloat(tr.querySelector('.d-l').value);
+      var qty = parseInt(tr.querySelector('.d-q').value, 10) || 1;
+      var total = parseFloat(tr.querySelector('.d-tot').value);
+      if (isNaN(d) || d <= 0 || isNaN(l) || l <= 0 || isNaN(total) || total < 0) {
+        err++;
+        return;
+      }
+      var rho = rhoOfKey(mat);
+      var kg = kgOneBar(d, l, rho) * qty;
+      if (kg <= 0) return;
+      recs.push({
+        id: uid(),
+        date: date.slice(0, 10),
+        supplier: supplier,
+        materialKey: mat,
+        d: d,
+        l: l,
+        qty: qty,
+        totalYen: Math.round(total),
+        totalKg: kg,
+        yenPerKg: Math.round((total / kg) * 100) / 100,
+        memo: 'プレビュー確定'
+      });
+      n++;
+    });
+    if (n === 0) {
+      alert('有効な行がありません。径・長さ・合計金額を入力してください。');
+      return;
+    }
+    saveRecords(recs);
+    document.getElementById('draftBody').innerHTML = '';
+    document.getElementById('draftCard').style.display = 'none';
+    var msg = n + ' 件を蓄積しました。';
+    if (err) msg += '（入力不備でスキップ ' + err + ' 行）';
+    document.getElementById('ocrImportResult').textContent = msg;
+    document.getElementById('importResult').textContent = msg;
+    runEstimate();
+  });
+
+  document.getElementById('btnDraftClear').addEventListener('click', function () {
+    document.getElementById('draftBody').innerHTML = '';
+    document.getElementById('draftCard').style.display = 'none';
+    document.getElementById('ocrImportResult').textContent = 'プレビューを破棄しました。';
+  });
+
+  document.getElementById('btnDraftAddRow').addEventListener('click', function () {
+    var sup = document.getElementById('ocrSupplier');
+    var dt = document.getElementById('ocrDate');
+    var mat = document.getElementById('ocrMaterial');
+    appendDraftRow({
+      date: (dt && dt.value) || todayISO(),
+      supplier: (sup && sup.value) || '',
+      materialKey: (mat && mat.value) || 'SS400_KURO'
+    });
+    showDraftCard();
+  });
+
+  document.getElementById('btnClearCsvPaste').addEventListener('click', function () {
+    var ta = document.getElementById('csvPaste');
+    ta.value = '';
+    ta.focus();
+    document.getElementById('importResult').textContent = '貼り付け欄を空にしました。';
+  });
+
+  document.getElementById('btnParsePastePreview').addEventListener('click', function () {
+    var t = document.getElementById('csvPaste').value.trim();
+    if (!t) {
+      document.getElementById('importResult').textContent = '表を貼り付けてください。';
+      return;
+    }
+    var drafts = parseTableToDraftArray(t);
+    if (!drafts.length) {
+      document.getElementById('importResult').textContent =
+        '解釈できた行がありません。1行目を見出しにしてください。';
+      return;
+    }
+    renderDraftTable(drafts);
+    document.getElementById('importResult').textContent =
+      drafts.length + ' 行をプレビューへ。下にスクロールして確認し「確定して蓄積」を押してください。';
+  });
+
+  document.querySelectorAll('.tab-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      document.querySelectorAll('.tab-btn').forEach(function (b) { b.classList.remove('active'); });
+      document.querySelectorAll('.panel').forEach(function (p) { p.classList.remove('active'); });
+      btn.classList.add('active');
+      document.getElementById(btn.dataset.panel).classList.add('active');
+      if (btn.dataset.panel === 'p-list') renderList();
+      if (btn.dataset.panel === 'p-est') refreshQuoSupplierDatalist();
+    });
+  });
+
+  ['estMaterial', 'estD', 'estL', 'estQty', 'tolD', 'tolL'].forEach(function (id) {
+    document.getElementById(id).addEventListener('input', function () {
+      if (id !== 'manualYenKg') document.getElementById('manualYenKg').dataset.touched = '';
+      runEstimate();
+      if (id === 'tolD' || id === 'tolL') {
+        document.querySelectorAll('#draftBody tr').forEach(updateDraftYkg);
+      }
+    });
+    document.getElementById(id).addEventListener('change', function () {
+      runEstimate();
+      if (id === 'tolD' || id === 'tolL') {
+        document.querySelectorAll('#draftBody tr').forEach(updateDraftYkg);
+      }
+    });
+  });
+
+  document.getElementById('manualYenKg').addEventListener('input', function () {
+    this.dataset.touched = '1';
+    runEstimate();
+  });
+
+  document.getElementById('btnApplySuggest').addEventListener('click', function () {
+    var t = document.getElementById('suggestYenKg').textContent;
+    var n = parseFloat(t.replace(/[^\d.]/g, ''));
+    if (!isNaN(n)) {
+      document.getElementById('manualYenKg').value = Math.round(n);
+      document.getElementById('manualYenKg').dataset.touched = '1';
+      runEstimate();
+    }
+  });
+
+  document.getElementById('btnOpenQuote').addEventListener('click', function () {
+    var ctx = getQuoteContext();
+    var err = validateQuoteContext(ctx);
+    if (err) {
+      alert(err);
+      return;
+    }
+    openQuoteWindow(ctx);
+  });
+
+  document.getElementById('btnMailQuote').addEventListener('click', function () {
+    var ctx = getQuoteContext();
+    var err = validateQuoteContext(ctx);
+    if (err) {
+      alert(err);
+      return;
+    }
+    openMailtoQuote(ctx);
+  });
+
+  document.getElementById('btnCopyQuote').addEventListener('click', function () {
+    var ctx = getQuoteContext();
+    var err = validateQuoteContext(ctx);
+    if (err) {
+      alert(err);
+      return;
+    }
+    var text = buildQuotePlainText(ctx);
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(
+        function () {
+          alert('見積り依頼書の本文をクリップボードにコピーしました。メールやチャットに貼り付けて送信できます。');
+        },
+        function () {
+          prompt('コピーできませんでした。以下を手動でコピーしてください：', text);
+        }
+      );
+    } else {
+      prompt('以下をコピーして送信にご利用ください：', text);
+    }
+  });
+
+  function previewAdd() {
+    var matKey = document.getElementById('addMaterial').value;
+    var d = parseFloat(document.getElementById('addD').value);
+    var l = parseFloat(document.getElementById('addL').value);
+    var qty = parseInt(document.getElementById('addQty').value, 10) || 1;
+    var total = parseFloat(document.getElementById('addTotal').value);
+    var rho = rhoOfKey(matKey);
+    if (isNaN(d) || d <= 0 || isNaN(l) || l <= 0) {
+      document.getElementById('addPreview').textContent = '';
+      return;
+    }
+    var kg = kgOneBar(d, l, rho) * qty;
+    var yk = isNaN(total) || total < 0 ? NaN : total / kg;
+    document.getElementById('addPreview').textContent =
+      '計算プレビュー: 合計 ' + kg.toFixed(3) + ' kg → 円/kg ' +
+      (isNaN(yk) ? '—' : Math.round(yk).toLocaleString('ja-JP'));
+  }
+
+  ['addMaterial', 'addD', 'addL', 'addQty', 'addTotal'].forEach(function (id) {
+    document.getElementById(id).addEventListener('input', previewAdd);
+  });
+
+  document.getElementById('btnAdd').addEventListener('click', function () {
+    var matKey = document.getElementById('addMaterial').value;
+    var d = parseFloat(document.getElementById('addD').value);
+    var l = parseFloat(document.getElementById('addL').value);
+    var qty = parseInt(document.getElementById('addQty').value, 10) || 1;
+    var total = parseFloat(document.getElementById('addTotal').value);
+    if (isNaN(total) || total < 0) {
+      alert('合計金額を入力してください');
+      return;
+    }
+    var rho = rhoOfKey(matKey);
+    var kg = kgOneBar(d, l, rho) * qty;
+    if (kg <= 0) {
+      alert('径・長さ・本数を確認してください');
+      return;
+    }
+    var recs = loadRecords();
+    recs.push({
+      id: uid(),
+      date: document.getElementById('addDate').value || todayISO(),
+      supplier: document.getElementById('addSupplier').value.trim(),
+      materialKey: matKey,
+      d: d,
+      l: l,
+      qty: qty,
+      totalYen: Math.round(total),
+      totalKg: kg,
+      yenPerKg: Math.round((total / kg) * 100) / 100,
+      memo: document.getElementById('addMemo').value.trim()
+    });
+    saveRecords(recs);
+    alert('保存しました（' + recs.length + ' 件）');
+    runEstimate();
+    previewAdd();
+  });
+
+  document.getElementById('csvFile').addEventListener('change', function (e) {
+    var f = e.target.files[0];
+    if (!f) return;
+    var r = new FileReader();
+    r.onload = function () {
+      var drafts = parseTableToDraftArray(r.result);
+      if (!drafts.length) {
+        document.getElementById('importResult').textContent =
+          '解釈できた行がありません。文字コード（UTF-8）と1行目の見出しを確認してください。';
+        alert('プレビューに出せる行がありません。テンプレCSVを参考にしてください。');
+      } else {
+        renderDraftTable(drafts);
+        document.getElementById('importResult').textContent =
+          drafts.length + ' 行をプレビューへ。下にスクロールして修正後「確定して蓄積」。';
+      }
+      runEstimate();
+      e.target.value = '';
+    };
+    r.readAsText(f, 'UTF-8');
+  });
+
+  document.getElementById('btnParsePaste').addEventListener('click', function () {
+    var t = document.getElementById('csvPaste').value;
+    var res = parseTable(t);
+    document.getElementById('importResult').textContent =
+      '取込: 成功 ' + res.ok + ' 件' + (res.err ? ' / スキップ ' + res.err + ' 行' : '');
+    runEstimate();
+  });
+
+  document.getElementById('btnDlTemplate').addEventListener('click', function () {
+    var bom = '\uFEFF';
+    var csv =
+      '日付,仕入先,材質,径,長さ,本数,合計金額\n' +
+      '2025-03-01,○○金属,SS400黒皮,25,100,4,15000\n' +
+      '2025-03-15,△△鋼材,S45C磨,30,150,2,12000';
+    var blob = new Blob([bom + csv], { type: 'text/csv;charset=utf-8' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = '材料明細テンプレ.csv';
+    a.click();
+    URL.revokeObjectURL(a.href);
+  });
+
+  function recordMatchesListSearch(r, q) {
+    var raw = String(q == null ? '' : q).trim();
+    if (!raw) return true;
+    var hay =
+      [
+        r.date,
+        r.supplier,
+        r.materialKey,
+        r.memo,
+        r.d,
+        r.l,
+        r.qty,
+        r.totalKg,
+        r.yenPerKg,
+        r.totalYen
+      ]
+        .map(function (x) {
+          return String(x != null ? x : '');
+        })
+        .join(' ')
+        .toLowerCase();
+    var parts = raw.toLowerCase().split(/\s+/).filter(Boolean);
+    for (var i = 0; i < parts.length; i++) {
+      if (hay.indexOf(parts[i]) === -1) return false;
+    }
+    return true;
+  }
+
+  var listSelIds = Object.create(null);
+
+  function listSelCount() {
+    return Object.keys(listSelIds).length;
+  }
+
+  function listSelSet(id, on) {
+    if (!id) return;
+    if (on) listSelIds[id] = true;
+    else delete listSelIds[id];
+  }
+
+  function listSelHas(id) {
+    return id ? !!listSelIds[id] : false;
+  }
+
+  function listSelClearAll() {
+    listSelIds = Object.create(null);
+  }
+
+  function ensureRecordIds(arr) {
+    var dirty = false;
+    arr.forEach(function (r) {
+      if (r.id == null || r.id === '') {
+        r.id = uid();
+        dirty = true;
+      }
+    });
+    if (dirty) saveRecords(arr);
+  }
+
+  function updateListBulkBar() {
+    var n = listSelCount();
+    var btn = document.getElementById('btnListBulkDelete');
+    if (btn) {
+      btn.disabled = n === 0;
+      btn.textContent = '選択した' + n + '件を削除';
+    }
+  }
+
+  function updateListCheckAllState() {
+    var head = document.getElementById('listCheckAll');
+    if (!head) return;
+    var boxes = document.querySelectorAll('#listBody input.list-row-chk');
+    var tot = boxes.length;
+    if (tot === 0) {
+      head.checked = false;
+      head.indeterminate = false;
+      return;
+    }
+    var c = 0;
+    for (var i = 0; i < boxes.length; i++) {
+      if (boxes[i].checked) c++;
+    }
+    head.checked = c === tot;
+    head.indeterminate = c > 0 && c < tot;
+  }
+
+  function renderList() {
+    var all = loadRecords();
+    ensureRecordIds(all);
+    var total = all.length;
+    var recs = all.slice().reverse();
+    var qEl = document.getElementById('listSearch');
+    var q = qEl ? qEl.value : '';
+    recs = recs.filter(function (r) {
+      return recordMatchesListSearch(r, q);
+    });
+    document.getElementById('listCount').textContent =
+      '保存件数: ' + total + ' 件（このPCのブラウザのみ）';
+    var fs = document.getElementById('listFilterStat');
+    if (fs) {
+      if (String(q).trim()) {
+        fs.textContent =
+          '一覧表示: ' + recs.length + ' 件 / 全 ' + total + ' 件（検索で絞り込み）';
+      } else {
+        fs.textContent = '一覧表示: 全 ' + total + ' 件';
+      }
+    }
+    var body = document.getElementById('listBody');
+    body.innerHTML = '';
+    recs.forEach(function (r) {
+      var tr = document.createElement('tr');
+      var rid = String(r.id);
+      tr.innerHTML =
+        '<td style="text-align:center"><input type="checkbox" class="list-row-chk" data-id="' +
+        escapeAttr(rid) +
+        '"' +
+        (listSelHas(rid) ? ' checked' : '') +
+        ' style="width:18px;height:18px;cursor:pointer" aria-label="行を選択"></td>' +
+        '<td><button type="button" class="btn btn-danger list-row-del" style="padding:4px 8px;font-size:11px;margin:0">削除</button></td>' +
+        '<td>' + r.date + '</td>' +
+        '<td>' + escapeHtml(r.supplier) + '</td>' +
+        '<td>' + r.materialKey + '</td>' +
+        '<td>' + r.d + '</td>' +
+        '<td>' + r.l + '</td>' +
+        '<td>' + r.qty + '</td>' +
+        '<td>' + r.totalKg.toFixed(3) + '</td>' +
+        '<td>' + r.yenPerKg + '</td>' +
+        '<td>' + r.totalYen + '</td>';
+      var chk = tr.querySelector('.list-row-chk');
+      chk.addEventListener('change', function () {
+        listSelSet(rid, chk.checked);
+        updateListCheckAllState();
+        updateListBulkBar();
+      });
+      tr.querySelector('.list-row-del').addEventListener('click', function () {
+        if (!confirm('この1件を削除しますか？')) return;
+        var cur = loadRecords().filter(function (x) { return x.id !== r.id; });
+        saveRecords(cur);
+        listSelSet(rid, false);
+        renderList();
+        runEstimate();
+      });
+      body.appendChild(tr);
+    });
+    updateListCheckAllState();
+    updateListBulkBar();
+  }
+
+  var listSearchEl = document.getElementById('listSearch');
+  if (listSearchEl) {
+    listSearchEl.addEventListener('input', function () {
+      renderList();
+    });
+  }
+
+  var listCheckAllEl = document.getElementById('listCheckAll');
+  if (listCheckAllEl) {
+    listCheckAllEl.addEventListener('change', function () {
+      var want = listCheckAllEl.checked;
+      document.querySelectorAll('#listBody input.list-row-chk').forEach(function (cb) {
+        var id = cb.getAttribute('data-id');
+        cb.checked = want;
+        listSelSet(id, want);
+      });
+      listCheckAllEl.indeterminate = false;
+      updateListBulkBar();
+    });
+  }
+
+  document.getElementById('btnListBulkDelete').addEventListener('click', function () {
+    var ids = Object.keys(listSelIds);
+    if (!ids.length) return;
+    if (!confirm('選択した ' + ids.length + ' 件を削除しますか？（元に戻せません）')) return;
+    var idSet = Object.create(null);
+    ids.forEach(function (id) {
+      idSet[id] = true;
+    });
+    var cur = loadRecords().filter(function (x) {
+      return !idSet[String(x.id)];
+    });
+    saveRecords(cur);
+    ids.forEach(function (id) {
+      delete listSelIds[id];
+    });
+    renderList();
+    runEstimate();
+  });
+
+  document.getElementById('btnListClearSelection').addEventListener('click', function () {
+    listSelClearAll();
+    renderList();
+  });
+
+  document.getElementById('btnExportJson').addEventListener('click', function () {
+    var blob = new Blob([JSON.stringify(loadRecords(), null, 2)], { type: 'application/json' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = '材料単価データ_' + todayISO() + '.json';
+    a.click();
+    URL.revokeObjectURL(a.href);
+  });
+
+  document.getElementById('btnExportCsv').addEventListener('click', function () {
+    var rows = loadRecords();
+    var h = '日付,仕入先,材質キー,径,長さ,本数,合計kg,円kg,合計金額';
+    var lines = [h];
+    rows.forEach(function (r) {
+      lines.push(
+        [r.date, r.supplier, r.materialKey, r.d, r.l, r.qty, r.totalKg.toFixed(4), r.yenPerKg, r.totalYen].join(',')
+      );
+    });
+    var blob = new Blob(['\uFEFF' + lines.join('\n')], { type: 'text/csv;charset=utf-8' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = '材料単価データ_' + todayISO() + '.csv';
+    a.click();
+    URL.revokeObjectURL(a.href);
+  });
+
+  document.getElementById('jsonImport').addEventListener('change', function (e) {
+    var f = e.target.files[0];
+    if (!f) return;
+    var r = new FileReader();
+    r.onload = function () {
+      try {
+        var arr = JSON.parse(r.result);
+        if (!Array.isArray(arr)) throw new Error('array');
+        var cur = loadRecords();
+        arr.forEach(function (x) {
+          if (x.d && x.l && x.totalYen != null) {
+            if (!x.id) x.id = uid();
+            cur.push(x);
+          }
+        });
+        saveRecords(cur);
+        alert('追加しました。合計 ' + cur.length + ' 件');
+        runEstimate();
+        renderList();
+      } catch (err) {
+        alert('JSONの形式が正しくありません');
+      }
+      e.target.value = '';
+    };
+    r.readAsText(f, 'UTF-8');
+  });
+
+  runEstimate();
+  loadRecordsFromApi();
+})();
+  </script>
+</body>
+</html>

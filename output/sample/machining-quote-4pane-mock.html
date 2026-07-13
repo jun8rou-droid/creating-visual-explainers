@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="robots" content="noindex, nofollow">
   <meta name="color-scheme" content="light">
-  <title>加工費見積 — 4ペイン UI（モック v28）</title>
+  <title>加工費見積 — 4ペイン UI（モック v29）</title>
   <meta name="drawing-api-base" content="">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -948,6 +948,7 @@
         <p id="header-total-mobile" class="text-sm font-bold font-mono text-slate-900 leading-tight truncate">¥—</p>
       </div>
       <button type="button" id="btn-open-master" class="btn-ghost px-4 py-2 text-sm font-medium text-slate-700">マスタ管理</button>
+      <a href="material-pricing.html" class="btn-ghost px-4 py-2 text-sm font-medium text-slate-700">仕入れ記録</a>
       <span class="rounded-full bg-indigo-50 border border-indigo-100 px-3 py-1 text-xs font-semibold text-indigo-700 tracking-wide" title="開発用モック">試用</span>
     </div>
   </header>
@@ -1069,6 +1070,7 @@
                 <span class="pane1-field-unit w-auto pl-0.5">円</span>
               </div>
               <p id="material-cost-ref" class="hidden text-xs text-zinc-400 mt-0.5">参考: 込みなら ¥2,108/個</p>
+              <p id="actual-price-badge" class="hidden text-sm mt-1 leading-relaxed"></p>
             </div>
 
             <p class="pane1-master-links input-section-hint mb-0">
@@ -1325,7 +1327,7 @@
   <footer class="app-footer flex-shrink-0 px-5 py-2.5 flex flex-wrap items-center justify-between gap-2 text-sm text-zinc-500">
     <span id="status-bar">材料と工程を入力してください</span>
     <span class="hidden md:inline text-zinc-400">+ 追加 · ↑↓ 移動 · 区切りをドラッグでサイズ調整</span>
-    <span>v28 · マスタDB共有</span>
+    <span>v29 · 仕入れ実勢単価の連携</span>
   </footer>
 
   <nav id="mobile-pane-nav" class="mobile-pane-nav" aria-label="ペイン切替">
@@ -2817,6 +2819,64 @@
       }
 
       function getCurrentMaterialId() { return $('sel-material').value; }
+
+      /** v29: 材質ごとの実勢仕入れ単価（material-pricing.html の記録から） */
+      var actualPriceCache = {};
+
+      function refreshActualPriceBadge() {
+        var badge = $('actual-price-badge');
+        if (!badge) return;
+        var matId = getCurrentMaterialId();
+        if (!matId || isConfirmedRevView()) {
+          badge.classList.add('hidden');
+          return;
+        }
+        var cached = actualPriceCache[matId];
+        if (cached === undefined) {
+          actualPriceCache[matId] = null; // フェッチ中マーク
+          fetch('/api/material-purchases/summary?material=' + encodeURIComponent(matId))
+            .then(function (res) { return res.ok ? res.json() : null; })
+            .then(function (body) {
+              actualPriceCache[matId] = (body && body.summary) ? body.summary : false;
+              refreshActualPriceBadge();
+            })
+            .catch(function () { actualPriceCache[matId] = false; });
+          badge.classList.add('hidden');
+          return;
+        }
+        if (!cached) {
+          badge.classList.add('hidden');
+          return;
+        }
+        var master = materialMaster[matId];
+        var masterPrice = master ? Math.round(master.priceKg) : null;
+        var latest = cached.latest;
+        var diff = masterPrice != null && masterPrice > 0
+          ? Math.round(((latest.yenKg - masterPrice) / masterPrice) * 100)
+          : null;
+        var warn = diff != null && Math.abs(diff) >= 10;
+        badge.classList.remove('hidden');
+        badge.className = 'text-sm mt-1 leading-relaxed ' + (warn ? 'text-amber-700' : 'text-zinc-500');
+        badge.innerHTML =
+          '実勢 ¥' + fmt(latest.yenKg) + '/kg（' + escapeHtml(latest.date.slice(5).replace('-', '/')) +
+          ' ' + escapeHtml(latest.supplier || '仕入先不明') + ' φ' + escapeHtml(String(latest.dia)) + '）' +
+          (masterPrice != null ? ' · マスタ ¥' + fmt(masterPrice) + '/kg' : '') +
+          (warn ? ' <strong>(' + (diff > 0 ? '+' : '') + diff + '%)</strong>' : '') +
+          (masterPrice !== latest.yenKg
+            ? ' <button type="button" id="btn-apply-actual-price" class="underline text-indigo-700 hover:text-indigo-900">マスタへ反映</button>'
+            : '');
+        var applyBtn = $('btn-apply-actual-price');
+        if (applyBtn) {
+          applyBtn.addEventListener('click', function () {
+            if (!materialMaster[matId]) return;
+            materialMaster[matId].priceKg = latest.yenKg;
+            saveMastersToLocalStorage();
+            $('status-bar').textContent =
+              matId + ' の材料単価を実勢 ¥' + fmt(latest.yenKg) + '/kg に更新しました（全端末に反映）';
+            renderAll();
+          });
+        }
+      }
 
       function masterToConditions(m) {
         return { vc: m.vc, f: m.f, ap: m.ap, vcHole: m.vcHole, fHole: m.fHole };
@@ -5817,6 +5877,7 @@
         var unitMachining = totals.unitAfter;
         var lotMachining = totals.lotMachiningAfter;
         var matId = getCurrentMaterialId();
+        refreshActualPriceBadge();
         var productLabel = getProductDisplayLabel();
         var customer = getCustomerName();
         var drawing = ($('input-drawing') && $('input-drawing').value.trim()) || '';
