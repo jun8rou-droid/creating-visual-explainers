@@ -97,8 +97,9 @@ async function ensureMaterial(client, materialId) {
   }
 
   await client.query(
-    `INSERT INTO materials (id, vc, f, ap, vc_hole, f_hole, density, price_kg)
-     SELECT $1, vc, f, ap, vc_hole, f_hole, density, price_kg FROM materials WHERE id = 'S45C'`,
+    `INSERT INTO materials (id, vc, f, ap, vc_hole, f_hole, density, price_kg, n_max_turn, n_max_hole)
+     SELECT $1, vc, f, ap, vc_hole, f_hole, density, price_kg, n_max_turn, n_max_hole
+     FROM materials WHERE id = 'S45C'`,
     [id],
   );
   return id;

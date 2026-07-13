@@ -24,11 +24,11 @@
 
 ## A: データ整合の芯（複数人運用で事故る順）
 
-### A1. マスタが localStorage のみ → PC ごとに見積金額がブレる【既知・最優先】
+### A1. マスタが localStorage のみ → PC ごとに見積金額がブレる【✅ v28 で対応済み】
 - 材質・品名・顧客・共通マスタは各ブラウザの localStorage にしか無い（`mq-master-v1`）。PC-A と PC-B で Vc や ¥/kg が違えば **同じ案件でも金額が変わり**、下書き段階では警告も出ない。設計メモの「DB が唯一の正本」（design-memo:340）に違反。
 - 対策: `GET/PUT /api/masters`（materials / products / customers / settings / templates）を追加して DB を正本化。CURRENT-STATE の「マスタ DB 化 高」そのもの。
 
-### A2. materials 表に n_max_turn / n_max_hole 列がない
+### A2. materials 表に n_max_turn / n_max_hole 列がない【✅ v28 で対応済み】
 - v22 の回転数上限はフロントだけが持ち、DB スキーマ（`migrations/001_init.sql:8-19`）と `ensureMaterial` のコピー列（`quotes-db.mjs:99-104`）に無い。**DB だけでは確定金額を再現できない**。A1 のマイグレーションに必ず同梱する。
 
 ### A3. 下書き保存が後勝ち上書き（楽観ロック無し）

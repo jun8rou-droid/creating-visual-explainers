@@ -31,6 +31,7 @@ import {
   resolveOrCreateQuoteId,
   saveDraftQuote,
 } from './quotes-db.mjs';
+import { getMasterBundle, saveMasterBundle } from './masters-db.mjs';
 import { analyzeDrawing, getVisionStatus, isVisionEnabled } from './vision-router.mjs';
 import { ocrDrawingRegion } from './gemini-analyze.mjs';
 import {
@@ -118,6 +119,30 @@ app.get('/api/health', async (_req, res) => {
       ? { enabled: true, connected: db.ok, reason: db.reason || null }
       : { enabled: false },
   });
+});
+
+app.get('/api/masters', async (req, res) => {
+  if (!isDbEnabled()) {
+    return res.status(503).json({ error: 'DATABASE_URL が未設定です' });
+  }
+  try {
+    res.json(await getMasterBundle());
+  } catch (err) {
+    console.error('[masters get]', err);
+    res.status(500).json({ error: 'マスタの取得に失敗しました' });
+  }
+});
+
+app.put('/api/masters', async (req, res) => {
+  if (!isDbEnabled()) {
+    return res.status(503).json({ error: 'DATABASE_URL が未設定です' });
+  }
+  try {
+    res.json(await saveMasterBundle(req.body));
+  } catch (err) {
+    console.error('[masters put]', err);
+    res.status(500).json({ error: err.message || 'マスタの保存に失敗しました' });
+  }
 });
 
 app.get('/api/quotes', async (req, res) => {

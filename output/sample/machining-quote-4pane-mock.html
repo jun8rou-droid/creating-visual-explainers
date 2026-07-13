@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="robots" content="noindex, nofollow">
   <meta name="color-scheme" content="light">
-  <title>加工費見積 — 4ペイン UI（モック v27）</title>
+  <title>加工費見積 — 4ペイン UI（モック v28）</title>
   <meta name="drawing-api-base" content="">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1325,7 +1325,7 @@
   <footer class="app-footer flex-shrink-0 px-5 py-2.5 flex flex-wrap items-center justify-between gap-2 text-sm text-zinc-500">
     <span id="status-bar">材料と工程を入力してください</span>
     <span class="hidden md:inline text-zinc-400">+ 追加 · ↑↓ 移動 · 区切りをドラッグでサイズ調整</span>
-    <span>v27 · 図面添付とAI読み取り</span>
+    <span>v28 · マスタDB共有</span>
   </footer>
 
   <nav id="mobile-pane-nav" class="mobile-pane-nav" aria-label="ペイン切替">
@@ -1971,6 +1971,8 @@
         responseTemplates: JSON.parse(JSON.stringify(responseTemplates)),
       };
       var masterLoadedFromBrowser = false;
+      /** マスタの出所: default | browser | db | db-migrated（v28: DB が正本） */
+      var masterSource = 'default';
 
       function normalizeMaterialEntry(m, fallback) {
         var fb = fallback || DEFAULT_MASTER_BUNDLE.materialMaster.S45C || {};
@@ -2026,12 +2028,14 @@
         return true;
       }
 
-      function saveMastersToLocalStorage() {
+      function saveMastersToLocalStorage(skipApiSync) {
         try {
           localStorage.setItem(MASTER_STORAGE_KEY, JSON.stringify(buildMasterStoragePayload()));
         } catch (e) {
           console.warn('[master save]', e);
         }
+        /* v28: マスタの正本は DB。編集時は端末キャッシュと DB の両方へ保存する */
+        if (!skipApiSync) scheduleMasterApiSave();
       }
 
       function loadMastersFromLocalStorage() {
@@ -2041,11 +2045,67 @@
           var data = JSON.parse(raw);
           if (!applyMasterStoragePayload(data)) return false;
           masterLoadedFromBrowser = true;
+          masterSource = 'browser';
           return true;
         } catch (e) {
           console.warn('[master load]', e);
           return false;
         }
+      }
+
+      var masterApiSaveTimer = null;
+      function scheduleMasterApiSave() {
+        if (masterApiSaveTimer) clearTimeout(masterApiSaveTimer);
+        masterApiSaveTimer = setTimeout(pushMastersToApi, 800);
+      }
+
+      function pushMastersToApi() {
+        masterApiSaveTimer = null;
+        return fetch('/api/masters', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(buildMasterStoragePayload()),
+        }).then(function (res) {
+          return res.json().then(function (body) {
+            if (!res.ok) throw new Error(body && body.error ? body.error : res.statusText);
+            masterSource = 'db';
+            return body;
+          });
+        }).catch(function (err) {
+          console.warn('[master api save]', err);
+          var bar = $('status-bar');
+          if (bar) {
+            bar.textContent = 'マスタの共有DB保存に失敗（この端末には保存済み・接続回復後に再保存してください）';
+          }
+          return null;
+        });
+      }
+
+      /** 起動時: DB を正本としてマスタを読み込む。
+          DB がまだ一度も保存されていない（version=0）なら、この端末の保存分を移行する */
+      function loadMastersFromDb() {
+        return fetch('/api/masters').then(function (res) {
+          return res.json().then(function (body) {
+            if (!res.ok) throw new Error(body && body.error ? body.error : res.statusText);
+            return body;
+          });
+        }).then(function (bundle) {
+          if (bundle && bundle.version === 0 && masterLoadedFromBrowser) {
+            return pushMastersToApi().then(function (saved) {
+              if (saved) masterSource = 'db-migrated';
+              return !!saved;
+            });
+          }
+          if (applyMasterStoragePayload(bundle)) {
+            masterSource = 'db';
+            saveMastersToLocalStorage(true);
+            return true;
+          }
+          return false;
+        }).catch(function (err) {
+          console.warn('[master db load]', err);
+          return false;
+        });
       }
 
       /** 確定 rev 閲覧用のサンプル工程（デモ · DB に保存されたイメージ） */
@@ -6776,7 +6836,17 @@
           bar.textContent = draftResult.message;
         } else if (masterLoadedFromBrowser && bar) {
           bar.textContent = '前回のマスタを復元しました · 材料と工程を入力してください';
-        } else if (draftResult.source === 'error' && bar) {
+        }
+        if (bar) {
+          if (masterSource === 'db-migrated') {
+            bar.textContent = (bar.textContent ? bar.textContent + ' · ' : '') +
+              'この端末のマスタを共有DBへ移行しました（今後は全端末で共有）';
+          } else if (masterSource !== 'db') {
+            bar.textContent = (bar.textContent ? bar.textContent + ' · ' : '') +
+              '⚠ マスタ: DB未接続のためこの端末の保存分を使用';
+          }
+        }
+        if (!draftResult.message && !masterLoadedFromBrowser && draftResult.source === 'error' && bar) {
           bar.textContent =
             '下書きの読み込みに失敗: ' + (draftResult.error && draftResult.error.message
               ? draftResult.error.message
@@ -6864,7 +6934,8 @@
       loadMastersFromLocalStorage();
 
       /** 起動時の案件決定: 前回の案件があればそれ、なければ新規 draft を作成。
-          API 不通時のみ従来の共有下書き D-0042 に退避（localStorage には残さない）。 */
+          API 不通時のみ従来の共有下書き D-0042 に退避（localStorage には残さない）。
+          v28: その前に共有マスタ（DB）を読み込む。 */
       function resolveStartupDraftRef() {
         if (currentDraftRef) {
           return Promise.resolve({ ref: currentDraftRef, created: false });
@@ -6885,7 +6956,9 @@
           });
       }
 
-      resolveStartupDraftRef().then(function (start) {
+      loadMastersFromDb().then(function () {
+        return resolveStartupDraftRef();
+      }).then(function (start) {
         if (start.offline) {
           currentDraftRef = start.ref;
         } else {
