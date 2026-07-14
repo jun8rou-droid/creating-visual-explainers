@@ -65,7 +65,8 @@ const analyzeUpload = upload.fields([
 
 const app = express();
 app.use(cors());
-app.use(express.json({ limit: '1mb' }));
+/* Vercel のボディ上限（約4.5MB）に合わせる。マスタ・仕入れ記録の全置換 PUT が 1MB を超え得るため */
+app.use(express.json({ limit: '4mb' }));
 
 /** メモリキャッシュ（DB 無効時 · API5 デモ） */
 const analyzeCache = new Map();
@@ -151,7 +152,7 @@ app.get('/api/material-purchases', async (req, res) => {
     return res.status(503).json({ error: 'DATABASE_URL が未設定です' });
   }
   try {
-    res.json({ records: await listPurchases() });
+    res.json(await listPurchases());
   } catch (err) {
     console.error('[purchases get]', err);
     res.status(500).json({ error: '仕入れ記録の取得に失敗しました' });
@@ -539,5 +540,16 @@ app.post(API_PATH_FEEDBACK, async (req, res) => {
 if (!process.env.VERCEL) {
   app.use(express.static(SAMPLE_ROOT));
 }
+
+/* body-parser / multer のエラーも JSON で返す（既定だと HTML が返りクライアントの res.json() が壊れる） */
+app.use((err, req, res, next) => {
+  if (res.headersSent) return next(err);
+  const status = err.status || err.statusCode || (err.code === 'LIMIT_FILE_SIZE' ? 413 : 500);
+  const message = err.type === 'entity.too.large' || status === 413
+    ? 'データが大きすぎます（上限を超えています）'
+    : 'サーバーエラーが発生しました';
+  console.error('[express]', err.message || err);
+  res.status(status).json({ error: message });
+});
 
 export default app;

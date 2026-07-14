@@ -68,6 +68,7 @@
 | v27 | 図面添付 UI 復活 + 同一オリジン API 判定バグ修正（デモ落ち解消）+ Gemini モデルを 2.5-flash に更新 |
 | v28 | マスタ DB 化（migrations/004 · customers 新設 · materials n_max 列 · products 標準工程列 · GET/PUT /api/masters） |
 | v29 | 材料仕入れ記録ツールを統合（migrations/005 · /api/material-purchases · 実勢単価バッジ · マスタ反映ボタン） |
+| v29fix | バグレビュー13件修正: 仕入れ記録の削除復活（version管理）・死んだ案件refの自己回復・案件切替時の図面破棄・確定rev閲覧中のAI適用防止・AI取込の多重送信/HEIC対応・実勢バッジのタブ復帰更新・APIエラーのJSON化・Gemini抽出の専用system指示・六角材のサマリ除外ほか |
 
 ## Git リモート
 

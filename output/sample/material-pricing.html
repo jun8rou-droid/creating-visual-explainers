@@ -941,8 +941,10 @@
     }).then(function (body) {
       var apiRecords = Array.isArray(body.records) ? body.records : [];
       var local = loadRecords();
-      if (!apiRecords.length && local.length) {
-        /* DB が空でこの端末に記録がある → 初回移行 */
+      /* version=0（一度も保存されていない）のときだけ端末→DBの初回移行を行う。
+         「全件削除してDBが空」の状態と区別しないと、古いキャッシュを持つ別端末が
+         削除済みデータを復活させてしまう */
+      if (body.version === 0 && !apiRecords.length && local.length) {
         setSyncStatus('この端末の記録をDBへ移行中…', false);
         scheduleApiSave();
         return;
@@ -2430,7 +2432,7 @@
       return recordMatchesListSearch(r, q);
     });
     document.getElementById('listCount').textContent =
-      '保存件数: ' + total + ' 件（このPCのブラウザのみ）';
+      '保存件数: ' + total + ' 件（共有DB · 全端末で同じ記録）';
     var fs = document.getElementById('listFilterStat');
     if (fs) {
       if (String(q).trim()) {
@@ -2586,6 +2588,8 @@
     var statusEl = document.getElementById('aiDropStatus');
     if (!zone || !fileEl) return;
 
+    var extractInFlight = false;
+
     function setStat(t, isErr) {
       statusEl.textContent = t;
       statusEl.style.color = isErr ? '#b91c1c' : '';
@@ -2616,12 +2620,25 @@
 
     function handleFile(f) {
       if (!f) return;
+      if (extractInFlight) {
+        setStat('前の読み取りが終わるまでお待ちください（20〜30秒）', true);
+        return;
+      }
+      if (/heic|heif/i.test(f.type) || /\.(heic|heif)$/i.test(f.name || '')) {
+        setStat('HEIC形式は読み取れません。iPhoneは「設定→カメラ→フォーマット→互換性優先」にするか、スクリーンショットでお試しください', true);
+        return;
+      }
       if (/pdf$/i.test(f.type) && f.size > 4 * 1024 * 1024) {
         setStat('PDF が大きすぎます（4MBまで）。写真で撮り直すか分割してください', true);
         return;
       }
+      extractInFlight = true;
+      zone.style.opacity = '0.5';
       setStat('AIが明細を読み取り中…（20〜30秒かかります）');
       shrinkImageIfNeeded(f).then(function (sendFile) {
+        if (sendFile.size > 4 * 1024 * 1024) {
+          throw new Error('画像を縮小できませんでした。JPEGかPNGで撮り直してください');
+        }
         var fd = new FormData();
         fd.append('file', sendFile, sendFile.name || 'invoice.jpg');
         return fetch('/api/material-purchases/extract', { method: 'POST', body: fd });
@@ -2641,6 +2658,9 @@
         document.getElementById('btnParsePastePreview').click();
       }).catch(function (err) {
         setStat('AI読み取りに失敗: ' + (err && err.message ? err.message : err), true);
+      }).finally(function () {
+        extractInFlight = false;
+        zone.style.opacity = '';
       });
     }
 

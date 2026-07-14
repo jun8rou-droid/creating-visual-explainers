@@ -6,17 +6,24 @@
  */
 import { getPool, query } from './db.mjs';
 
+/** マスタ同様のバージョン番号。0 = 一度も保存されていない（＝端末からの初回移行を許可） */
+const PURCHASES_VERSION_KEY = 'purchases_version';
+
 function num(v, fallback) {
   const n = Number(v);
   return Number.isFinite(n) ? n : fallback;
 }
 
-/** @returns {Promise<object[]>} 画面レコード形式の配列（新しい日付順） */
+/** @returns {Promise<{records: object[], version: number}>} 画面レコード形式（新しい日付順） */
 export async function listPurchases() {
-  const res = await query(
-    'SELECT extra FROM material_purchases ORDER BY purchase_date DESC, created_at DESC',
-  );
-  return res.rows.map((r) => r.extra).filter((x) => x && typeof x === 'object');
+  const [res, ver] = await Promise.all([
+    query('SELECT extra FROM material_purchases ORDER BY purchase_date DESC, created_at DESC'),
+    query('SELECT value FROM counters WHERE key = $1', [PURCHASES_VERSION_KEY]),
+  ]);
+  return {
+    records: res.rows.map((r) => r.extra).filter((x) => x && typeof x === 'object'),
+    version: ver.rows[0] ? Number(ver.rows[0].value) : 0,
+  };
 }
 
 /**
@@ -49,11 +56,12 @@ export async function replacePurchases(records) {
   }
 
   const client = await getPool().connect();
+  let inserted = 0;
   try {
     await client.query('BEGIN');
     await client.query('DELETE FROM material_purchases');
     for (const r of rows) {
-      await client.query(
+      const ins = await client.query(
         `INSERT INTO material_purchases
            (id, purchase_date, supplier, material_key, dia, len, qty, total_yen, yen_kg, extra)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb)
@@ -61,7 +69,13 @@ export async function replacePurchases(records) {
         [r.id, r.date, r.supplier, r.matKey, r.d, r.l, r.qty, r.totalYen, r.yenKg,
           JSON.stringify(r.extra)],
       );
+      inserted += ins.rowCount || 0;
     }
+    await client.query(
+      `INSERT INTO counters (key, value) VALUES ($1, 1)
+       ON CONFLICT (key) DO UPDATE SET value = counters.value + 1`,
+      [PURCHASES_VERSION_KEY],
+    );
     await client.query('COMMIT');
   } catch (err) {
     await client.query('ROLLBACK');
@@ -69,7 +83,7 @@ export async function replacePurchases(records) {
   } finally {
     client.release();
   }
-  return { ok: true, count: rows.length };
+  return { ok: true, count: inserted };
 }
 
 /**
@@ -81,10 +95,12 @@ export async function replacePurchases(records) {
 export async function purchaseSummaryFor(materialId) {
   const id = String(materialId || '').trim().toUpperCase();
   if (!id) return null;
+  /* 見積は丸棒前提なので六角材（*_HEX）は実勢サマリから除外する */
   const res = await query(
     `SELECT to_char(purchase_date, 'YYYY-MM-DD') AS purchase_date, supplier, material_key, dia, yen_kg
      FROM material_purchases
-     WHERE split_part(material_key, '_', 1) = $1 OR material_key = $1
+     WHERE (split_part(material_key, '_', 1) = $1 OR material_key = $1)
+       AND material_key NOT LIKE '%HEX%'
      ORDER BY purchase_date DESC, created_at DESC
      LIMIT 10`,
     [id],

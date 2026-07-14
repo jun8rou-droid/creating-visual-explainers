@@ -2823,6 +2823,14 @@
       /** v29: 材質ごとの実勢仕入れ単価（material-pricing.html の記録から） */
       var actualPriceCache = {};
 
+      /* 別タブで仕入れ記録を追加してもバッジが古いままにならないよう、タブ復帰時にキャッシュを捨てる */
+      document.addEventListener('visibilitychange', function () {
+        if (document.visibilityState === 'visible') {
+          actualPriceCache = {};
+          if (typeof refreshActualPriceBadge === 'function') refreshActualPriceBadge();
+        }
+      });
+
       function refreshActualPriceBadge() {
         var badge = $('actual-price-badge');
         if (!badge) return;
@@ -2859,10 +2867,11 @@
         badge.className = 'text-sm mt-1 leading-relaxed ' + (warn ? 'text-amber-700' : 'text-zinc-500');
         badge.innerHTML =
           '実勢 ¥' + fmt(latest.yenKg) + '/kg（' + escapeHtml(latest.date.slice(5).replace('-', '/')) +
-          ' ' + escapeHtml(latest.supplier || '仕入先不明') + ' φ' + escapeHtml(String(latest.dia)) + '）' +
+          ' ' + escapeHtml(latest.supplier || '仕入先不明') + ' φ' + escapeHtml(String(latest.dia)) +
+          ' · ' + escapeHtml(latest.materialKey || matId) + '）' +
           (masterPrice != null ? ' · マスタ ¥' + fmt(masterPrice) + '/kg' : '') +
           (warn ? ' <strong>(' + (diff > 0 ? '+' : '') + diff + '%)</strong>' : '') +
-          (masterPrice !== latest.yenKg
+          (master && masterPrice !== latest.yenKg
             ? ' <button type="button" id="btn-apply-actual-price" class="underline text-indigo-700 hover:text-indigo-900">マスタへ反映</button>'
             : '');
         var applyBtn = $('btn-apply-actual-price');
@@ -4878,6 +4887,13 @@
           if (result.analyzeDebug && !result.analyzeDebug.hadFile) {
             alert('図面ファイルがサーバーに届いていません（0KB）。\nファイルを選び直して再試してください。');
           }
+          if (isConfirmedRevView()) {
+            /* 解析中に確定版の閲覧へ切り替えた場合、読取専用画面に書き込まない */
+            aiAnalyzeInFlight = false;
+            updateAiUi();
+            updateDrawingUI();
+            return;
+          }
           applyDrawingAnalyzeResponse(result.response, lastVisionAnalyzeMeta);
           aiAnalyzeInFlight = false;
           var demoWarning = (result.demoMode || result.analyzeSource === 'demo'
@@ -5728,6 +5744,12 @@
 
       function switchToDraftQuote(draftNo) {
         if (!draftNo) return Promise.resolve();
+        if (draftNo !== currentDraftRef) {
+          /* 図面は案件に紐づくメモリ保持なので、別案件へ移るときは破棄する */
+          setDraftDrawing(null);
+          var drawFileInput = $('drawing-file-input');
+          if (drawFileInput) drawFileInput.value = '';
+        }
         setCurrentDraftRef(draftNo);
         quoteViewMode = 'draft';
         applyQuoteViewMode();
@@ -6898,6 +6920,12 @@
         } else if (masterLoadedFromBrowser && bar) {
           bar.textContent = '前回のマスタを復元しました · 材料と工程を入力してください';
         }
+        if (!draftResult.message && !masterLoadedFromBrowser && draftResult.source === 'error' && bar) {
+          bar.textContent =
+            '下書きの読み込みに失敗: ' + (draftResult.error && draftResult.error.message
+              ? draftResult.error.message
+              : String(draftResult.error));
+        }
         if (bar) {
           if (masterSource === 'db-migrated') {
             bar.textContent = (bar.textContent ? bar.textContent + ' · ' : '') +
@@ -6906,12 +6934,6 @@
             bar.textContent = (bar.textContent ? bar.textContent + ' · ' : '') +
               '⚠ マスタ: DB未接続のためこの端末の保存分を使用';
           }
-        }
-        if (!draftResult.message && !masterLoadedFromBrowser && draftResult.source === 'error' && bar) {
-          bar.textContent =
-            '下書きの読み込みに失敗: ' + (draftResult.error && draftResult.error.message
-              ? draftResult.error.message
-              : String(draftResult.error));
         }
         refreshQuoteRevisionMeta();
         initSplitResizers();
@@ -7026,6 +7048,22 @@
           setCurrentDraftRef(start.ref);
         }
         return loadDraftWithFallback().then(function (draftResult) {
+          /* 前回の案件がサーバー上で消えていた場合は記録を捨てて新規作成へ（掴んだまま固まらない） */
+          if (!start.created && !start.offline && draftResult && !draftResult.applied &&
+              (draftResult.source === '404' || draftResult.source === 'empty')) {
+            try { localStorage.removeItem(LAST_DRAFT_REF_KEY); } catch (e) {}
+            currentDraftRef = null;
+            return resolveStartupDraftRef().then(function (retry) {
+              if (retry.offline) currentDraftRef = retry.ref;
+              else setCurrentDraftRef(retry.ref);
+              return loadDraftWithFallback().then(function (retryResult) {
+                if (retry.created && retryResult && retryResult.applied) {
+                  retryResult.message = '前回の案件が見つからないため、新規下書き ' + retry.ref + ' を作成しました';
+                }
+                finishBoot(retryResult, null);
+              });
+            });
+          }
           if (start.created && draftResult && draftResult.applied) {
             draftResult.message = '新規下書き ' + start.ref + ' を作成しました · 前回の案件は「案件一覧」から';
           }

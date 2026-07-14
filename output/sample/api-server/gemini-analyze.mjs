@@ -41,7 +41,7 @@ async function generate(ai, modelId, parts, opts) {
     model: modelId,
     contents: [{ role: 'user', parts }],
     config: {
-      systemInstruction: VISION_SYSTEM_PROMPT,
+      systemInstruction: opts.system || VISION_SYSTEM_PROMPT,
       responseMimeType: opts.json === false ? undefined : 'application/json',
       temperature: 0,
       maxOutputTokens: opts.maxTokens || 8192,
@@ -168,8 +168,11 @@ export async function extractPurchaseTable(file, options) {
   const ai = new GoogleGenAI({ apiKey });
   const data = bufferToBase64(mediaType, file.buffer);
   const part = createPartFromBase64(data, mediaType, PartMediaResolutionLevel.MEDIA_RESOLUTION_HIGH);
-  const text = await generate(ai, modelId, [part, { text: PURCHASE_EXTRACT_PROMPT }], { json: false });
-  return text.replace(/^```(?:tsv|csv)?\s*/i, '').replace(/```\s*$/, '').trim();
+  const text = await generate(ai, modelId, [part, { text: PURCHASE_EXTRACT_PROMPT }], {
+    json: false,
+    system: 'あなたは製造業の請求書・納品書を正確に読み取る事務アシスタントです。指示された形式だけを出力し、推測で行を補いません。',
+  });
+  return text.replace(/^```[a-z]*\s*\n?/i, '').replace(/\n?```\s*$/, '').trim();
 }
 
 /**
