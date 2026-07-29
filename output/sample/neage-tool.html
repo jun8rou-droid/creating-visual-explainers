@@ -178,7 +178,9 @@
     <h2><span class="step-num">4</span>値上げの根拠（使う項目にチェック。文はクリックで開いて編集）</h2>
     <div id="eviList"></div>
     <button class="btn ghost" style="font-size:13px; padding:6px 12px;" onclick="addEvi()">＋ 項目を追加</button>
+    <button class="btn ghost" style="font-size:13px; padding:6px 12px;" onclick="refreshEvi()">🌐 数字を最新に更新（AI検索）</button>
     <div class="hint" style="margin-top:6px;">※編集した文はこのブラウザに保存され、次回も使えます。</div>
+    <div id="refreshStatus" style="font-size:13px; margin-top:4px;"></div>
   </div>
 
   <div class="card" id="bdCard">
@@ -188,6 +190,26 @@
     </table>
     <button class="btn ghost" style="font-size:13px; padding:5px 10px; margin-top:6px;" onclick="addBdRow('','',0)">＋ 行を追加</button>
     <div class="calc" id="bdCalc"></div>
+    <div style="border-top:1px dashed var(--border); margin-top:10px; padding-top:8px;">
+      <div style="font-size:13px; font-weight:700; color:var(--navy);">📄 仕入伝票の写真から材料上昇率を実測</div>
+      <div class="hint">古い伝票と最近の伝票を2〜6枚まとめて選ぶと、AIが単価を比較して上昇率を計算します</div>
+      <div class="row" style="margin-top:6px; align-items:flex-end;">
+        <div style="flex:2"><input type="file" id="costFiles" accept="image/*,.pdf" multiple style="font-size:13px;"></div>
+        <div><label>単価に占める材料費率(%)</label><input type="number" id="matRatio" value="35" style="width:100%"></div>
+        <div style="flex:0"><button class="btn ghost" style="font-size:13px; padding:6px 12px;" onclick="runCostCompare()">実測する</button></div>
+      </div>
+      <div id="costStatus" style="font-size:13px; margin-top:4px;"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2><span class="step-num">8</span>AIサポート（作った内容をAIがチェック）</h2>
+    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+      <button class="btn ghost" style="font-size:13.5px; padding:8px 14px;" onclick="runReview()">🔍 値上げ率をAIがチェック</button>
+      <button class="btn ghost" style="font-size:13.5px; padding:8px 14px;" onclick="runQa()">💬 想定問答を作る（交渉カンペ）</button>
+    </div>
+    <div id="aiStatus" style="font-size:13px; margin-top:6px;"></div>
+    <div id="aiResult" style="display:none; background:var(--navy-l); border-radius:10px; padding:12px 14px; margin-top:8px; font-size:13.5px; white-space:pre-wrap;"></div>
   </div>
 
   <div class="card">
@@ -520,6 +542,86 @@ function applyEviPeriod(){
   $('revHint').textContent = y?`✔ 根拠文を「${label}」の期間の数字に合わせました`+(kept?`（手で編集した${kept}件はそのまま）`:''):'';
 }
 $('lastRev').addEventListener('input',applyEviPeriod);
+
+// ================= AIサポート =================
+async function postJson(url, body){
+  const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  const j=await r.json();
+  if(!r.ok)throw new Error(j.error||'エラーが発生しました');
+  return j;
+}
+function aiBusy(msg){$('aiStatus').innerHTML='<span style="color:var(--accent)">'+msg+'</span>'; $('aiResult').style.display='none';}
+function aiShow(text){$('aiStatus').innerHTML=''; const r=$('aiResult'); r.style.display=''; r.textContent=text;}
+function aiErr(err){$('aiStatus').innerHTML='<span style="color:#c00">エラー：'+esc(err.message)+'</span>';}
+
+async function runReview(){
+  aiBusy('AIが交渉視点でチェック中です…（15秒ほど）');
+  try{
+    const j=await postJson('/api/neage-review',{
+      文書タイプ:S.tmpl, 対象:$('target').value, 現行単価:$('curPrice').value,
+      改定率パーセント:$('rate').value, 現在の価格になった時期:$('lastRev').value,
+      時期の意味:$('revKind').value==='kaitei'?'前回の改定':'受注開始',
+      内訳:S.bd.map(r=>({費目:r[0],説明:r[1],影響パーセント:r[2]})),
+      使う根拠:S.evi.filter(e=>e.on).map(e=>e.name),
+    });
+    aiShow('【AIチェック結果】\n\n'+j.text);
+  }catch(e){aiErr(e);}
+}
+
+async function runQa(){
+  aiBusy('想定問答を作成中です…（20秒ほど）');
+  try{
+    const doc=[...document.querySelectorAll('.sheet')].map(s=>s.innerText).join('\n\n');
+    const j=await postJson('/api/neage-qa',{doc});
+    const qa=(j.qa||[]).map((x,i)=>`Q${i+1}. ${x.q}\n→ ${x.a}`).join('\n\n');
+    aiShow('【交渉カンペ：想定問答】\n\n'+(qa||'生成できませんでした'));
+  }catch(e){aiErr(e);}
+}
+
+async function runCostCompare(){
+  const files=$('costFiles').files;
+  const cs=$('costStatus');
+  if(!files.length){cs.innerHTML='<span style="color:#c00">伝票の写真を選んでください</span>';return;}
+  cs.innerHTML='<span style="color:var(--accent)">AIが伝票を比較中です…（20秒ほど）</span>';
+  try{
+    const fd=new FormData();
+    [...files].forEach(f=>fd.append('files',f));
+    const r=await fetch('/api/neage-cost-compare',{method:'POST',body:fd});
+    const j=await r.json();
+    if(!r.ok)throw new Error(j.error||'読み取りに失敗しました');
+    const rise=j.average_rise_percent;
+    if(rise===null||rise===undefined||!(j.items||[]).length){
+      cs.innerHTML='<span style="color:#c00">比較できる明細が見つかりませんでした。'+esc(j.note||'')+'</span>'; return;
+    }
+    const ratio=(parseFloat(zen2han($('matRatio').value))||35)/100;
+    const impact=Math.round(rise*ratio*10)/10;
+    const detail=(j.items||[]).map(x=>`・${x.material}：${x.old_unit}（${x.old_date}）→ ${x.new_unit}（${x.new_date}）＝ +${x.rise_percent}%`).join('<br>');
+    let row=S.bd.find(r=>/材料/.test(String(r[0])));
+    if(!row){row=['材料費','',0]; S.bd.unshift(row);}
+    row[1]=`当社仕入実績 +${Math.round(rise*10)/10}%（伝票比較）`;
+    row[2]=impact;
+    renderBd(); update();
+    cs.innerHTML=`<span style="color:var(--ok)">✔ 仕入単価は平均 +${Math.round(rise*10)/10}% 上昇。材料費率${Math.round(ratio*100)}%をかけて、内訳の材料費を <b>+${impact}%</b> に反映しました</span><br><span class="hint">${detail}<br>${esc(j.note||'')}</span>`;
+  }catch(e){cs.innerHTML='<span style="color:#c00">エラー：'+esc(e.message)+'</span>';}
+}
+
+async function refreshEvi(){
+  const rs=$('refreshStatus');
+  rs.innerHTML='<span style="color:var(--accent)">AIが最新の公的データを検索中です…（30秒ほどかかります）</span>';
+  try{
+    const items=S.evi.filter(e=>e.body.trim()).map(e=>({id:e.id,name:e.name,body:e.body}));
+    const j=await postJson('/api/neage-refresh',{items});
+    let changed=0; const notes=[];
+    (j.items||[]).forEach(u=>{
+      const e=S.evi.find(x=>x.id===u.id); if(!e)return;
+      if(u.changed&&u.body&&u.body!==e.body){e.body=u.body; changed++; notes.push('・'+e.name+'：'+(u.note||'更新'));}
+    });
+    if(changed){renderEvi(); update();}
+    rs.innerHTML= changed
+      ? '<span style="color:var(--ok)">✔ '+changed+'件の根拠文を最新の数字に更新しました</span><br><span class="hint">'+notes.map(esc).join('<br>')+'</span>'
+      : '<span style="color:var(--ok)">✔ すべて最新の数字でした（更新なし）</span>';
+  }catch(e){rs.innerHTML='<span style="color:#c00">エラー：'+esc(e.message)+'</span>';}
+}
 
 // ================= 写真からの自動入力 =================
 const dz=$('dropZone'), pi=$('photoInput'), ps=$('photoStatus');

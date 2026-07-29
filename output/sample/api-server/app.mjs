@@ -34,7 +34,15 @@ import {
 import { getMasterBundle, saveMasterBundle } from './masters-db.mjs';
 import { listPurchases, purchaseSummaryFor, replacePurchases } from './purchases-db.mjs';
 import { analyzeDrawing, getVisionStatus, isVisionEnabled } from './vision-router.mjs';
-import { extractNeageOrderInfo, extractPurchaseTable, ocrDrawingRegion } from './gemini-analyze.mjs';
+import {
+  extractNeageOrderInfo,
+  extractPurchaseTable,
+  neageCostCompare,
+  neageQa,
+  neageRefreshEvidence,
+  neageReview,
+  ocrDrawingRegion,
+} from './gemini-analyze.mjs';
 import {
   isSimilarDiffAiEnabled,
   summarizeSimilarDiffRuleOnly,
@@ -199,6 +207,47 @@ app.post('/api/neage-extract', upload.single('file'), async (req, res) => {
   } catch (err) {
     console.error('[neage extract]', err);
     res.status(500).json({ error: err.message || 'AI 読み取りに失敗しました' });
+  }
+});
+
+app.post('/api/neage-review', async (req, res) => {
+  if (!VISION_ENABLED) return res.status(503).json({ error: 'AI が無効です（GOOGLE_API_KEY 未設定）' });
+  try {
+    res.json({ text: await neageReview(req.body || {}) });
+  } catch (err) {
+    console.error('[neage review]', err);
+    res.status(500).json({ error: err.message || 'AI講評に失敗しました' });
+  }
+});
+
+app.post('/api/neage-qa', async (req, res) => {
+  if (!VISION_ENABLED) return res.status(503).json({ error: 'AI が無効です（GOOGLE_API_KEY 未設定）' });
+  try {
+    res.json(await neageQa((req.body && req.body.doc) || ''));
+  } catch (err) {
+    console.error('[neage qa]', err);
+    res.status(500).json({ error: err.message || '想定問答の生成に失敗しました' });
+  }
+});
+
+app.post('/api/neage-cost-compare', upload.array('files', 6), async (req, res) => {
+  if (!VISION_ENABLED) return res.status(503).json({ error: 'AI が無効です（GOOGLE_API_KEY 未設定）' });
+  if (!req.files || !req.files.length) return res.status(400).json({ error: 'ファイルが届いていません' });
+  try {
+    res.json(await neageCostCompare(req.files));
+  } catch (err) {
+    console.error('[neage cost-compare]', err);
+    res.status(500).json({ error: err.message || '伝票の読み取りに失敗しました' });
+  }
+});
+
+app.post('/api/neage-refresh', async (req, res) => {
+  if (!VISION_ENABLED) return res.status(503).json({ error: 'AI が無効です（GOOGLE_API_KEY 未設定）' });
+  try {
+    res.json(await neageRefreshEvidence((req.body && req.body.items) || []));
+  } catch (err) {
+    console.error('[neage refresh]', err);
+    res.status(500).json({ error: err.message || '根拠の更新に失敗しました' });
   }
 });
 

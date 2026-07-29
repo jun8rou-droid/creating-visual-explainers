@@ -331,3 +331,109 @@ export async function extractNeageOrderInfo(file, options) {
   });
   return parseModelJson(text);
 }
+
+/* ================= 値上げツール用 AIサポート ================= */
+
+function neageClient(options) {
+  options = options || {};
+  const apiKey = options.apiKey || process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
+  if (!apiKey) throw new Error('GOOGLE_API_KEY が未設定です');
+  const modelId = options.model || process.env.GOOGLE_MODEL || process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+  return { ai: new GoogleGenAI({ apiKey }), modelId };
+}
+
+/** ① 値上げ率の妥当性チェック（交渉視点の講評テキストを返す） */
+export async function neageReview(payload, options) {
+  const { ai, modelId } = neageClient(options);
+  const today = new Date().toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric' });
+  const prompt = `今日は${today}です。
+あなたは日本の中小製造業（金属加工業）の価格交渉に詳しいアドバイザーです。
+以下の値上げ申請の内容を、受け取る側（客先）の視点で講評してください。
+
+${JSON.stringify(payload, null, 1)}
+
+出力ルール:
+- 日本語で400字以内。箇条書き中心
+- 必ず含める: (1)率が内訳で説明できているかの判定 (2)一番突っ込まれやすい弱点 (3)交渉になった場合に守るべき下限ラインの目安 (4)ひとこと総評
+- 世間相場の参考: 中小企業の価格転嫁率の平均は約5割。コスト積み上げで説明できる範囲が最も通りやすい
+- 過度に不安をあおらず、実務的に`;
+  const text = await generate(ai, modelId, [{ text: prompt }], {
+    json: false,
+    system: 'あなたは製造業の価格交渉アドバイザーです。簡潔・実務的に助言します。',
+  });
+  return text.trim();
+}
+
+/** ② 想定問答の生成 */
+export async function neageQa(docText, options) {
+  const { ai, modelId } = neageClient(options);
+  const prompt = `以下は金属加工業が客先へ送る値上げのお願い文書です。
+送付後の電話や訪問で、客先から来そうな反論・質問を5つ想定し、それぞれに対する返し方を作ってください。
+
+--- 文書 ---
+${String(docText).slice(0, 6000)}
+--- ここまで ---
+
+JSONで出力:
+{"qa":[{"q":"客先の反論・質問（話し言葉）","a":"返し方（話し言葉で2〜3文。文書内の数字・根拠を使う。誠実で、けんか腰にしない）"}]}`;
+  const text = await generate(ai, modelId, [{ text: prompt }], {
+    json: true,
+    system: 'あなたは製造業の価格交渉アドバイザーです。現場で使える自然な話し言葉で作ります。',
+  });
+  return parseModelJson(text);
+}
+
+/** ③ 仕入伝票（複数枚）から材料単価の上昇率を実測 */
+export async function neageCostCompare(files, options) {
+  const { ai, modelId } = neageClient(options);
+  const parts = [];
+  for (const file of files) {
+    const mediaType = detectDrawingMediaType(file);
+    if (!mediaType) continue;
+    parts.push(createPartFromBase64(bufferToBase64(mediaType, file.buffer), mediaType, PartMediaResolutionLevel.MEDIA_RESOLUTION_HIGH));
+  }
+  if (!parts.length) throw new Error('JPEG/PNG/PDF のみ対応です');
+  const prompt = `これらは同じ会社の仕入伝票・請求書の写真です（古いものと新しいものが混ざっています）。
+材質ごとに単価（円/kg または 円/本。単位を揃えて比較）を読み取り、古い伝票→新しい伝票でどれだけ上がったかを計算してください。
+
+JSONで出力:
+{"items":[{"material":"材質","old_date":"YYYY-MM","old_unit":"古い単価と単位","new_date":"YYYY-MM","new_unit":"新しい単価と単位","rise_percent":上昇率の数値}],
+ "average_rise_percent": 全体の平均上昇率の数値,
+ "note":"比較にあたっての注意（同一品での比較か等）を1文"}
+
+ルール: 読み取れない・比較できないものは items に入れない。推測で補わない。`;
+  parts.push({ text: prompt });
+  const text = await generate(ai, modelId, parts, {
+    json: true,
+    system: 'あなたは製造業の仕入伝票を正確に読み取る事務アシスタントです。書かれている数字だけで計算します。',
+  });
+  return parseModelJson(text);
+}
+
+/** ④ 根拠文の数字をGoogle検索で最新化 */
+export async function neageRefreshEvidence(items, options) {
+  const { ai, modelId } = neageClient(options);
+  const prompt = `以下は、日本の金属加工業が値上げのお願い文書に使っている「根拠文」の一覧です。
+Google検索で最新の公的データ・報道を確認し、数字や時点が古くなっていれば書き直してください。
+
+${JSON.stringify(items, null, 1)}
+
+出力ルール（コードブロックでJSONのみ）:
+{"items":[{"id":"元のid","body":"更新後の本文（変更不要ならそのまま）","changed":true/false,"note":"何をどう更新したか1文（changed=falseなら「最新です」）"}]}
+- 本文の文体・長さは元に合わせる（です・ます調、2〜3文、出典と時点を括弧書き）
+- 確認できなかった数字は変えない
+- 大げさな表現にしない`;
+  const result = await ai.models.generateContent({
+    model: modelId,
+    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+    config: {
+      tools: [{ googleSearch: {} }],
+      temperature: 0,
+      maxOutputTokens: 8192,
+      systemInstruction: 'あなたは製造業の値上げ文書を支える調査アシスタントです。検索で確認できた事実だけで更新します。',
+    },
+  });
+  const text = (result.text || '').trim();
+  if (!text) throw new Error('モデルからテキスト応答がありません');
+  return parseModelJson(text);
+}
