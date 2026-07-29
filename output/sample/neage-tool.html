@@ -264,6 +264,7 @@ const EVI_VARIANTS = {
   recent:'国の電気・ガス代補助が終了し、再生可能エネルギー賦課金は2026年度に4.18円/kWhと過去最高を更新しました。NC旋盤は電力消費が大きく、加工コストに直接影響しております。'},
 };
 const DEFAULT_BD = [
+ ['材料費','鋼材・SUS304など材料の仕入れ上昇',3.0],
  ['労務費','最低賃金 期間累計 +20.2%',3.0],
  ['工具費','バイト・超硬チップ +3〜4割',0.8],
  ['油剤費','切削・潤滑・油圧・防錆の4種',1.2],
@@ -280,6 +281,8 @@ let S = {
   bd: JSON.parse(JSON.stringify(DEFAULT_BD)),
 };
 try{ const saved=JSON.parse(localStorage.getItem(LS)); if(saved) S=Object.assign(S,saved);}catch(e){}
+// 既存の保存データに材料費の行がなければ先頭に足す（1回だけ）
+if(!S.bdV2){ if(Array.isArray(S.bd)&&!S.bd.some(r=>/材料/.test(String(r[0])))) S.bd.unshift(['材料費','鋼材・SUS304など材料の仕入れ上昇',3.0]); S.bdV2=true; }
 
 // ================= ユーティリティ =================
 const $=id=>document.getElementById(id);
