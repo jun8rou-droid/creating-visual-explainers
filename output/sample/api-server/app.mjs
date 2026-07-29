@@ -39,6 +39,7 @@ import {
   extractPurchaseTable,
   neageCostCompare,
   neageQa,
+  neageRefreshBreakdown,
   neageRefreshEvidence,
   neageReview,
   ocrDrawingRegion,
@@ -238,6 +239,16 @@ app.post('/api/neage-cost-compare', upload.array('files', 6), async (req, res) =
   } catch (err) {
     console.error('[neage cost-compare]', err);
     res.status(500).json({ error: err.message || '伝票の読み取りに失敗しました' });
+  }
+});
+
+app.post('/api/neage-bd-refresh', async (req, res) => {
+  if (!VISION_ENABLED) return res.status(503).json({ error: 'AI が無効です（GOOGLE_API_KEY 未設定）' });
+  try {
+    res.json(await neageRefreshBreakdown(req.body || {}));
+  } catch (err) {
+    console.error('[neage bd-refresh]', err);
+    res.status(500).json({ error: err.message || '内訳の更新に失敗しました' });
   }
 });
 

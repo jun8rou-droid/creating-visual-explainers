@@ -437,3 +437,41 @@ ${JSON.stringify(items, null, 1)}
   if (!text) throw new Error('モデルからテキスト応答がありません');
   return parseModelJson(text);
 }
+
+/** ⑤ 内訳表をGoogle検索の最新データで作り直す */
+export async function neageRefreshBreakdown(payload, options) {
+  const { ai, modelId } = neageClient(options);
+  const today = new Date().toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric' });
+  const prompt = `今日は${today}です。
+日本の金属加工業（NC旋盤）が、加工単価の値上げ内訳を作っています。
+Google検索で最新の公的データ・業界情報を確認し、以下の費目ごとに
+「対象期間中のコスト上昇が、加工単価に与える影響（%）」を見積もってください。
+
+対象期間の起点: ${payload.since || 'ここ数年（約3年前）'}
+費目一覧: ${JSON.stringify(payload.items || [], null, 1)}
+
+前提（加工単価に占める一般的な費用構成）:
+- 材料費 約${payload.matRatio || 35}% ／ 労務費 約30% ／ 工具費 約6% ／ 油剤費 約4% ／ 電力費 約4%
+- 影響% ＝ 費用構成比 × その費目の期間中の上昇率
+
+出力ルール（コードブロックでJSONのみ）:
+{"items":[{"item":"費目名（入力と同じ名前）","desc":"根拠の短い説明（数字＋出典＋時点。25字前後）","percent":影響%の数値（小数1桁）}],
+ "total": 合計の数値,
+ "note":"前提や注意を1文"}
+- 検索で確認できた実際の上昇率を使う（最低賃金、企業物価指数、各社値上げ発表など）
+- 確認できない費目は控えめな数字にする
+- 入力にある費目だけを返す（勝手に費目を増やさない）`;
+  const result = await ai.models.generateContent({
+    model: modelId,
+    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+    config: {
+      tools: [{ googleSearch: {} }],
+      temperature: 0,
+      maxOutputTokens: 8192,
+      systemInstruction: 'あなたは製造業の原価計算に詳しい調査アシスタントです。検索で確認できた事実に基づき、保守的に見積もります。',
+    },
+  });
+  const text = (result.text || '').trim();
+  if (!text) throw new Error('モデルからテキスト応答がありません');
+  return parseModelJson(text);
+}

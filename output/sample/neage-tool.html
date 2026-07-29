@@ -189,6 +189,8 @@
       <tr><th>費目</th><th>説明</th><th>影響(%)</th><th></th></tr>
     </table>
     <button class="btn ghost" style="font-size:13px; padding:5px 10px; margin-top:6px;" onclick="addBdRow('','',0)">＋ 行を追加</button>
+    <button class="btn ghost" style="font-size:13px; padding:5px 10px; margin-top:6px;" onclick="refreshBd()">🌐 内訳を最新の数字で作り直す（AI検索）</button>
+    <div id="bdRefreshStatus" style="font-size:13px; margin-top:4px;"></div>
     <div class="calc" id="bdCalc"></div>
     <div style="border-top:1px dashed var(--border); margin-top:10px; padding-top:8px;">
       <div style="font-size:13px; font-weight:700; color:var(--navy);">📄 仕入伝票の写真から材料上昇率を実測</div>
@@ -303,8 +305,11 @@ let S = {
   bd: JSON.parse(JSON.stringify(DEFAULT_BD)),
 };
 try{ const saved=JSON.parse(localStorage.getItem(LS)); if(saved) S=Object.assign(S,saved);}catch(e){}
+// 保存データが壊れていたら初期値に戻す
+if(!Array.isArray(S.bd)||!S.bd.length) S.bd=JSON.parse(JSON.stringify(DEFAULT_BD));
+if(!Array.isArray(S.evi)||!S.evi.length) S.evi=JSON.parse(JSON.stringify(DEFAULT_EVI));
 // 既存の保存データに材料費の行がなければ先頭に足す（1回だけ）
-if(!S.bdV2){ if(Array.isArray(S.bd)&&!S.bd.some(r=>/材料/.test(String(r[0])))) S.bd.unshift(['材料費','鋼材・SUS304など材料の仕入れ上昇',3.0]); S.bdV2=true; }
+if(!S.bdV2){ if(!S.bd.some(r=>/材料/.test(String(r[0])))) S.bd.unshift(['材料費','鋼材・SUS304など材料の仕入れ上昇',3.0]); S.bdV2=true; }
 
 // ================= ユーティリティ =================
 const $=id=>document.getElementById(id);
@@ -621,6 +626,36 @@ async function refreshEvi(){
       ? '<span style="color:var(--ok)">✔ '+changed+'件の根拠文を最新の数字に更新しました</span><br><span class="hint">'+notes.map(esc).join('<br>')+'</span>'
       : '<span style="color:var(--ok)">✔ すべて最新の数字でした（更新なし）</span>';
   }catch(e){rs.innerHTML='<span style="color:#c00">エラー：'+esc(e.message)+'</span>';}
+}
+
+// ================= 内訳の最新化 =================
+let bdBackup=null;
+async function refreshBd(){
+  const rs=$('bdRefreshStatus');
+  rs.innerHTML='<span style="color:var(--accent)">AIが最新のコストデータを検索中です…（30秒ほどかかります）</span>';
+  try{
+    const j=await postJson('/api/neage-bd-refresh',{
+      since: $('lastRev').value.trim()||null,
+      matRatio: parseFloat(zen2han($('matRatio').value))||35,
+      items: S.bd.map(r=>({item:r[0], desc:r[1], percent:r[2]})),
+    });
+    if(!(j.items||[]).length)throw new Error('更新できる内訳がありませんでした');
+    bdBackup=JSON.parse(JSON.stringify(S.bd));
+    j.items.forEach(u=>{
+      const row=S.bd.find(r=>String(r[0])===String(u.item));
+      if(row){ if(u.desc)row[1]=u.desc; if(typeof u.percent==='number')row[2]=Math.round(u.percent*10)/10; }
+    });
+    renderBd(); update();
+    rs.innerHTML='<span style="color:var(--ok)">✔ 最新の数字で作り直しました（合計 +'+bdTotal().toFixed(1)+'%）</span> '
+      +'<a href="#" onclick="undoBd();return false;" style="color:var(--accent)">元に戻す</a>'
+      +(j.note?'<br><span class="hint">'+esc(j.note)+'</span>':'');
+  }catch(e){rs.innerHTML='<span style="color:#c00">エラー：'+esc(e.message)+'</span>';}
+}
+function undoBd(){
+  if(!bdBackup)return;
+  S.bd=bdBackup; bdBackup=null;
+  renderBd(); update();
+  $('bdRefreshStatus').innerHTML='<span class="hint">元の内訳に戻しました</span>';
 }
 
 // ================= 写真からの自動入力 =================
