@@ -502,3 +502,34 @@ ${String(docText).slice(0, 8000)}
   });
   return text.replace(/^```[a-z]*\s*\n?/i, '').replace(/\n?```\s*$/, '').trim();
 }
+
+/** ⑦ 任意のビジネスFAX文書を生成 */
+export async function neageCompose(payload, options) {
+  const { ai, modelId } = neageClient(options);
+  const today = new Date().toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric' });
+  const p = payload || {};
+  const prompt = `今日は${today}です。
+日本の金属加工業（NC旋盤の部品加工）が客先へFAXで送るビジネス文書を作成してください。
+
+差出人: ${p.myCompany || ''}　${p.myName || ''}（TEL ${p.tel || ''}／FAX ${p.fax || ''}）
+宛先: ${p.to || 'お取引先各位'}　${p.toPerson || ''}
+日付: ${p.date || today}
+
+--- 文書の内容（ユーザーの指示） ---
+${String(p.purpose || '').slice(0, 2000)}
+--- ここまで ---
+
+出力ルール（文書の全文だけを出力。説明・コードブロック不要）:
+- 1行目に日付（右寄せを想定した単独行）、続けて宛名、差出人情報、中央見出し（結論がわかる題名）の順
+- 拝啓＋時候の挨拶（今日の季節に合ったもの）＋「平素は格別のお引き立てを賜り…」で始め、敬具で結ぶ
+- 結論を先に書き、1文は短く。事実と対応策を分ける
+- お詫びの場合: 言い訳より先に謝意、原因、対応、再発防止の順
+- お願いの場合: お願いの内容を具体的に、相手の判断材料（理由・数字）を添える
+- A4一枚に収まる分量（30行以内）
+- 記載する日付・数量・納期などはユーザーの指示にあるものだけを使い、創作しない`;
+  const text = await generate(ai, modelId, [{ text: prompt }], {
+    json: false,
+    system: 'あなたは日本のビジネス文書に堪能な事務担当者です。丁寧で簡潔なFAX文書を作成します。',
+  });
+  return text.replace(/^```[a-z]*\s*\n?/i, '').replace(/\n?```\s*$/, '').trim();
+}
