@@ -34,7 +34,7 @@ import {
 import { getMasterBundle, saveMasterBundle } from './masters-db.mjs';
 import { listPurchases, purchaseSummaryFor, replacePurchases } from './purchases-db.mjs';
 import { analyzeDrawing, getVisionStatus, isVisionEnabled } from './vision-router.mjs';
-import { extractPurchaseTable, ocrDrawingRegion } from './gemini-analyze.mjs';
+import { extractNeageOrderInfo, extractPurchaseTable, ocrDrawingRegion } from './gemini-analyze.mjs';
 import {
   isSimilarDiffAiEnabled,
   summarizeSimilarDiffRuleOnly,
@@ -183,6 +183,21 @@ app.post('/api/material-purchases/extract', upload.single('file'), async (req, r
     res.json({ table });
   } catch (err) {
     console.error('[purchases extract]', err);
+    res.status(500).json({ error: err.message || 'AI 読み取りに失敗しました' });
+  }
+});
+
+app.post('/api/neage-extract', upload.single('file'), async (req, res) => {
+  if (!VISION_ENABLED) {
+    return res.status(503).json({ error: 'AI 読み取りが無効です（GOOGLE_API_KEY 未設定）' });
+  }
+  if (!req.file || !req.file.buffer || !req.file.buffer.length) {
+    return res.status(400).json({ error: 'ファイルが届いていません' });
+  }
+  try {
+    res.json(await extractNeageOrderInfo(req.file));
+  } catch (err) {
+    console.error('[neage extract]', err);
     res.status(500).json({ error: err.message || 'AI 読み取りに失敗しました' });
   }
 });

@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>値上げ申請文書作成ツール</title>
+<style>
+  :root{
+    --navy:#1a3369; --navy-l:#e8ecf5; --ink:#1e293b; --muted:#64748b;
+    --border:#e2e8f0; --bg:#f4f6fa; --accent:#2563eb; --ok:#059669;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{font-family:"Hiragino Sans","Yu Gothic UI",Meiryo,sans-serif; background:var(--bg); color:var(--ink); font-size:15px; line-height:1.7;}
+  header.app{background:var(--navy); color:#fff; padding:14px 20px; display:flex; align-items:center; gap:12px;}
+  header.app h1{font-size:18px;}
+  header.app .sub{font-size:12px; opacity:.75;}
+  .wrap{max-width:1160px; margin:0 auto; padding:18px; display:flex; gap:18px; align-items:flex-start;}
+  .panel{flex:1 1 460px; min-width:380px;}
+  .prev{flex:1 1 560px; min-width:420px; position:sticky; top:12px;}
+  .card{background:#fff; border:1px solid var(--border); border-radius:12px; padding:16px 18px; margin-bottom:14px;}
+  .card h2{font-size:15px; color:var(--navy); border-left:4px solid var(--navy); padding-left:8px; margin-bottom:12px;}
+  .step-num{display:inline-block; background:var(--navy); color:#fff; border-radius:50%; width:22px; height:22px; text-align:center; line-height:22px; font-size:12px; margin-right:6px;}
+  label{display:block; font-size:12.5px; color:var(--muted); margin:8px 0 2px;}
+  input[type=text],input[type=number],textarea,select{
+    width:100%; padding:8px 10px; border:1px solid var(--border); border-radius:8px; font-size:14.5px; font-family:inherit; background:#fff;
+  }
+  input:focus,textarea:focus,select:focus{outline:2px solid var(--accent); outline-offset:-1px;}
+  textarea{resize:vertical; min-height:64px; line-height:1.6;}
+  .row{display:flex; gap:10px;}
+  .row>div{flex:1;}
+  .choices{display:flex; gap:8px; flex-wrap:wrap;}
+  .choice{flex:1 1 30%; min-width:130px; border:2px solid var(--border); border-radius:10px; padding:10px; cursor:pointer; text-align:center; background:#fff;}
+  .choice.sel{border-color:var(--navy); background:var(--navy-l);}
+  .choice .t{font-weight:700; font-size:14px;}
+  .choice .d{font-size:11.5px; color:var(--muted); line-height:1.5; margin-top:2px;}
+  .evi{border:1px solid var(--border); border-radius:10px; margin-bottom:8px; overflow:hidden;}
+  .evi-head{display:flex; align-items:center; gap:8px; padding:8px 10px; cursor:pointer; background:#fafbfd;}
+  .evi-head input[type=checkbox]{width:17px; height:17px; accent-color:var(--navy);}
+  .evi-head .name{font-weight:700; font-size:13.5px; flex:1;}
+  .evi-head .tgl{font-size:11px; color:var(--accent); user-select:none;}
+  .evi-body{padding:8px 10px; border-top:1px solid var(--border); display:none;}
+  .evi-body.open{display:block;}
+  .opt{display:flex; align-items:flex-start; gap:8px; margin:6px 0; font-size:13.5px;}
+  .opt input{width:16px; height:16px; margin-top:4px; accent-color:var(--navy);}
+  .opt .desc{color:var(--muted); font-size:11.5px;}
+  table.bd{width:100%; border-collapse:collapse; font-size:13px; margin-top:6px;}
+  table.bd th,table.bd td{border:1px solid var(--border); padding:4px 6px;}
+  table.bd th{background:var(--navy-l); font-size:12px;}
+  table.bd input{border:none; padding:2px 4px; font-size:13px; width:100%;}
+  table.bd .num{width:64px; text-align:right;}
+  .calc{background:var(--navy-l); border-radius:8px; padding:8px 12px; margin-top:8px; font-size:13.5px;}
+  .calc b{color:var(--navy);}
+  .btn{display:inline-block; background:var(--navy); color:#fff; border:none; border-radius:9px; padding:10px 18px; font-size:15px; font-weight:700; cursor:pointer; font-family:inherit;}
+  .btn.ghost{background:#fff; color:var(--navy); border:2px solid var(--navy);}
+  .btn:active{transform:translateY(1px);}
+  .toolbar{display:flex; gap:10px; margin-bottom:12px; align-items:center; flex-wrap:wrap;}
+  .hint{font-size:11.5px; color:var(--muted);}
+  /* ---------- A4 preview ---------- */
+  .sheet{width:210mm; min-height:296mm; background:#fff; margin:0 auto 14px; padding:17mm 16mm 15mm;
+    box-shadow:0 2px 14px rgba(0,0,0,.14); font-family:"Hiragino Mincho ProN","Yu Mincho","MS Mincho",serif;
+    font-size:10.6pt; line-height:1.62; color:#111; position:relative;}
+  .prev .zoom{transform:scale(.62); transform-origin:top center;}
+  .prev .zoombox{height:calc(296mm * .62 + 20px); overflow:hidden;}
+  .prev .zoombox.two{height:auto;}
+  .s-right{text-align:right;}
+  .s-center{text-align:center;}
+  .s-title{font-size:14.5pt; text-align:center; margin:10px 0 2px;}
+  .s-title span{border-bottom:1.2px solid #111; padding:0 6px 2px;}
+  .s-sub{text-align:center; font-size:10.5pt; margin-bottom:14px;}
+  .s-sec{font-family:"Hiragino Sans","Yu Gothic",sans-serif; font-weight:700; font-size:11pt; margin:13px 0 5px; padding-left:8px; border-left:4px solid #1a3369; color:#1a3369;}
+  .s-p{margin:7px 0; text-align:justify;}
+  .s-ind{margin-left:1em;}
+  .s-note{font-size:9pt; color:#444;}
+  table.s-bd{width:92%; margin:6px auto; border-collapse:collapse; font-size:10pt;}
+  table.s-bd td{padding:3px 8px;}
+  table.s-bd tr.alt td{background:#f0f2f7;}
+  table.s-bd tr.total td{background:#1a3369; color:#fff; font-weight:700; font-family:"Hiragino Sans",sans-serif;}
+  table.s-price{margin:8px auto; border-collapse:collapse; font-size:10.5pt;}
+  table.s-price td,table.s-price th{border:1px solid #333; padding:4px 14px; text-align:center;}
+  .s-graph{margin:8px 0 4px; text-align:center;}
+  .s-cap{font-size:8.5pt; color:#555; margin-top:2px;}
+  .pagefoot{position:absolute; bottom:8mm; right:16mm; font-size:9pt; color:#888;}
+  @media print{
+    body{background:#fff;}
+    header.app,.panel,.toolbar,.noprint{display:none !important;}
+    .wrap{display:block; padding:0; max-width:none;}
+    .prev{position:static; width:auto;}
+    .prev .zoom{transform:none;}
+    .prev .zoombox{height:auto; overflow:visible;}
+    .sheet{box-shadow:none; margin:0; page-break-after:always; width:auto; min-height:auto; padding:14mm 15mm;}
+    .sheet:last-child{page-break-after:auto;}
+    @page{size:A4; margin:0;}
+  }
+</style>
+</head>
+<body>
+<header class="app">
+  <h1>値上げ申請文書作成ツール</h1>
+  <div class="sub">選んで入力するだけで、FAXで送れるA4文書ができます（入力はEnterで次へ進めます）</div>
+</header>
+
+<div class="wrap">
+<!-- ==================== 入力パネル ==================== -->
+<div class="panel">
+
+  <div class="card" style="border:2px dashed var(--navy); background:#f8fafd;">
+    <h2><span class="step-num">📷</span>図面・注文書の写真から自動入力</h2>
+    <input type="file" id="photoInput" accept="image/*,.pdf" style="display:none">
+    <div id="dropZone" style="text-align:center; padding:18px 10px; cursor:pointer; border-radius:10px;">
+      <div style="font-weight:700; color:var(--navy);">ここをタップして写真を選ぶ（ドラッグ＆ドロップも可）</div>
+      <div class="hint" style="margin-top:4px;">注文書・図面のFAXや写真から、宛先・品名・図番・現行単価をAIが読み取って入力します</div>
+    </div>
+    <div id="photoStatus" style="font-size:13px; margin-top:4px;"></div>
+  </div>
+
+  <div class="card">
+    <h2><span class="step-num">1</span>文書のタイプ</h2>
+    <div class="choices" id="tmplChoices">
+      <div class="choice" data-v="kobetsu"><div class="t">個別客先向け</div><div class="d">1社宛。品名と単価を明記</div></div>
+      <div class="choice" data-v="issei"><div class="t">取引先一斉</div><div class="d">各位宛。率のみ提示</div></div>
+      <div class="choice" data-v="evidence"><div class="t">エビデンス重視</div><div class="d">内訳表つき。突っ込まれても守れる型</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2><span class="step-num">2</span>宛先と自社情報</h2>
+    <div id="destBlock">
+      <div class="row">
+        <div><label>宛先の会社名</label><input type="text" id="toCompany" placeholder="例：株式会社◯◯製作所"></div>
+        <div><label>宛先の担当者（役職・氏名）</label><input type="text" id="toPerson" placeholder="例：社長 ／ 調達ご担当 ◯◯様"></div>
+      </div>
+    </div>
+    <div class="row">
+      <div><label>自社名</label><input type="text" id="myCompany"></div>
+      <div><label>差出名（役職・氏名）</label><input type="text" id="myName"></div>
+    </div>
+    <div class="row">
+      <div><label>TEL</label><input type="text" id="myTel"></div>
+      <div><label>FAX</label><input type="text" id="myFax"></div>
+      <div><label>日付</label><input type="text" id="docDate"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2><span class="step-num">3</span>値上げの内容</h2>
+    <div class="row">
+      <div><label>対象（品名など）</label><input type="text" id="target" placeholder="例：キャスターボルト加工 ／ 継続注文品"></div>
+    </div>
+    <div class="row" id="priceRow">
+      <div><label>現行単価（円）</label><input type="number" id="curPrice" placeholder="例：220"></div>
+      <div><label>改定率（%）</label><input type="number" id="rate" placeholder="例：8" step="0.1"></div>
+      <div><label>改定後単価（自動・円）</label><input type="text" id="newPrice" readonly style="background:#f4f6fa"></div>
+    </div>
+    <div class="row">
+      <div><label>前回の改定時期（いつから価格が変わっていないか）</label><input type="text" id="lastRev" placeholder="例：2024年秋 ／ 2022年4月（空欄なら「ここ数年」と表現）"></div>
+    </div>
+    <div class="row">
+      <div><label>適用時期</label>
+        <select id="applyFrom">
+          <option value="next">次回のご注文分から</option>
+          <option value="none">記載しない</option>
+          <option value="custom">自分で書く</option>
+        </select>
+      </div>
+      <div id="applyCustomBox" style="display:none"><label>適用時期（自由入力）</label><input type="text" id="applyCustom" placeholder="例：2026年9月納品分から"></div>
+    </div>
+    <div class="opt"><input type="checkbox" id="optHasu" checked><div>端数は切り捨てとし、当社負担と明記する</div></div>
+  </div>
+
+  <div class="card">
+    <h2><span class="step-num">4</span>値上げの根拠（使う項目にチェック。文はクリックで開いて編集）</h2>
+    <div id="eviList"></div>
+    <button class="btn ghost" style="font-size:13px; padding:6px 12px;" onclick="addEvi()">＋ 項目を追加</button>
+    <div class="hint" style="margin-top:6px;">※編集した文はこのブラウザに保存され、次回も使えます。</div>
+  </div>
+
+  <div class="card" id="bdCard">
+    <h2><span class="step-num">5</span>内訳の自動計算（エビデンス重視型で表示）</h2>
+    <table class="bd" id="bdTable">
+      <tr><th>費目</th><th>説明</th><th>影響(%)</th><th></th></tr>
+    </table>
+    <button class="btn ghost" style="font-size:13px; padding:5px 10px; margin-top:6px;" onclick="addBdRow('','',0)">＋ 行を追加</button>
+    <div class="calc" id="bdCalc"></div>
+  </div>
+
+  <div class="card">
+    <h2><span class="step-num">6</span>文書に入れる文言（チェックで追加）</h2>
+    <div class="opt"><input type="checkbox" id="optJiwa" checked><div>「じわじわ上昇し、直近で大幅値上げが重なった」の流れ</div></div>
+    <div class="opt"><input type="checkbox" id="optKyushu" checked><div>「これまで社内の努力で吸収してきたが、抱えきれる水準を超えた」</div></div>
+    <div class="opt"><input type="checkbox" id="optKessan"><div>「その結果、直近の決算は誠に厳しい内容となった」</div></div>
+    <div class="opt"><input type="checkbox" id="optTeishisei" checked><div>低姿勢文「ご対応の厳しいものと重々承知…ご検討・ご調整のほど」</div></div>
+    <div class="opt"><input type="checkbox" id="optKeizoku" checked><div>「安定した納品を継続するため、ご理解とご協力を」</div></div>
+    <div class="opt"><input type="checkbox" id="optShikyu"><div>材料は御支給のため「加工コストの上昇分のみ対象」と明記</div></div>
+    <div class="opt"><input type="checkbox" id="optNouki" checked><div>「納期と品質はこれまでどおり維持」を冒頭で約束</div></div>
+  </div>
+
+  <div class="card">
+    <h2><span class="step-num">7</span>別紙グラフ（チェックで別紙に入る）</h2>
+    <div class="opt"><input type="checkbox" id="gWage" checked><div>最低賃金の棒グラフ（930→1,118円、+20.2%）</div></div>
+    <div class="opt"><input type="checkbox" id="gSus"><div>SUS304 改定額累計の折れ線グラフ（2022〜2026年、+215円/kg）</div></div>
+  </div>
+
+</div>
+
+<!-- ==================== プレビュー ==================== -->
+<div class="prev">
+  <div class="toolbar noprint">
+    <button class="btn" onclick="window.print()">印刷 ／ PDF保存</button>
+    <button class="btn ghost" onclick="resetAll()">入力をリセット</button>
+    <span class="hint">プレビューは自動更新。印刷画面で「PDFとして保存」も選べます。</span>
+  </div>
+  <div class="zoombox two"><div class="zoom" id="sheets"></div></div>
+</div>
+</div>
+
+<script>
+// ================= プリセット =================
+const DEFAULT_EVI = [
+ {id:'zairyo', name:'材料（鋼材）の上昇', on:true,
+  body:'主要材料である鋼材の仕入れ価格が上昇しています。鉄鋼の企業物価指数は2020年比で約4割高の水準です（日本銀行 企業物価指数、2026年3月時点）。'},
+ {id:'sus', name:'材料（SUS304）の上昇', on:false,
+  body:'SUS304材は2022年前半、ニッケル相場の高騰により4〜7月だけで215円/kgの値上げとなりました。以降も高値のまま推移し、2026年に入り再び上昇しています（ステンレス鋼線メーカー公表の価格改定履歴）。'},
+ {id:'abura', name:'切削油・潤滑油の値上げと調達難', on:true,
+  body:'石油元売各社が2026年4月以降、切削油や潤滑油を大幅に値上げしました（例：2026年5月に1Lあたり約90〜110円の引き上げ）。中東情勢の影響で出荷調整も続いており、価格以前に必要な量の確保自体が難しくなっています。'},
+ {id:'kogu', name:'超硬工具の高騰', on:true,
+  body:'主原料タングステンの世界的な高騰により、工具メーカー各社が相次いで値上げしています。バイト・超硬チップ（インサート）は2026年1月受注分から7〜15%以上の引き上げとなり、2026年6月にも各社の値上げが続いています。'},
+ {id:'roumu', name:'人件費（労務費）の上昇', on:true,
+  body:'最低賃金は2024年10月に51円（5.1%）、2025年10月にも60円超と、2年連続で過去最大級の引き上げとなりました（全国加重平均）。安定した加工・納品を継続していくには人材の確保が不可欠であり、当社でも賃金の引き上げが必要となっています。'},
+ {id:'denki', name:'電力費の上昇', on:false,
+  body:'国の電気・ガス代補助が終了し、再生可能エネルギー賦課金は2026年度に4.18円/kWhと過去最高を更新しました。NC旋盤は電力消費が大きく、加工コストに直接影響しております。'},
+];
+const DEFAULT_BD = [
+ ['労務費','最低賃金 期間累計 +20.2%',3.0],
+ ['工具費','バイト・超硬チップ +3〜4割',0.8],
+ ['油剤費','切削・潤滑・油圧・防錆の4種',1.2],
+ ['電力費','再エネ賦課金引き上げ・補助終了',0.4],
+];
+const LS='neageToolV1';
+
+// ================= 状態 =================
+let S = {
+  tmpl:'kobetsu',
+  myCompany:'有限会社　日勝ネジ工業', myName:'代表取締役　山田純一郎',
+  myTel:'06-6556-3820', myFax:'06-6556-3830',
+  evi: JSON.parse(JSON.stringify(DEFAULT_EVI)),
+  bd: JSON.parse(JSON.stringify(DEFAULT_BD)),
+};
+try{ const saved=JSON.parse(localStorage.getItem(LS)); if(saved) S=Object.assign(S,saved);}catch(e){}
+
+// ================= ユーティリティ =================
+const $=id=>document.getElementById(id);
+function zen2han(s){return s.replace(/[０-９．]/g,c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0)).replace(/。/g,'.');}
+function today(){const d=new Date();return d.getFullYear()+'年'+(d.getMonth()+1)+'月'+d.getDate()+'日';}
+function esc(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+const FIELD_IDS=['toCompany','toPerson','myCompany','myName','myTel','myFax','target','curPrice','rate','lastRev','applyCustom'];
+function save(){
+  S.myCompany=$('myCompany').value; S.myName=$('myName').value;
+  S.myTel=$('myTel').value; S.myFax=$('myFax').value;
+  S.fields={}; FIELD_IDS.forEach(id=>{S.fields[id]=$(id).value;});
+  S.applyFrom=$('applyFrom').value;
+  localStorage.setItem(LS, JSON.stringify(S));
+}
+
+// ================= 根拠リスト描画 =================
+function renderEvi(){
+  const box=$('eviList'); box.innerHTML='';
+  S.evi.forEach((e,i)=>{
+    const d=document.createElement('div'); d.className='evi';
+    d.innerHTML=`<div class="evi-head">
+      <input type="checkbox" ${e.on?'checked':''} data-i="${i}" class="evi-on">
+      <span class="name">${esc(e.name)}</span><span class="tgl">文を編集 ▾</span></div>
+      <div class="evi-body"><label>見出し</label><input type="text" class="evi-name" data-i="${i}" value="${esc(e.name)}">
+      <label>本文</label><textarea class="evi-text" data-i="${i}">${esc(e.body)}</textarea></div>`;
+    box.appendChild(d);
+  });
+  box.querySelectorAll('.evi-head').forEach(h=>{
+    h.addEventListener('click',ev=>{
+      if(ev.target.classList.contains('evi-on'))return;
+      h.nextElementSibling.classList.toggle('open');
+    });
+  });
+  box.querySelectorAll('.evi-on').forEach(c=>c.addEventListener('change',e=>{S.evi[e.target.dataset.i].on=e.target.checked; update();}));
+  box.querySelectorAll('.evi-name').forEach(c=>c.addEventListener('input',e=>{S.evi[e.target.dataset.i].name=e.target.value; update();}));
+  box.querySelectorAll('.evi-text').forEach(c=>c.addEventListener('input',e=>{S.evi[e.target.dataset.i].body=e.target.value; update();}));
+}
+function addEvi(){S.evi.push({id:'c'+Date.now(),name:'新しい項目',on:true,body:''}); renderEvi(); update();}
+
+// ================= 内訳テーブル =================
+function renderBd(){
+  const t=$('bdTable');
+  t.querySelectorAll('tr:not(:first-child)').forEach(r=>r.remove());
+  S.bd.forEach((row,i)=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td><input value="${esc(row[0])}" data-i="${i}" data-k="0"></td>
+      <td><input value="${esc(row[1])}" data-i="${i}" data-k="1"></td>
+      <td><input class="num" value="${row[2]}" data-i="${i}" data-k="2"></td>
+      <td style="text-align:center"><a href="#" data-i="${i}" class="bd-del" style="color:#c00;text-decoration:none">✕</a></td>`;
+    t.appendChild(tr);
+  });
+  t.querySelectorAll('input').forEach(c=>c.addEventListener('input',e=>{
+    const i=e.target.dataset.i,k=e.target.dataset.k;
+    S.bd[i][k]= k==='2' ? parseFloat(zen2han(e.target.value))||0 : e.target.value;
+    update();
+  }));
+  t.querySelectorAll('.bd-del').forEach(a=>a.addEventListener('click',e=>{e.preventDefault(); S.bd.splice(a.dataset.i,1); renderBd(); update();}));
+}
+function addBdRow(a,b,c){S.bd.push([a||'費目',b||'',c||0]); renderBd(); update();}
+function bdTotal(){return S.bd.reduce((s,r)=>s+(parseFloat(r[2])||0),0);}
+
+// ================= グラフSVG =================
+function wageSvg(){
+  const data=[['2022/4時点',930],['2022/10',961],['2023/10',1004],['2024/10',1055],['2025/10',1118]];
+  const w=440,h=150,bw=56,gap=(w-40-bw*5)/6; let x=30+gap; let bars='';
+  data.forEach((d,i)=>{
+    const bh=d[1]/1250*(h-40); const col=i===4?'#1a3369':'#8b95ad';
+    bars+=`<rect x="${x}" y="${h-25-bh}" width="${bw}" height="${bh}" fill="${col}"/>
+    <text x="${x+bw/2}" y="${h-29-bh}" font-size="10" text-anchor="middle" font-weight="bold" fill="${i===4?'#1a3369':'#333'}">${d[1].toLocaleString()}円</text>
+    <text x="${x+bw/2}" y="${h-12}" font-size="8" text-anchor="middle" fill="#555">${d[0]}</text>`;
+    x+=bw+gap;
+  });
+  return `<svg viewBox="0 0 ${w} ${h}" width="118mm"><line x1="28" y1="${h-25}" x2="${w-10}" y2="${h-25}" stroke="#444"/>
+  <text x="${w-12}" y="14" font-size="10.5" text-anchor="end" font-weight="bold" fill="#1a3369">期間累計 +188円（+20.2%）</text>${bars}</svg>`;
+}
+function susSvg(){
+  const pts=[[2022.33,0],[2022.42,60],[2022.58,215],[2022.92,180],[2023.17,220],[2023.42,200],[2023.67,185],[2023.92,170],[2024.17,140],[2024.42,155],[2024.67,205],[2024.92,160],[2025.67,145],[2025.92,155],[2026.42,215]];
+  const fut=[[2026.42,215],[2026.67,250],[2026.92,285]];
+  const w=470,h=185,x0=2022.2,x1=2027.05,y0=-25,y1=330;
+  const px=v=>25+(v-x0)/(x1-x0)*(w-40), py=v=>h-22-(v-y0)/(y1-y0)*(h-40);
+  let grid=''; [0,100,200,300].forEach(g=>{grid+=`<line x1="25" y1="${py(g)}" x2="${w-15}" y2="${py(g)}" stroke="#ccc" stroke-dasharray="2,3"/><text x="22" y="${py(g)+3}" font-size="8" text-anchor="end" fill="#666">+${g}</text>`;});
+  let yrs=''; [2022,2023,2024,2025,2026].forEach(yr=>{yrs+=`<text x="${px(yr+0.45)}" y="${h-8}" font-size="8.5" text-anchor="middle" fill="#555">${yr}年</text>`;});
+  const path='M'+pts.map(p=>px(p[0]).toFixed(1)+','+py(p[1]).toFixed(1)).join(' L');
+  const area=path+` L${px(pts[pts.length-1][0])},${py(0)} L${px(pts[0][0])},${py(0)} Z`;
+  const fpath='M'+fut.map(p=>px(p[0]).toFixed(1)+','+py(p[1]).toFixed(1)).join(' L');
+  return `<svg viewBox="0 0 ${w} ${h}" width="128mm">${grid}
+  <path d="${area}" fill="#e0e6f2"/><path d="${path}" fill="none" stroke="#1a3369" stroke-width="2.2"/>
+  <path d="${fpath}" fill="none" stroke="#1a3369" stroke-width="1.6" stroke-dasharray="4,3"/>
+  <circle cx="${px(2022.58)}" cy="${py(215)}" r="3" fill="#1a3369"/><circle cx="${px(2026.42)}" cy="${py(215)}" r="3" fill="#1a3369"/>
+  <text x="${px(2022.75)}" y="${py(255)}" font-size="9" font-weight="bold" fill="#1a3369">2022年4〜7月に +215円の急騰</text>
+  <text x="${px(2025.2)}" y="${py(268)}" font-size="10" font-weight="bold" text-anchor="middle" fill="#1a3369">2026年6月時点 累計 +215円/kg</text>
+  <line x1="25" y1="${py(-25)}" x2="${w-15}" y2="${py(-25)}" stroke="#444"/>
+  <line x1="${px(2025.75)}" y1="${py(245)}" x2="${px(2026.38)}" y2="${py(222)}" stroke="#1a3369" stroke-width=".7"/>${yrs}</svg>`;
+}
+
+// ================= 文書生成 =================
+function buildDoc(){
+  const tmpl=S.tmpl;
+  const isIssei=tmpl==='issei', isEvi=tmpl==='evidence';
+  const toC=$('toCompany').value||'株式会社◯◯', toP=$('toPerson').value;
+  const cur=parseFloat(zen2han($('curPrice').value))||0;
+  const rate=parseFloat(zen2han($('rate').value))||0;
+  const np=cur&&rate?Math.floor(cur*(1+rate/100)):0;
+  $('newPrice').value=np?np+' 円':'';
+  const target=$('target').value||(isIssei?'継続してご注文いただいております加工品':'◯◯');
+  const af=$('applyFrom').value;
+  const applyTxt=af==='next'?'次回のご注文分からの適用を想定しております。':(af==='custom'&&$('applyCustom').value?$('applyCustom').value+'からの適用を想定しております。':'');
+  const evOn=S.evi.filter(e=>e.on&&e.body.trim());
+  const total=bdTotal(); const burden=(total-rate);
+  $('bdCalc').innerHTML=`内訳合計 <b>+${total.toFixed(1)}%</b> ／ お願いする率 <b>${rate||'?'}%</b> ／ 当社負担 <b>${rate?burden.toFixed(1):'?'}%</b>`;
+  const hasBesshi = evOn.length>0 && (isEvi || evOn.length>=2 || $('gWage').checked || $('gSus').checked);
+  const pages = hasBesshi?'本紙共2枚':'本紙共1枚';
+
+  // ---- 本紙 ----
+  let h='';
+  h+=`<div class="s-right">${esc($('docDate').value||today())}<br><span style="font-size:9pt">送信枚数：${pages}</span></div>`;
+  h+= isIssei?`<div>お取引先各位</div>`:`<div>${esc(toC)}<br>${esc(toP||'御中')}</div>`;
+  h+=`<div class="s-right" style="margin-top:4px">${esc($('myCompany').value)}<br>${esc($('myName').value)}<br>TEL：${esc($('myTel').value)}<br>FAX：${esc($('myFax').value)}</div>`;
+  h+=`<div class="s-title"><span>加工単価改定のお願い</span></div>`;
+  h+=`<div class="s-sub">${cur&&np?`（${esc(target)}　現行${cur}円 → ${np}円）`:(rate?`（現行単価の${rate}%改定）`:'')}</div>`;
+  h+=`<p class="s-p">拝啓　盛夏の候、貴社ますますご清栄のこととお慶び申し上げます。平素は格別のお引き立てを賜り、厚く御礼申し上げます。</p>`;
+  let lead=`${isIssei?'継続してご注文いただいております加工品':esc(target)}の単価について、`+(cur&&np?`現行${cur}円から${np}円（${rate}%改定）への変更をお願いいたします。`:`現行単価の${rate||'◯'}%の改定をお願いいたします。`);
+  if(applyTxt)lead+=applyTxt;
+  if($('optNouki').checked)lead+='納期と品質はこれまでどおり維持いたします。';
+  h+=`<p class="s-p">${lead}</p>`;
+  h+=`<div class="s-sec">改定をお願いする背景</div>`;
+  const lastRev=$('lastRev').value.trim();
+  if($('optJiwa').checked){
+    const lead2=lastRev?`前回の単価改定（${esc(lastRev)}）以降、材料・工具・油剤・人件費など、全ての仕入れ価格が上昇してまいりました。`:`ここ数年、材料・工具・油剤・人件費など、全ての仕入れ価格が少しずつ上昇してまいりました。`;
+    h+=`<p class="s-p">${lead2}とりわけ直近では各分野で大幅な値上げが重なり、コスト環境は大きく変わりました。${hasBesshi?'詳細は別紙をご参照ください。':''}</p>`;
+  }else if(lastRev){
+    h+=`<p class="s-p">前回の単価改定（${esc(lastRev)}）以降、加工コストの上昇が続いております。${hasBesshi?'詳細は別紙をご参照ください。':''}</p>`;
+  }
+  if($('optShikyu').checked)h+=`<p class="s-p">なお、材料は御支給いただいておりますため、今回の改定は加工コストの上昇分のみを対象としております。</p>`;
+  if($('optKyushu').checked){
+    let k='これらの上昇分は、これまで社内の努力で吸収に努めてまいりました。';
+    if($('optKessan').checked)k+='その結果、直近の決算は誠に厳しい内容となりました。';
+    k+='現在の上昇は、弊社の努力のみで抱えきれる水準を超えております。';
+    h+=`<p class="s-p">${k}</p>`;
+  }
+  if(isEvi&&total>0&&rate>0){
+    h+=`<div class="s-sec">1個（1単価）あたりの上昇内訳</div><table class="s-bd">`;
+    S.bd.forEach((r,i)=>{h+=`<tr class="${i%2? '':'alt'}"><td style="font-family:sans-serif;font-weight:700">${esc(r[0])}</td><td>${esc(r[1])}</td><td style="text-align:right">＋${(+r[2]).toFixed(1)}%</td></tr>`;});
+    h+=`<tr class="total"><td>合計</td><td></td><td style="text-align:right">＋${total.toFixed(1)}%</td></tr></table>`;
+    if(burden>0.01)h+=`<p class="s-p s-ind">上昇分の合計は${total.toFixed(1)}%です。うち${burden.toFixed(1)}%分は当社で負担し、今回は${rate}%の改定をお願いするものです。</p>`;
+  }
+  h+=`<div class="s-sec">お願いする内容</div>`;
+  h+=`<p class="s-p s-ind">・対象　　${esc(target)}<br>`;
+  h+= cur&&np?`・単価　　現行${cur}円 → ${np}円（差額${np-cur}円）<br>`:`・改定率　現行単価の${rate||'◯'}%<br>`;
+  if(af==='next')h+=`・適用　　次回のご注文分から<br>`;
+  if(af==='custom'&&$('applyCustom').value)h+=`・適用　　${esc($('applyCustom').value)}から<br>`;
+  if($('optHasu').checked)h+=`<span class="s-note">※改定で生じる端数は切り捨てとし、当社で負担いたします。</span>`;
+  h+=`</p>`;
+  if($('optTeishisei').checked)h+=`<p class="s-p">今回のお願いがご対応の厳しいものであることは、重々承知しております。誠に恐縮ではございますが、ご検討・ご調整のほど何卒お願い申し上げます。</p>`;
+  let close='納期および品質・数量につきましては、従来と同じ体制でこれまでどおり安定して納品いたします。';
+  if($('optKeizoku').checked)close+='今後も安定した納品を継続してまいるため、何卒ご理解とご協力を賜りますようお願い申し上げます。';
+  h+=`<p class="s-p">${close}</p>`;
+  h+=`<p class="s-p">ご検討のほど、何卒よろしくお願い申し上げます。</p>`;
+  h+=`<div class="s-right" style="margin-top:8px">敬具</div>`;
+  let sheets=`<div class="sheet">${h}</div>`;
+
+  // ---- 別紙 ----
+  if(hasBesshi){
+    let b=`<div style="display:flex;justify-content:space-between"><span style="font-family:sans-serif">別紙</span><span>${esc($('myCompany').value)}</span></div>`;
+    b+=`<div class="s-title" style="margin-top:6px"><span>単価改定の根拠資料</span></div><div style="height:6px"></div>`;
+    evOn.forEach((e,i)=>{
+      b+=`<div class="s-sec">${i+1}. ${esc(e.name)}</div><p class="s-p s-ind">${esc(e.body)}</p>`;
+      if(e.id==='roumu'&&$('gWage').checked)b+=`<div class="s-graph">${wageSvg()}<div class="s-cap">最低賃金（全国加重平均）の推移　出典：厚生労働省</div></div>`;
+      if(e.id==='sus'&&$('gSus').checked)b+=`<div class="s-graph">${susSvg()}<div class="s-cap">単位：円/kg（2022年4月を0とした改定額の累計）　出典：ステンレス鋼線メーカー公表の価格改定履歴</div></div>`;
+    });
+    if($('gWage').checked&&!evOn.some(e=>e.id==='roumu'))b+=`<div class="s-graph">${wageSvg()}<div class="s-cap">最低賃金（全国加重平均）の推移　出典：厚生労働省</div></div>`;
+    if($('gSus').checked&&!evOn.some(e=>e.id==='sus'))b+=`<div class="s-graph">${susSvg()}<div class="s-cap">SUS304 改定額の累計　出典：ステンレス鋼線メーカー公表の価格改定履歴</div></div>`;
+    b+=`<div class="s-right" style="margin-top:14px">以上</div>`;
+    sheets+=`<div class="sheet">${b}</div>`;
+  }
+  $('sheets').innerHTML=sheets;
+}
+
+// ================= イベント =================
+function update(){buildDoc(); save();}
+function resetAll(){if(confirm('入力内容と保存済みの編集をすべてリセットします。よろしいですか？')){localStorage.removeItem(LS); location.reload();}}
+
+document.querySelectorAll('#tmplChoices .choice').forEach(c=>{
+  c.addEventListener('click',()=>{
+    document.querySelectorAll('#tmplChoices .choice').forEach(x=>x.classList.remove('sel'));
+    c.classList.add('sel'); S.tmpl=c.dataset.v;
+    $('bdCard').style.display=S.tmpl==='evidence'?'':'none';
+    $('destBlock').style.display=S.tmpl==='issei'?'none':'';
+    update();
+  });
+});
+$('applyFrom').addEventListener('change',()=>{$('applyCustomBox').style.display=$('applyFrom').value==='custom'?'':'none'; update();});
+document.querySelectorAll('input,textarea,select').forEach(el=>{
+  el.addEventListener('input',update);
+  el.addEventListener('keydown',e=>{
+    // 日本語入力の変換確定Enterでは移動しない（文字が別の欄に入るのを防ぐ）
+    if(e.isComposing||e.keyCode===229)return;
+    if(e.key==='Enter'&&el.tagName!=='TEXTAREA'){
+      e.preventDefault();
+      const all=[...document.querySelectorAll('input:not([readonly]),textarea,select')];
+      const n=all[all.indexOf(el)+1]; if(n)n.focus();
+    }
+  });
+  if(el.type==='number'||el.type==='text'){
+    el.addEventListener('blur',()=>{const z=zen2han(el.value); if(z!==el.value){el.value=z; update();}});
+  }
+});
+
+// ================= 写真からの自動入力 =================
+const dz=$('dropZone'), pi=$('photoInput'), ps=$('photoStatus');
+dz.addEventListener('click',()=>pi.click());
+dz.addEventListener('dragover',e=>{e.preventDefault(); dz.style.background='var(--navy-l)';});
+dz.addEventListener('dragleave',()=>dz.style.background='');
+dz.addEventListener('drop',e=>{e.preventDefault(); dz.style.background=''; if(e.dataTransfer.files[0])readPhoto(e.dataTransfer.files[0]);});
+pi.addEventListener('change',()=>{if(pi.files[0])readPhoto(pi.files[0]); pi.value='';});
+
+async function readPhoto(file){
+  ps.innerHTML='<span style="color:var(--accent)">AIが読み取り中です…（10秒ほどかかります）</span>';
+  try{
+    const fd=new FormData(); fd.append('file',file);
+    const r=await fetch('/api/neage-extract',{method:'POST',body:fd});
+    const j=await r.json();
+    if(!r.ok)throw new Error(j.error||'読み取りに失敗しました');
+    const filled=[];
+    const setIf=(id,val,label)=>{ if(val!==null&&val!==undefined&&String(val).trim()!==''){ $(id).value=String(val); filled.push(label); } };
+    setIf('toCompany', j.customer, '宛先会社');
+    if(j.contact) setIf('toPerson', j.contact+'様', '担当者');
+    let t=j.part_name||'';
+    if(j.drawing_no) t+=(t?'（図番':'図番')+j.drawing_no+(t.includes('（')?'）':'');
+    if(t) setIf('target', t+'の加工', '対象品名');
+    setIf('curPrice', j.unit_price, '現行単価');
+    if(j.material){
+      // SUS304ならSUS304の根拠文を自動でオンにする
+      if(/SUS ?304/i.test(j.material)){ const e=S.evi.find(x=>x.id==='sus'); if(e){e.on=true; renderEvi();} }
+      filled.push('材質('+j.material+')');
+    }
+    if(filled.length){
+      ps.innerHTML='<span style="color:var(--ok)">✔ 読み取りました：'+filled.join('・')+'</span> <span class="hint">間違いがあれば直してください</span>';
+      update();
+    }else{
+      ps.innerHTML='<span style="color:#c00">写真から情報を読み取れませんでした。文字がはっきり写る向きで撮り直してみてください。</span>';
+    }
+  }catch(err){
+    ps.innerHTML='<span style="color:#c00">読み取りエラー：'+esc(err.message)+'</span>';
+  }
+}
+
+// ================= 初期化 =================
+$('myCompany').value=S.myCompany; $('myName').value=S.myName;
+$('myTel').value=S.myTel; $('myFax').value=S.myFax;
+if(S.fields)FIELD_IDS.forEach(id=>{if(S.fields[id]!==undefined)$(id).value=S.fields[id];});
+if(S.applyFrom){$('applyFrom').value=S.applyFrom; $('applyCustomBox').style.display=S.applyFrom==='custom'?'':'none';}
+$('docDate').value=today();
+document.querySelector(`#tmplChoices .choice[data-v="${S.tmpl}"]`).classList.add('sel');
+$('bdCard').style.display=S.tmpl==='evidence'?'':'none';
+$('destBlock').style.display=S.tmpl==='issei'?'none':'';
+renderEvi(); renderBd(); buildDoc();
+</script>
+</body>
+</html>

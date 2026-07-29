@@ -289,3 +289,45 @@ export async function analyzeDrawingWithGemini(file, options) {
 
   return response;
 }
+
+const NEAGE_EXTRACT_PROMPT = `この画像は、金属加工業に届いた注文書・図面・FAXです。
+値上げのお願い文書を作るために、以下の項目をJSONで抽出してください。
+
+{
+  "customer": "発注元（送り主）の会社名。不明なら null",
+  "contact": "発注元の担当者名（様・敬称は付けない）。不明なら null",
+  "part_name": "品名・部品名（例: STUD、キャスターボルト）。不明なら null",
+  "drawing_no": "図番・図面番号。不明なら null",
+  "material": "材質（例: SUS304、S45C）。不明なら null",
+  "unit_price": 現行単価の数値のみ（円）。@220 なら 220。不明なら null,
+  "quantity": 数量の数値のみ。不明なら null
+}
+
+ルール:
+- 画像に書かれていない情報は推測せず null にする
+- 手書きの赤字などで新単価らしき数字があっても unit_price には入れない（印字された現行単価を優先）
+- JSONのみを出力する`;
+
+/**
+ * 注文書・図面の写真から値上げ文書用の基本情報を抽出（neage-tool.html 用）
+ * @param {{ originalname?: string, mimetype?: string, buffer: Buffer }} file
+ * @param {{ apiKey?: string, model?: string }} [options]
+ */
+export async function extractNeageOrderInfo(file, options) {
+  options = options || {};
+  const apiKey = options.apiKey || process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
+  if (!apiKey) throw new Error('GOOGLE_API_KEY が未設定です');
+
+  const mediaType = detectDrawingMediaType(file);
+  if (!mediaType) throw new Error('JPEG/PNG/PDF のみ対応です');
+
+  const modelId = options.model || process.env.GOOGLE_MODEL || process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+  const ai = new GoogleGenAI({ apiKey });
+  const data = bufferToBase64(mediaType, file.buffer);
+  const part = createPartFromBase64(data, mediaType, PartMediaResolutionLevel.MEDIA_RESOLUTION_HIGH);
+  const text = await generate(ai, modelId, [part, { text: NEAGE_EXTRACT_PROMPT }], {
+    json: true,
+    system: 'あなたは製造業の注文書・図面を正確に読み取る事務アシスタントです。書かれている情報だけを抽出し、推測で補いません。',
+  });
+  return parseModelJson(text);
+}
