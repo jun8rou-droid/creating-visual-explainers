@@ -42,6 +42,7 @@ import {
   neageRefreshBreakdown,
   neageRefreshEvidence,
   neageReview,
+  neageRewrite,
   ocrDrawingRegion,
 } from './gemini-analyze.mjs';
 import {
@@ -239,6 +240,18 @@ app.post('/api/neage-cost-compare', upload.array('files', 6), async (req, res) =
   } catch (err) {
     console.error('[neage cost-compare]', err);
     res.status(500).json({ error: err.message || '伝票の読み取りに失敗しました' });
+  }
+});
+
+app.post('/api/neage-rewrite', async (req, res) => {
+  if (!VISION_ENABLED) return res.status(503).json({ error: 'AI が無効です（GOOGLE_API_KEY 未設定）' });
+  const { doc, request } = req.body || {};
+  if (!doc || !request) return res.status(400).json({ error: '文書と指示が必要です' });
+  try {
+    res.json({ doc: await neageRewrite(doc, request) });
+  } catch (err) {
+    console.error('[neage rewrite]', err);
+    res.status(500).json({ error: err.message || '本文の調整に失敗しました' });
   }
 });
 

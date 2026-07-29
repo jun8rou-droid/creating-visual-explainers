@@ -475,3 +475,30 @@ Google検索で最新の公的データ・業界情報を確認し、以下の�
   if (!text) throw new Error('モデルからテキスト応答がありません');
   return parseModelJson(text);
 }
+
+/** ⑥ 自由指示による本文の書き直し */
+export async function neageRewrite(docText, request, options) {
+  const { ai, modelId } = neageClient(options);
+  const prompt = `以下は金属加工業が客先へFAXで送る「単価改定のお願い」文書です。
+ユーザーの指示に沿って本文を書き直してください。
+
+--- ユーザーの指示 ---
+${String(request).slice(0, 1000)}
+
+--- 現在の文書 ---
+${String(docText).slice(0, 8000)}
+--- ここまで ---
+
+ルール:
+- 書き直した文書の全文だけを出力する（説明・前置き・コードブロック不要）
+- 「=====別紙=====」という区切り行がある場合は、その区切りを必ず残す
+- 数字（単価・%・日付・出典）は指示がない限り変えない
+- 宛名・差出人・敬具などの体裁は保つ
+- A4に収まる分量を保つ（大幅に長くしない）
+- ビジネス文書として自然な敬語にする`;
+  const text = await generate(ai, modelId, [{ text: prompt }], {
+    json: false,
+    system: 'あなたは日本のビジネス文書に堪能な編集者です。指示された修正だけを丁寧に反映します。',
+  });
+  return text.replace(/^```[a-z]*\s*\n?/i, '').replace(/\n?```\s*$/, '').trim();
+}

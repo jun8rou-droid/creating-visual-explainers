@@ -223,6 +223,12 @@
     <div class="opt"><input type="checkbox" id="optKeizoku" checked><div>「安定した納品を継続するため、ご理解とご協力を」</div></div>
     <div class="opt"><input type="checkbox" id="optShikyu"><div>材料は御支給のため「加工コストの上昇分のみ対象」と明記</div></div>
     <div class="opt"><input type="checkbox" id="optNouki" checked><div>「納期と品質はこれまでどおり維持」を冒頭で約束</div></div>
+    <div style="border-top:1px dashed var(--border); margin-top:10px; padding-top:8px;">
+      <div style="font-size:13px; font-weight:700; color:var(--navy);">🤖 自由な指示で本文を調整（AI）</div>
+      <textarea id="freeReq" style="margin-top:6px; min-height:52px;" placeholder="例：決算が厳しかったことを控えめに入れて ／ 全体をもっと重厚で丁寧な文面に ／ 冒頭に日頃の感謝を厚めに"></textarea>
+      <button class="btn ghost" style="font-size:13px; padding:6px 12px; margin-top:6px;" onclick="runRewrite()">この指示で本文を書き直す</button>
+      <div id="rewriteStatus" style="font-size:13px; margin-top:4px;"></div>
+    </div>
   </div>
 
   <div class="card">
@@ -489,7 +495,47 @@ function buildDoc(){
     b+=`<div class="s-right" style="margin-top:14px">以上</div>`;
     sheets+=`<div class="sheet">${b}</div>`;
   }
+  if(S.customDoc){ renderCustomDoc(); return; }
   $('sheets').innerHTML=sheets;
+}
+
+// ---- AI調整済み本文の表示（直接編集可） ----
+const BESSHI_MARK='=====別紙=====';
+function renderCustomDoc(){
+  const parts=String(S.customDoc).split(/\n?={3,}\s*別紙\s*={3,}\n?/);
+  let h='<div class="noprint" style="background:#fff7e0; border:1px solid #e6c96a; border-radius:10px; padding:8px 12px; margin-bottom:10px; font-size:13px;">'
+    +'🤖 AI調整済みの本文を表示中です。<b>本文をクリックすると直接手直しできます</b>（フォームの変更は反映されません）。'
+    +'<a href="#" onclick="revertCustomDoc();return false;" style="color:var(--accent); margin-left:8px;">フォームからの自動生成に戻す</a></div>';
+  parts.forEach(t=>{
+    h+='<div class="sheet custom" contenteditable="true" style="white-space:pre-wrap; outline:none;">'+esc(t.trim())+'</div>';
+  });
+  $('sheets').innerHTML=h;
+  $('sheets').querySelectorAll('.sheet.custom').forEach(sh=>{
+    sh.addEventListener('input',()=>{
+      S.customDoc=[...$('sheets').querySelectorAll('.sheet.custom')].map(x=>x.innerText.trim()).join('\n'+BESSHI_MARK+'\n');
+      localStorage.setItem(LS, JSON.stringify(S));
+    });
+  });
+}
+function revertCustomDoc(){
+  if(!confirm('AI調整済みの本文を破棄して、フォームからの自動生成に戻します。よろしいですか？'))return;
+  S.customDoc=null; update();
+  $('rewriteStatus').innerHTML='<span class="hint">フォームからの自動生成に戻しました</span>';
+}
+async function runRewrite(){
+  const req=$('freeReq').value.trim();
+  const rs=$('rewriteStatus');
+  if(!req){rs.innerHTML='<span style="color:#c00">指示を入力してください（例：もっと丁寧に）</span>';return;}
+  rs.innerHTML='<span style="color:var(--accent)">AIが本文を書き直しています…（20秒ほど）</span>';
+  try{
+    const doc=[...document.querySelectorAll('#sheets .sheet')].map(s=>s.innerText.trim()).join('\n'+BESSHI_MARK+'\n');
+    const j=await postJson('/api/neage-rewrite',{doc, request:req});
+    if(!j.doc||j.doc.length<50)throw new Error('書き直した本文が取得できませんでした');
+    S.customDoc=j.doc;
+    localStorage.setItem(LS, JSON.stringify(S));
+    renderCustomDoc();
+    rs.innerHTML='<span style="color:var(--ok)">✔ 反映しました。続けて別の指示も出せます。手直しは本文を直接クリック</span>';
+  }catch(e){rs.innerHTML='<span style="color:#c00">エラー：'+esc(e.message)+'</span>';}
 }
 
 // ================= イベント =================
