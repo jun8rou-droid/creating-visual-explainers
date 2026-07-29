@@ -115,17 +115,30 @@
   </div>
 
   <div class="card">
-    <h2><span class="step-num">1</span>文書のタイプ</h2>
+    <h2><span class="step-num">1</span>作りたい文書</h2>
+    <div class="choices" id="kindChoices">
+      <div class="choice" data-k="neage" style="flex:1 1 100%;"><div class="t">値上げのお願い</div><div class="d">単価改定の申請文書（根拠・内訳・グラフつき）</div></div>
+      <div class="choice" data-k="delay" data-p="納期遅延のお詫び。品名◯◯・数量◯個の納期が、◯◯の理由で当初の◯月◯日から◯月◯日になる見込み。お詫びと新しい納期の連絡、再発防止の一言。"><div class="t">納期遅延のお詫び</div></div>
+      <div class="choice" data-k="change" data-p="納期変更のお願い。品名◯◯について、◯◯の理由で納期を◯月◯日へ変更させていただきたい。"><div class="t">納期変更のお願い</div></div>
+      <div class="choice" data-k="holiday" data-p="夏季休業のお知らせ。◯月◯日から◯月◯日まで休業。休業前最終出荷日と、休業明けの営業開始日を案内。"><div class="t">休業のお知らせ</div></div>
+      <div class="choice" data-k="soufu" data-p="書類送付のご案内（送付状）。同封書類：◯◯（◯部）。ご査収のお願い。"><div class="t">書類送付状</div></div>
+      <div class="choice" data-k="defect" data-p="品質不具合のお詫び。品名◯◯・◯個のうち◯個に◯◯の不具合。お詫び、原因、代品対応（◯月◯日納品）、再発防止策。"><div class="t">不具合のお詫び</div></div>
+      <div class="choice" data-k="greet" data-p="新規お取引のご挨拶。当社はNC旋盤による金属部品加工（小ロット・短納期対応）。お見積りのご用命のお願い。"><div class="t">新規取引の挨拶</div></div>
+      <div class="choice" data-k="custom" data-p=""><div class="t">その他（自由）</div></div>
+    </div>
+  </div>
+
+  <div class="card" id="tmplCard">
+    <h2><span class="step-num">2</span>値上げのタイプ</h2>
     <div class="choices" id="tmplChoices">
       <div class="choice" data-v="kobetsu"><div class="t">個別客先向け</div><div class="d">1社宛。品名と単価を明記</div></div>
       <div class="choice" data-v="issei"><div class="t">取引先一斉</div><div class="d">各位宛。率のみ提示</div></div>
       <div class="choice" data-v="evidence"><div class="t">エビデンス重視</div><div class="d">内訳表つき。突っ込まれても守れる型</div></div>
-      <div class="choice" data-v="free"><div class="t">その他の文書</div><div class="d">お詫び・お知らせ等をAIで自由作成</div></div>
     </div>
   </div>
 
   <div class="card">
-    <h2><span class="step-num">2</span>宛先と自社情報</h2>
+    <h2><span class="step-num">3</span>宛先と自社情報</h2>
     <div id="destBlock">
       <div class="row">
         <div><label>宛先の会社名</label><input type="text" id="toCompany" placeholder="例：株式会社◯◯製作所"></div>
@@ -144,25 +157,19 @@
   </div>
 
 
+
+
   <div class="card" id="composeCard" style="display:none; border:2px solid var(--navy);">
-    <h2><span class="step-num">3</span>作りたい文書の内容</h2>
-    <div class="choices" style="margin-bottom:8px;">
-      <div class="choice chip" data-p="納期遅延のお詫び。品名◯◯・数量◯個の納期が、◯◯の理由で当初の◯月◯日から◯月◯日になる見込み。お詫びと新しい納期の連絡、再発防止の一言。"><div class="t">納期遅延のお詫び</div></div>
-      <div class="choice chip" data-p="納期変更のお願い。品名◯◯について、◯◯の理由で納期を◯月◯日へ変更させていただきたい。"><div class="t">納期変更のお願い</div></div>
-      <div class="choice chip" data-p="夏季休業のお知らせ。◯月◯日から◯月◯日まで休業。休業前最終出荷日と、休業明けの営業開始日を案内。"><div class="t">休業のお知らせ</div></div>
-      <div class="choice chip" data-p="書類送付のご案内（送付状）。同封書類：◯◯（◯部）。ご査収のお願い。"><div class="t">書類送付状</div></div>
-      <div class="choice chip" data-p="品質不具合のお詫び。品名◯◯・◯個のうち◯個に◯◯の不具合。お詫び、原因、代品対応（◯月◯日納品）、再発防止策。"><div class="t">不具合のお詫び</div></div>
-      <div class="choice chip" data-p="新規お取引のご挨拶。当社はNC旋盤による金属部品加工（小ロット・短納期対応）。お見積りのご用命のお願い。"><div class="t">新規取引の挨拶</div></div>
-    </div>
-    <label>文書の内容（◯◯を実際の内容に直してください。詳しいほど良い文書になります）</label>
+    <h2><span class="step-num">4</span>文書の内容</h2>
+    <label>伝えたいこと（◯◯を実際の内容に直してください。詳しいほど良い文書になります）</label>
     <textarea id="composePurpose" style="min-height:90px;" placeholder="例：8/5納期のSTUD 750個が、材料の入荷遅れで8/12納品になる見込み。お詫びと新納期の連絡をしたい"></textarea>
     <button class="btn" style="margin-top:8px;" onclick="runCompose()">🤖 AIで文書を作る</button>
     <div id="composeStatus" style="font-size:13px; margin-top:4px;"></div>
-    <div class="hint" style="margin-top:4px;">できた文書は右のプレビューで直接クリックして手直しできます。さらに下の「AIサポート」で書き直し指示も出せます。</div>
+    <div class="hint" style="margin-top:4px;">できた文書は右のプレビューで直接クリックして手直しできます。下の「AIサポート」で書き直し指示も出せます。</div>
   </div>
 
   <div class="card" id="cardPrice">
-    <h2><span class="step-num">3</span>値上げの内容</h2>
+    <h2><span class="step-num">4</span>値上げの内容</h2>
     <div class="row">
       <div><label>対象（品名など）</label><input type="text" id="target" placeholder="例：キャスターボルト加工 ／ 継続注文品"></div>
     </div>
@@ -194,7 +201,7 @@
   </div>
 
   <div class="card" id="cardEvi">
-    <h2><span class="step-num">4</span>値上げの根拠（使う項目にチェック。文はクリックで開いて編集）</h2>
+    <h2><span class="step-num">5</span>値上げの根拠（使う項目にチェック。文はクリックで開いて編集）</h2>
     <div id="eviList"></div>
     <button class="btn ghost" style="font-size:13px; padding:6px 12px;" onclick="addEvi()">＋ 項目を追加</button>
     <button class="btn ghost" style="font-size:13px; padding:6px 12px;" onclick="refreshEvi()">🌐 数字を最新に更新（AI検索）</button>
@@ -203,7 +210,7 @@
   </div>
 
   <div class="card" id="bdCard">
-    <h2><span class="step-num">5</span>内訳の自動計算（エビデンス重視型で表示）</h2>
+    <h2><span class="step-num">6</span>内訳の自動計算（エビデンス重視型で表示）</h2>
     <table class="bd" id="bdTable">
       <tr><th>費目</th><th>説明</th><th>影響(%)</th><th></th></tr>
     </table>
@@ -224,7 +231,7 @@
   </div>
 
   <div class="card">
-    <h2><span class="step-num">8</span>AIサポート（作った内容をAIがチェック）</h2>
+    <h2><span class="step-num">9</span>AIサポート（作った内容をAIがチェック）</h2>
     <div style="display:flex; gap:8px; flex-wrap:wrap;">
       <button class="btn ghost" style="font-size:13.5px; padding:8px 14px;" onclick="runReview()" id="btnReview">🔍 値上げ率をAIがチェック</button>
       <button class="btn ghost" style="font-size:13.5px; padding:8px 14px;" onclick="runQa()">💬 想定問答を作る（交渉カンペ）</button>
@@ -234,7 +241,7 @@
   </div>
 
   <div class="card" id="cardOpts">
-    <h2><span class="step-num">6</span>文書に入れる文言（チェックで追加）</h2>
+    <h2><span class="step-num">7</span>文書に入れる文言（チェックで追加）</h2>
     <div class="opt"><input type="checkbox" id="optJiwa" checked><div>「じわじわ上昇し、直近で大幅値上げが重なった」の流れ</div></div>
     <div class="opt"><input type="checkbox" id="optKyushu" checked><div>「これまで社内の努力で吸収してきたが、抱えきれる水準を超えた」</div></div>
     <div class="opt"><input type="checkbox" id="optKessan"><div>「その結果、直近の決算は誠に厳しい内容となった」</div></div>
@@ -251,7 +258,7 @@
   </div>
 
   <div class="card" id="cardGraph">
-    <h2><span class="step-num">7</span>別紙グラフ（チェックで別紙に入る）</h2>
+    <h2><span class="step-num">8</span>別紙グラフ（チェックで別紙に入る）</h2>
     <div class="opt"><input type="checkbox" id="gWage" checked><div>最低賃金の棒グラフ（930→1,118円、+20.2%）</div></div>
     <div class="opt"><input type="checkbox" id="gSus"><div>SUS304 改定額累計の折れ線グラフ（2022〜2026年、+215円/kg）</div></div>
   </div>
@@ -330,6 +337,8 @@ let S = {
   bd: JSON.parse(JSON.stringify(DEFAULT_BD)),
 };
 try{ const saved=JSON.parse(localStorage.getItem(LS)); if(saved) S=Object.assign(S,saved);}catch(e){}
+if(S.tmpl==='free'){S.kind='custom'; S.tmpl='kobetsu';}
+if(!S.kind)S.kind='neage';
 // 保存データが壊れていたら初期値に戻す
 if(!Array.isArray(S.bd)||!S.bd.length) S.bd=JSON.parse(JSON.stringify(DEFAULT_BD));
 if(!Array.isArray(S.evi)||!S.evi.length) S.evi=JSON.parse(JSON.stringify(DEFAULT_EVI));
@@ -433,8 +442,8 @@ function susSvg(){
 
 // ================= 文書生成 =================
 function buildDoc(){
-  if(S.tmpl==='free'&&!S.customDoc){
-    $('sheets').innerHTML='<div class="sheet" style="display:flex;align-items:center;justify-content:center;text-align:center;color:#94A3B8;font-family:sans-serif;">左の「作りたい文書の内容」を入力して<br>「AIで文書を作る」を押してください</div>';
+  if(S.kind!=='neage'&&!S.customDoc){
+    $('sheets').innerHTML='<div class="sheet" style="display:flex;align-items:center;justify-content:center;text-align:center;color:#94A3B8;font-family:sans-serif;">左の「文書の内容」を書いて<br>「AIで文書を作る」を押してください</div>';
     return;
   }
   const tmpl=S.tmpl;
@@ -566,13 +575,25 @@ function update(){buildDoc(); save();}
 function resetAll(){if(confirm('入力内容と保存済みの編集をすべてリセットします。よろしいですか？')){localStorage.removeItem(LS); location.reload();}}
 
 function applyTmplView(){
-  const t=S.tmpl, free=t==='free';
-  $('bdCard').style.display=(t==='evidence')?'':'none';
-  $('destBlock').style.display=(t==='issei')?'none':'';
-  $('composeCard').style.display=free?'':'none';
-  ['cardPrice','cardEvi','cardOpts','cardGraph'].forEach(id=>{const el=$(id); if(el)el.style.display=free?'none':'';});
-  const br=$('btnReview'); if(br)br.style.display=free?'none':'';
+  const neage=S.kind==='neage';
+  $('tmplCard').style.display=neage?'':'none';
+  $('composeCard').style.display=neage?'none':'';
+  ['cardPrice','cardEvi','cardOpts','cardGraph'].forEach(id=>{const el=$(id); if(el)el.style.display=neage?'':'none';});
+  $('bdCard').style.display=(neage&&S.tmpl==='evidence')?'':'none';
+  $('destBlock').style.display=(neage&&S.tmpl==='issei')?'none':'';
+  const br=$('btnReview'); if(br)br.style.display=neage?'':'none';
 }
+document.querySelectorAll('#kindChoices .choice').forEach(c=>{
+  c.addEventListener('click',()=>{
+    document.querySelectorAll('#kindChoices .choice').forEach(x=>x.classList.remove('sel'));
+    c.classList.add('sel');
+    if(c.dataset.k!==S.kind)S.customDoc=null; // 文書の種類を変えたら作りかけの本文はリセット
+    S.kind=c.dataset.k;
+    if(c.dataset.p) $('composePurpose').value=c.dataset.p;
+    applyTmplView(); update();
+    if(S.kind!=='neage') $('composePurpose').focus();
+  });
+});
 document.querySelectorAll('#tmplChoices .choice').forEach(c=>{
   c.addEventListener('click',()=>{
     document.querySelectorAll('#tmplChoices .choice').forEach(x=>x.classList.remove('sel'));
@@ -581,12 +602,6 @@ document.querySelectorAll('#tmplChoices .choice').forEach(c=>{
     update();
   });
 });
-document.querySelectorAll('#composeCard .chip').forEach(c=>c.addEventListener('click',()=>{
-  document.querySelectorAll('#composeCard .chip').forEach(x=>x.classList.remove('sel'));
-  c.classList.add('sel');
-  $('composePurpose').value=c.dataset.p;
-  $('composePurpose').focus();
-}));
 async function runCompose(){
   const purpose=$('composePurpose').value.trim();
   const cs=$('composeStatus');
@@ -806,6 +821,7 @@ if(S.revKind)$('revKind').value=S.revKind;
 $('revKind').addEventListener('change',update);
 $('docDate').value=today();
 (document.querySelector(`#tmplChoices .choice[data-v="${S.tmpl}"]`)||document.querySelector('#tmplChoices .choice')).classList.add('sel');
+(document.querySelector(`#kindChoices .choice[data-k="${S.kind}"]`)||document.querySelector('#kindChoices .choice')).classList.add('sel');
 applyTmplView();
 renderEvi(); renderBd();
 if($('lastRev').value)applyEviPeriod();
