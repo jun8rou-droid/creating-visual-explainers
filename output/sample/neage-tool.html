@@ -153,7 +153,13 @@
       <div><label>改定後単価（自動・円）</label><input type="text" id="newPrice" readonly style="background:#f4f6fa"></div>
     </div>
     <div class="row">
-      <div><label>前回の改定時期（いつから価格が変わっていないか）</label><input type="text" id="lastRev" placeholder="例：2024年秋 ／ 2022年4月（空欄なら「ここ数年」と表現）"><div class="hint" id="revHint"></div></div>
+      <div style="flex:2"><label>現在の価格になった時期（いつからこの価格か）</label><input type="text" id="lastRev" placeholder="例：2024年秋 ／ 2022年4月（空欄なら「ここ数年」と表現）"><div class="hint" id="revHint"></div></div>
+      <div><label>その時期の意味</label>
+        <select id="revKind">
+          <option value="start">お見積り・受注開始</option>
+          <option value="kaitei">前回の単価改定</option>
+        </select>
+      </div>
     </div>
     <div class="row">
       <div><label>適用時期</label>
@@ -286,6 +292,7 @@ function save(){
   S.myTel=$('myTel').value; S.myFax=$('myFax').value;
   S.fields={}; FIELD_IDS.forEach(id=>{S.fields[id]=$(id).value;});
   S.applyFrom=$('applyFrom').value;
+  S.revKind=$('revKind').value;
   localStorage.setItem(LS, JSON.stringify(S));
 }
 
@@ -401,11 +408,14 @@ function buildDoc(){
   h+=`<p class="s-p">${lead}</p>`;
   h+=`<div class="s-sec">改定をお願いする背景</div>`;
   const lastRev=$('lastRev').value.trim();
+  const revPhrase = lastRev ? ($('revKind').value==='kaitei'
+    ? `前回の単価改定（${esc(lastRev)}）以降、`
+    : `現行単価をお見積りした${esc(lastRev)}当時と比べ、`) : '';
   if($('optJiwa').checked){
-    const lead2=lastRev?`前回の単価改定（${esc(lastRev)}）以降、材料・工具・油剤・人件費など、全ての仕入れ価格が上昇してまいりました。`:`ここ数年、材料・工具・油剤・人件費など、全ての仕入れ価格が少しずつ上昇してまいりました。`;
+    const lead2=lastRev?`${revPhrase}材料・工具・油剤・人件費など、全ての仕入れ価格が上昇してまいりました。`:`ここ数年、材料・工具・油剤・人件費など、全ての仕入れ価格が少しずつ上昇してまいりました。`;
     h+=`<p class="s-p">${lead2}とりわけ直近では各分野で大幅な値上げが重なり、コスト環境は大きく変わりました。${hasBesshi?'詳細は別紙をご参照ください。':''}</p>`;
   }else if(lastRev){
-    h+=`<p class="s-p">前回の単価改定（${esc(lastRev)}）以降、加工コストの上昇が続いております。${hasBesshi?'詳細は別紙をご参照ください。':''}</p>`;
+    h+=`<p class="s-p">${revPhrase}加工コストの上昇が続いております。${hasBesshi?'詳細は別紙をご参照ください。':''}</p>`;
   }
   if($('optShikyu').checked)h+=`<p class="s-p">なお、材料は御支給いただいておりますため、今回の改定は加工コストの上昇分のみを対象としております。</p>`;
   if($('optKyushu').checked){
@@ -552,6 +562,8 @@ $('myCompany').value=S.myCompany; $('myName').value=S.myName;
 $('myTel').value=S.myTel; $('myFax').value=S.myFax;
 if(S.fields)FIELD_IDS.forEach(id=>{if(S.fields[id]!==undefined)$(id).value=S.fields[id];});
 if(S.applyFrom){$('applyFrom').value=S.applyFrom; $('applyCustomBox').style.display=S.applyFrom==='custom'?'':'none';}
+if(S.revKind)$('revKind').value=S.revKind;
+$('revKind').addEventListener('change',update);
 $('docDate').value=today();
 document.querySelector(`#tmplChoices .choice[data-v="${S.tmpl}"]`).classList.add('sel');
 $('bdCard').style.display=S.tmpl==='evidence'?'':'none';
