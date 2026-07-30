@@ -231,8 +231,14 @@
   </div>
 
   <div class="card">
-    <h2><span class="step-num">9</span>AIサポート（作った内容をAIがチェック）</h2>
-    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+    <h2><span class="step-num">9</span>AIサポート（書き直し・チェック）</h2>
+    <div style="margin-bottom:10px;">
+      <div style="font-size:13px; font-weight:700; color:var(--navy);">🤖 自由な指示で本文を調整</div>
+      <textarea id="freeReq" style="margin-top:6px; min-height:52px;" placeholder="例：もっと簡潔に ／ 全体を重厚で丁寧な文面に ／ お詫びの気持ちをもっと強く ／ この一文を消して：「◯◯」"></textarea>
+      <button class="btn ghost" style="font-size:13px; padding:6px 12px; margin-top:6px;" onclick="runRewrite()">この指示で本文を書き直す</button>
+      <div id="rewriteStatus" style="font-size:13px; margin-top:4px;"></div>
+    </div>
+    <div style="display:flex; gap:8px; flex-wrap:wrap; border-top:1px dashed var(--border); padding-top:10px;">
       <button class="btn ghost" style="font-size:13.5px; padding:8px 14px;" onclick="runReview()" id="btnReview">🔍 値上げ率をAIがチェック</button>
       <button class="btn ghost" style="font-size:13.5px; padding:8px 14px;" onclick="runQa()">💬 想定問答を作る（交渉カンペ）</button>
     </div>
@@ -249,12 +255,6 @@
     <div class="opt"><input type="checkbox" id="optKeizoku" checked><div>「安定した納品を継続するため、ご理解とご協力を」</div></div>
     <div class="opt"><input type="checkbox" id="optShikyu"><div>材料は御支給のため「加工コストの上昇分のみ対象」と明記</div></div>
     <div class="opt"><input type="checkbox" id="optNouki" checked><div>「納期と品質はこれまでどおり維持」を冒頭で約束</div></div>
-    <div style="border-top:1px dashed var(--border); margin-top:10px; padding-top:8px;">
-      <div style="font-size:13px; font-weight:700; color:var(--navy);">🤖 自由な指示で本文を調整（AI）</div>
-      <textarea id="freeReq" style="margin-top:6px; min-height:52px;" placeholder="例：決算が厳しかったことを控えめに入れて ／ 全体をもっと重厚で丁寧な文面に ／ 冒頭に日頃の感謝を厚めに"></textarea>
-      <button class="btn ghost" style="font-size:13px; padding:6px 12px; margin-top:6px;" onclick="runRewrite()">この指示で本文を書き直す</button>
-      <div id="rewriteStatus" style="font-size:13px; margin-top:4px;"></div>
-    </div>
   </div>
 
   <div class="card" id="cardGraph">
