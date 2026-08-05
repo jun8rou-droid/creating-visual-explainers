@@ -41,6 +41,15 @@
   .btn.sm{padding:10px 14px;font-size:14px;border-radius:10px;min-width:44px;min-height:44px}
   a.btn{text-decoration:none}
   input.invalid,textarea.invalid{border-color:var(--up)!important;background:#fef2f2}
+  .pninfo{font-size:13px;border-radius:10px;padding:9px 12px;margin-top:8px;line-height:1.5}
+  .pninfo.ok{background:#f0fdf4;border:1px solid #bbf7d0;color:#166534}
+  .pninfo.warn{background:#fffbeb;border:1px solid #fde68a;color:#92400e}
+  /* AI読み取りの信頼度: 高=緑 / 中=黄 / 低=赤 */
+  .conf-high{border-color:#86efac!important}
+  .conf-mid{border-color:#fcd34d!important;background:#fffdf5}
+  .conf-low{border-color:#fca5a5!important;background:#fef7f7}
+  .confdot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:baseline}
+  .confdot.high{background:#22c55e} .confdot.mid{background:#f59e0b} .confdot.low{background:#ef4444}
   .btn.block{width:100%;display:block}
   .btn.hero{
     width:100%;padding:22px;font-size:20px;border-radius:18px;
@@ -300,6 +309,33 @@ async function migrateV2(){
 async function getSuppliers(){ return (await DB.getAll('suppliers')).sort((a,b)=>a.id-b.id); }
 async function supplierByName(name){ return (await DB.getAll('suppliers')).find(s=>s.name===name)||null; }
 async function supplierIdFor(name){ const s = await supplierByName(name); return s? s.id : null; }
+/* ---------- 表記揺れ正規化（照合候補の提示用。自動統合はしない） ---------- */
+const MAKER_ALIASES = {
+  'KYOCERA':'京セラ','MITSUBISHI':'三菱マテリアル','三菱':'三菱マテリアル','MITSUBISHI MATERIALS':'三菱マテリアル',
+  'SUMITOMO':'住友電工','住友':'住友電工','オーエスジー':'OSG','TUNGALOY':'タンガロイ','SANDVIK':'サンドビック',
+  'NACHI':'不二越','ナチ':'不二越','MITUTOYO':'ミツトヨ','KORLOY':'コロイ','ISCAR':'イスカル'
+};
+function zenToHan(str){
+  return String(str||'').replace(/[Ａ-Ｚａ-ｚ０-９]/g,c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0)).replace(/[－ー―]/g,'-').replace(/　/g,' ');
+}
+function normalizePn(str){ return zenToHan(str).toUpperCase().replace(/[\s\-\/\.]/g,''); }
+function normalizeMaker(str){
+  const t = zenToHan(str).trim().toUpperCase();
+  return MAKER_ALIASES[t] || str;
+}
+
+/* ---------- 小計・合計の自動計算表示（prefix: ''=登録 / 'a_'=追加 / 'e_'=編集） ---------- */
+function updateCalc(prefix){
+  const el = document.getElementById(prefix+'calcLine'); if(!el) return;
+  const price = parseFloat(val(prefix+'price'))||0;
+  const qty = Math.max(1, parseInt(val(prefix+'qty'),10)||1);
+  const tax = val(prefix+'taxType')||'税別';
+  if(!price){ el.textContent=''; return; }
+  const sub = Math.round(price*qty);
+  if(tax==='税込') el.innerHTML = `税込合計 <b>${yen(sub)}</b>（税別換算 ${yen(Math.round(sub/1.1))}）`;
+  else el.innerHTML = `小計 <b>${yen(sub)}</b> ／ 税込 ${yen(Math.round(sub*1.1))}`;
+}
+
 /* 税別換算単価（比較・集計はこれで統一。税込は割り戻す） */
 function unitPriceExcl(p){
   const rate = (p.taxRate==null?10:p.taxRate)/100;
@@ -415,7 +451,7 @@ async function render(){
   if(_restoringHash){ _restoringHash = false; return; }
   const {path,q} = parseHash();
   // 入力途中の画面（登録・追加・編集）から離れるときは確認する
-  const formPaths = ['register','addprice','edit','tooledit'];
+  const formPaths = ['register','addprice','edit','tooledit','ocr-confirm'];
   const prevPath = _prevHash ? _prevHash.replace(/^#\//,'').split('?')[0] : null;
   if(formDirty && prevPath && formPaths.includes(prevPath) && location.hash !== _prevHash){
     if(!confirm('入力内容が消えます。移動しますか？')){
@@ -427,7 +463,7 @@ async function render(){
   }
   _prevHash = location.hash;
   // 現在地のタブ強調（詳細・編集画面は親タブを光らせる）
-  const tabMap = {home:'home', tools:'tools', tool:'tools', tooledit:'tools', addprice:'tools', category:'tools', search:'tools',
+  const tabMap = {home:'home', tools:'tools', tool:'tools', tooledit:'tools', addprice:'tools', category:'tools', search:'tools', 'ocr-confirm':'tools',
     suppliers:'suppliers', supplier:'suppliers', history:'history', edit:'history', settings:'settings'};
   const activeTab = tabMap[path] || '';
   document.querySelectorAll('nav.tabs a').forEach(a=>a.classList.toggle('on', a.dataset.tab===activeTab));
@@ -447,6 +483,7 @@ async function render(){
     else if(path==='history') await HistoryList(q);
     else if(path==='suppliers') await SuppliersList();
     else if(path==='supplier') await SupplierDetail(q.id);
+    else if(path==='ocr-confirm') await OcrConfirm(q.id);
     else if(path==='settings') await Settings();
     else await Home();
   }catch(err){ view.innerHTML = `<div class="empty"><div class="em">⚠️</div>${err.message}</div>`; console.error(err); }
@@ -455,7 +492,7 @@ async function render(){
 window.addEventListener('hashchange', render);
 // 登録・編集系の画面で何か入力したら「入力途中」フラグを立てる
 view.addEventListener('input', ()=>{
-  if(['register','addprice','edit','tooledit'].includes(parseHash().path)) formDirty = true;
+  if(['register','addprice','edit','tooledit','ocr-confirm'].includes(parseHash().path)) formDirty = true;
 });
 
 /* ---------- toast ---------- */
@@ -492,9 +529,46 @@ async function Home(){
   const rising = Object.entries(byPn).map(([pn,ps])=>({pn, st:stats(ps)}))
       .filter(x=>x.st.prevDelta!=null && x.st.prevDelta>0)
       .sort((a,b)=>b.st.prevDelta-a.st.prevDelta).slice(0,5);
+  // 今月・前月の購入金額と個数（税別換算・数量込み）
+  const now = new Date();
+  const ym = d => d.toISOString().slice(0,7);
+  const thisM = ym(now), lastM = ym(new Date(now.getFullYear(), now.getMonth()-1, 15));
+  const inMonth = m => prices.filter(p=>(p.purchaseDate||'').startsWith(m));
+  const amt = m => inMonth(m).reduce((a,p)=>a+unitPriceExcl(p)*(p.qty||1),0);
+  const qty = m => inMonth(m).reduce((a,p)=>a+(p.qty||1),0);
+  const thisAmt = amt(thisM), lastAmt = amt(lastM), momDelta = thisAmt-lastAmt;
+  // OCR確認待ち
+  const draftCount = (await DB.getAll('ocrDrafts')).filter(d=>d.status==='draft').length;
+  // 最安工具屋が変わった工具（直近の購入で最安店が入れ替わったもの）
+  const cheapestOf = arr => {
+    const by={}; sortByDate(arr).forEach(p=>{ by[p.shop||'?']=unitPriceExcl(p); });
+    const e=Object.entries(by).sort((a,b)=>a[1]-b[1]); return e.length>1? e[0][0] : null;
+  };
+  const cheapChanged = Object.entries(byPn).map(([pn,ps])=>{
+    if(ps.length<3) return null;
+    const sorted=sortByDate(ps);
+    const nowC=cheapestOf(sorted), prevC=cheapestOf(sorted.slice(0,-1));
+    return (nowC && prevC && nowC!==prevC) ? {pn, from:prevC, to:nowC} : null;
+  }).filter(Boolean).slice(0,5);
 
   view.innerHTML = `
     <a class="btn hero" href="#/register"><span class="ic">📷</span>写真で登録</a>
+
+    <div class="card" style="margin-top:14px">
+      <div class="statline" style="border-top:none;padding:12px 4px">
+        <div><div class="k">今月の購入</div><div class="v">${yen(thisAmt)}</div></div>
+        <div><div class="k">前月比</div><div class="v">${deltaHtml(lastAmt||thisAmt?momDelta:null)}</div></div>
+        <div><div class="k">今月の個数</div><div class="v">${qty(thisM)}個</div></div>
+        <div><div class="k">AI確認待ち</div><div class="v">${draftCount?`<a class="link" href="#/register">${draftCount}件</a>`:'0件'}</div></div>
+      </div>
+    </div>
+
+    ${cheapChanged.length? `<h2 class="section">🔄 最安の工具屋が変わった工具</h2>
+    <div class="card">${cheapChanged.map(c=>`
+      <a class="row" style="text-decoration:none;color:inherit" href="#/tool?pn=${encodeURIComponent(c.pn)}">
+        <div class="grow"><div class="pn">${esc(c.pn)}</div>
+        <div class="meta">${esc(c.from)} → <b style="color:var(--down)">${esc(c.to)}</b> が最安に</div></div>
+      </a>`).join('')}</div>`:''}
 
     <h2 class="section">最近登録した工具</h2>
     <div class="card" id="recent"></div>
@@ -586,17 +660,24 @@ async function Register(){
       <input id="file" type="file" accept="image/*" capture="environment" style="display:none" onchange="onPhoto(this)">
       <div id="photoArea"></div>
       <div id="ocrArea"></div>
+      <button id="aiBtn" class="btn ghost block" style="margin-top:10px" onclick="aiAnalyze()">🤖 AIで詳しく読み取る（納品書・ラベル向け）</button>
+      <div id="draftsLink"></div>
 
       <label class="f">② 品番<span class="req"></span></label>
-      <input id="pn" placeholder="例: A1234-5  （候補をタップ、または手入力）" oninput="regState.partNumber=this.value">
+      <input id="pn" placeholder="例: A1234-5  （候補をタップ、または手入力）" oninput="regState.partNumber=this.value;checkPnInfoDebounced()">
       <div id="cands" class="chips"></div>
+      <div id="pnInfo"></div>
 
-      <label class="f">③ 価格（1個あたり・税抜円）<span class="req"></span></label>
+      <label class="f">③ 価格（1個あたり）<span class="req"></span></label>
       <div style="display:flex;gap:8px;align-items:center">
-        <input id="price" type="number" inputmode="numeric" placeholder="例: 1980" style="flex:2">
+        <input id="price" type="number" inputmode="numeric" placeholder="例: 1980" style="flex:2" oninput="updateCalc('')">
         <span style="color:var(--sub);font-weight:700">×</span>
-        <input id="qty" type="number" inputmode="numeric" min="1" placeholder="個数" style="flex:1">
+        <input id="qty" type="number" inputmode="numeric" min="1" placeholder="個数" style="flex:1" oninput="updateCalc('')">
         <span style="color:var(--sub);font-weight:700">個</span>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;margin-top:8px">
+        <select id="taxType" style="flex:1" onchange="updateCalc('')"><option>税別</option><option>税込</option><option>不明</option></select>
+        <div id="calcLine" style="flex:2;text-align:right;font-size:13px;color:var(--sub)"></div>
       </div>
 
       <label class="f">④ 工具屋（タップで選択）</label>
@@ -617,12 +698,22 @@ async function Register(){
         <label class="f">購入日（未入力なら今日: ${today}）</label>
         <input id="purchaseDate" type="date">
 
+        <label class="f">伝票番号（納品書・見積番号など）</label>
+        <input id="documentNumber" placeholder="例: 2026-0805-01">
+
         <label class="f">メモ</label>
         <textarea id="memo" rows="2" placeholder="数量・規格などのメモ"></textarea>
       </details>
 
       <button class="btn hero" style="margin-top:18px" onclick="saveRegister()">💾 保存する</button>
     </div>`;
+  showDraftsLink();
+}
+async function showDraftsLink(){
+  const el = document.getElementById('draftsLink'); if(!el) return;
+  const drafts = (await DB.getAll('ocrDrafts')).filter(d=>d.status==='draft');
+  el.innerHTML = drafts.length ? `<div class="pninfo warn" style="margin-top:8px">📝 AI読み取りの下書きが ${drafts.length}件 あります
+    <div style="margin-top:6px">${drafts.slice(0,5).map(d=>`<button class="btn sm gray" onclick="formDirty=false;location.hash='#/ocr-confirm?id=${d.id}'">${(d.createdAt||'').slice(5,16).replace('T',' ')} を開く</button>`).join(' ')}</div></div>` : '';
 }
 
 async function onPhoto(input){
@@ -698,6 +789,7 @@ async function runOcr(){
     catch(e){ console.warn('preprocess skipped', e); regState.ocrW = regState.imgW; regState.ocrH = regState.imgH; }
     setStatus('品番を読み取り中…');
     const {data} = await worker.recognize(src, {}, { blocks: true });
+    regState.lastOcrText = data.text || '';
     const cands = extractCandidates(data);
     regState.candidates = cands;
     if(cands.length){
@@ -763,6 +855,7 @@ function pickCandidate(v, type){
   // チップ・写真の枠の両方で、選んだものをハイライト（品番と価格は別グループ）
   document.querySelectorAll(`[data-cand][data-type="${type}"]`).forEach(e=>
     e.classList.toggle('picked', e.getAttribute('data-cand')===v));
+  if(type!=='num') checkPnInfoDebounced();
 }
 /* OCR結果(blocks)から単語＋座標を集めて候補化。種類を判定。
    type: 'pn'=品番らしい（英字+数字 or ハイフン/スラッシュ入り） / 'num'=数字だけ */
@@ -793,6 +886,35 @@ function extractCandidates(data){
   }
   return out;
 }
+
+/* 品番入力時: 登録済みなら前回情報、似た品番なら候補を提示（自動統合はしない） */
+let _pnInfoT=null;
+function checkPnInfoDebounced(){ clearTimeout(_pnInfoT); _pnInfoT=setTimeout(checkPnInfo, 350); }
+async function checkPnInfo(){
+  const box = document.getElementById('pnInfo'); if(!box) return;
+  const raw = val('pn');
+  if(!raw){ box.innerHTML=''; return; }
+  const [tools, prices] = await Promise.all([DB.getAll('tools'), DB.getAll('prices')]);
+  const exact = tools.find(t=>t.partNumber===raw);
+  if(exact){
+    const ps = sortByDate(prices.filter(p=>p.partNumber===raw));
+    const last = ps[ps.length-1];
+    box.innerHTML = `<div class="pninfo ok">📌 登録済みの工具です${last?`。前回: ${esc(last.purchaseDate)} ${yen(last.price)} ×${last.qty||1}個${last.shop?`（${esc(last.shop)}）`:''}`:''}。保存すると購入履歴に追加されます</div>`;
+    return;
+  }
+  const norm = normalizePn(raw);
+  const similar = tools.filter(t=> normalizePn(t.partNumber)===norm || (t.name && normalizePn(t.name)===norm));
+  if(similar.length){
+    box.innerHTML = `<div class="pninfo warn">⚠ 似た品番が登録済みです。同じ工具ですか？<div style="margin-top:6px">
+      ${similar.slice(0,3).map(t=>`<button class="btn sm gray" onclick="useExistingPn('${esc(t.partNumber).replace(/'/g,'')}')">「${esc(t.partNumber)}」の履歴に追加</button>`).join(' ')}
+      <button class="btn sm gray" onclick="dismissPnInfo()">別の工具として登録</button></div></div>`;
+  } else box.innerHTML='';
+}
+function useExistingPn(pn){
+  document.getElementById('pn').value = pn; regState.partNumber = pn;
+  checkPnInfo(); toast('既存の品番を使います');
+}
+function dismissPnInfo(){ document.getElementById('pnInfo').innerHTML=''; }
 
 async function saveRegister(){
   const pn = (document.getElementById('pn').value||'').trim();
@@ -933,12 +1055,26 @@ async function ToolDetail(pn){
 
     <a class="btn block" style="margin-top:14px;text-decoration:none;text-align:center" href="#/addprice?pn=${encodeURIComponent(pn)}">➕ この品番の価格を追加</a>
 
+    <h2 class="section">📈 価格推移 <span style="font-weight:400;color:var(--sub)">（税別換算）</span></h2>
+    <div class="card pad">
+      <div style="display:flex;gap:8px">
+        <select id="ch_shop" onchange="drawPriceChart()" style="flex:1"><option value="">全工具屋</option>${Object.keys(byShop).map(x=>`<option>${esc(x)}</option>`).join('')}</select>
+        <select id="ch_period" onchange="drawPriceChart()" style="flex:1">
+          <option value="all">全期間</option><option value="y1">1年</option><option value="m6">半年</option><option value="m3">3ヶ月</option>
+        </select>
+      </div>
+      <div id="chartArea" style="margin-top:10px"></div>
+    </div>
+
     <h2 class="section">📅 価格履歴 <span style="font-weight:400;color:var(--sub)">（行をタップで編集・削除）</span></h2>
     <div class="card" id="hist"></div>
 
     <h2 class="section">🖼 登録写真</h2>
     <div class="thumbs" id="photos"></div>
     <div style="height:24px"></div>`;
+
+  window._chartRecs = prices;
+  drawPriceChart();
 
   // 履歴（新しい順）
   const histEl = document.getElementById('hist');
@@ -979,13 +1115,20 @@ async function AddPrice(pn){
       </div>
       <div class="topnote">この工具の新しい価格だけ入れればOK。写真は任意です。</div>
 
-      <label class="f">価格（1個あたり・税抜円）<span class="req"></span></label>
+      <div id="a_prevInfo"></div>
+      <label class="f">価格（1個あたり）<span class="req"></span></label>
       <div style="display:flex;gap:8px;align-items:center">
-        <input id="a_price" type="number" inputmode="numeric" placeholder="例: 1980" style="flex:2">
+        <input id="a_price" type="number" inputmode="numeric" placeholder="例: 1980" style="flex:2" oninput="updateCalc('a_')">
         <span style="color:var(--sub);font-weight:700">×</span>
-        <input id="a_qty" type="number" inputmode="numeric" min="1" placeholder="個数" style="flex:1">
+        <input id="a_qty" type="number" inputmode="numeric" min="1" placeholder="個数" style="flex:1" oninput="updateCalc('a_')">
         <span style="color:var(--sub);font-weight:700">個</span>
       </div>
+      <div style="display:flex;gap:8px;align-items:center;margin-top:8px">
+        <select id="a_taxType" style="flex:1" onchange="updateCalc('a_')"><option>税別</option><option>税込</option><option>不明</option></select>
+        <div id="a_calcLine" style="flex:2;text-align:right;font-size:13px;color:var(--sub)"></div>
+      </div>
+      <label class="f">伝票番号（任意）</label>
+      <input id="a_documentNumber" placeholder="納品書・見積番号など">
 
       <label class="f">工具屋（タップで選択）</label>
       ${shopChipsHtml('a_shop','',shopNames)}
@@ -1001,6 +1144,15 @@ async function AddPrice(pn){
       <button class="btn hero" style="margin-top:18px" onclick="saveAddPrice()">💾 保存する</button>
     </div>
     <div style="height:24px"></div>`;
+  showPrevInfo(pn, 'a_prevInfo');
+}
+/* 前回購入情報の表示（単価・購入日・個数・工具屋） */
+async function showPrevInfo(pn, elId){
+  const el = document.getElementById(elId); if(!el) return;
+  const ps = sortByDate((await DB.getAll('prices')).filter(p=>p.partNumber===pn));
+  const last = ps[ps.length-1];
+  if(!last){ el.innerHTML=''; return; }
+  el.innerHTML = `<div class="pninfo ok">📌 前回: ${esc(last.purchaseDate)} ${yen(last.price)} ×${last.qty||1}個${last.shop?`（${esc(last.shop)}）`:''}</div>`;
 }
 async function onAddPhoto(input){
   const file = input.files[0]; if(!file) return;
@@ -1024,7 +1176,7 @@ async function saveAddPrice(){
   let imageId = null;
   if(addState.imageBlob) imageId = await DB.put('images', {blob: addState.imageBlob});
   await DB.put('prices', {partNumber:pn, price, qty, shop, supplierId: await supplierIdFor(shop), maker:tool.maker||'', category:tool.category||'', memo:'',
-    purchaseDate, imageId, createdAt, taxType: val('a_taxType')||'税別', taxRate: 10, documentNumber: '', sourceType: 'manual'});
+    purchaseDate, imageId, createdAt, taxType: val('a_taxType')||'税別', taxRate: 10, documentNumber: val('a_documentNumber')||'', sourceType: 'manual'});
   await rememberSuggestion('shop', shop);
   formDirty = false;
   toast('追加しました ✅');
@@ -1096,13 +1248,19 @@ async function EditPrice(id){
       <label class="f">品番<span class="req"></span></label>
       <input id="e_pn" value="${esc(rec.partNumber)}">
 
-      <label class="f">価格（1個あたり・円）<span class="req"></span></label>
+      <label class="f">価格（1個あたり）<span class="req"></span></label>
       <div style="display:flex;gap:8px;align-items:center">
-        <input id="e_price" type="number" inputmode="numeric" value="${rec.price}" style="flex:2">
+        <input id="e_price" type="number" inputmode="numeric" value="${rec.price}" style="flex:2" oninput="updateCalc('e_')">
         <span style="color:var(--sub);font-weight:700">×</span>
-        <input id="e_qty" type="number" inputmode="numeric" min="1" value="${rec.qty||1}" style="flex:1">
+        <input id="e_qty" type="number" inputmode="numeric" min="1" value="${rec.qty||1}" style="flex:1" oninput="updateCalc('e_')">
         <span style="color:var(--sub);font-weight:700">個</span>
       </div>
+      <div style="display:flex;gap:8px;align-items:center;margin-top:8px">
+        <select id="e_taxType" style="flex:1" onchange="updateCalc('e_')">${['税別','税込','不明'].map(t=>`<option ${t===(rec.taxType||'税別')?'selected':''}>${t}</option>`).join('')}</select>
+        <div id="e_calcLine" style="flex:2;text-align:right;font-size:13px;color:var(--sub)"></div>
+      </div>
+      <label class="f">伝票番号</label>
+      <input id="e_documentNumber" value="${esc(rec.documentNumber||'')}">
 
       <label class="f">工具屋（タップで選択）</label>
       ${shopChipsHtml('e_shop', rec.shop||'', shopNames)}
@@ -1119,6 +1277,7 @@ async function EditPrice(id){
       <button class="btn block" style="margin-top:10px;background:var(--up)" onclick="deletePrice(${id})">🗑 この登録を削除</button>
     </div>
     <div style="height:24px"></div>`;
+  updateCalc('e_');
 }
 
 /* 編集画面: 写真の差し替え（保存を押すまで確定しない） */
@@ -1338,6 +1497,44 @@ async function doSearch(){
 
 /* ---------- util ---------- */
 function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+/* ---------- 価格推移グラフ（SVG折れ線・工具屋別色分け・期間絞り込み） ---------- */
+function drawPriceChart(){
+  const el = document.getElementById('chartArea'); if(!el) return;
+  const recs = window._chartRecs||[];
+  const shop = val('ch_shop'), period = val('ch_period')||'all';
+  const days = {y1:365, m6:183, m3:92}[period];
+  const since = days ? new Date(Date.now()-days*86400000).toISOString().slice(0,10) : null;
+  let list = sortByDate(recs.filter(p=>(!shop || (p.shop||'(未選択)')===shop) && (!since || (p.purchaseDate||'')>=since)));
+  if(list.length<2){ el.innerHTML='<div style="text-align:center;color:var(--sub);padding:24px;font-size:13px">この条件では履歴が2件未満のため、グラフを表示できません</div>'; return; }
+  const W=640,H=250,PL=58,PR=14,PT=12,PB=30;
+  const ts = p=>new Date(p.purchaseDate||'2000-01-01').getTime();
+  const minX=ts(list[0]), maxX=ts(list[list.length-1]);
+  const vals=list.map(unitPriceExcl);
+  const minY=Math.min(...vals), maxY=Math.max(...vals);
+  const spanX=(maxX-minX)||1, pad=(maxY-minY)||Math.max(maxY*0.1,1);
+  const y0=minY-pad*0.15, y1v=maxY+pad*0.15;
+  const X=t=>PL+(t-minX)/spanX*(W-PL-PR);
+  const Y=v=>PT+(1-(v-y0)/(y1v-y0))*(H-PT-PB);
+  const shops=[...new Set(list.map(p=>p.shop||'(未選択)'))];
+  const colors=['#2563eb','#16a34a','#f59e0b','#dc2626','#7c3aed','#0891b2'];
+  let svg=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto" role="img" aria-label="価格推移グラフ">`;
+  for(let i=0;i<=3;i++){
+    const v=y0+(y1v-y0)*i/3, y=Y(v);
+    svg+=`<line x1="${PL}" y1="${y}" x2="${W-PR}" y2="${y}" stroke="#e2e8f0"/>`+
+         `<text x="${PL-6}" y="${y+4}" text-anchor="end" font-size="11" fill="#64748b">¥${Math.round(v).toLocaleString()}</text>`;
+  }
+  svg+=`<text x="${PL}" y="${H-6}" font-size="11" fill="#64748b">${esc(list[0].purchaseDate)}</text>`+
+       `<text x="${W-PR}" y="${H-6}" text-anchor="end" font-size="11" fill="#64748b">${esc(list[list.length-1].purchaseDate)}</text>`;
+  shops.forEach((sn,si)=>{
+    const pts=list.filter(p=>(p.shop||'(未選択)')===sn);
+    const col=colors[si%colors.length];
+    if(pts.length>1) svg+=`<polyline fill="none" stroke="${col}" stroke-width="2.5" points="${pts.map(p=>X(ts(p))+','+Y(unitPriceExcl(p))).join(' ')}"/>`;
+    pts.forEach(p=>{ svg+=`<circle cx="${X(ts(p))}" cy="${Y(unitPriceExcl(p))}" r="4" fill="${col}"><title>${esc(p.purchaseDate)} ${esc(sn)} ¥${unitPriceExcl(p).toLocaleString()}</title></circle>`; });
+  });
+  svg+='</svg>';
+  el.innerHTML = svg + `<div style="display:flex;gap:12px;flex-wrap:wrap;font-size:12px;margin-top:6px">${shops.map((sn,si)=>`<span style="display:inline-flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:3px;background:${colors[si%colors.length]}"></span>${esc(sn)}</span>`).join('')}</div>`;
+}
 
 /* ---------- 工具ごとの集計（税別換算で統一） ---------- */
 function aggregateTool(pn, ps, toolMap){
@@ -1598,6 +1795,323 @@ async function saveSupplier(id){
   location.hash = '#/supplier?id='+id;
 }
 
+/* ===================== AI-OCR（解析・確認画面・下書き） ===================== */
+const AI_ENDPOINT = 'https://creating-visual-explainers-cyan.vercel.app/api/ocr';
+let _aiBusy = false;   // 二重送信防止
+
+async function aiAnalyze(existingDraftId){
+  if(_aiBusy) return;
+  let blob = regState.imageBlob;
+  if(existingDraftId){
+    const d = await DB.get('ocrDrafts', existingDraftId);
+    const im = d && await DB.get('images', d.imageId);
+    blob = im && im.blob;
+  }
+  if(!blob){ toast('先に写真を選んでください'); return; }
+  _aiBusy = true;
+  const btn = document.getElementById('aiBtn') || document.getElementById('oc_reBtn');
+  const orig = btn ? btn.textContent : '';
+  if(btn){ btn.disabled = true; btn.innerHTML = '<span class="spin" style="display:inline-block;vertical-align:middle"></span> AI解析中…（10秒ほど）'; }
+  try{
+    const b64 = (await blobToBase64(blob)).split(',')[1];
+    const [cats, sups] = await Promise.all([getCategories(), getSuppliers()]);
+    const resp = await fetch(AI_ENDPOINT, {method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({image:b64, mediaType:'image/jpeg', ocrText:regState.lastOcrText||'', categories:cats, suppliers:sups.map(x=>x.name)})});
+    const data = await resp.json().catch(()=>({}));
+    if(!resp.ok) throw new Error(data.error || 'AI解析に失敗しました');
+    let draftId = existingDraftId;
+    if(draftId){
+      const d = await DB.get('ocrDrafts', draftId);
+      await DB.put('ocrDrafts', {...d, rawText:regState.lastOcrText||d.rawText, structuredResult:data, confidenceData:data.confidence||{}});
+    }else{
+      const imageId = await DB.put('images', {blob});
+      draftId = await DB.put('ocrDrafts', {imageId, rawText:regState.lastOcrText||'', structuredResult:data,
+        confidenceData:data.confidence||{}, status:'draft', createdAt:new Date().toISOString()});
+    }
+    formDirty = false;
+    location.hash = '#/ocr-confirm?id='+draftId;
+    if(existingDraftId) render();
+  }catch(e){
+    console.error(e);
+    toast('⚠ '+(e.message||'AI解析に失敗しました。通常の読み取り・手入力で続けられます'));
+  }finally{
+    _aiBusy = false;
+    if(btn){ btn.disabled = false; btn.textContent = orig; }
+  }
+}
+
+/* OCR確認画面: 上=元画像 / 下=項目別の読み取り結果（信頼度で色分け・全て編集可） */
+const OC_TOOL_FIELDS = [
+  ['modelNumber','品番・型番',true],['name','工具名',false],['manufacturer','メーカー',false],
+  ['category','カテゴリ',false],['size','サイズ・寸法',false],['material','材質・被削材',false],
+  ['coating','コーティング',false],['application','用途',false],['notes','備考',false]
+];
+const OC_PUR_FIELDS = [
+  ['supplier','工具屋',false],['purchaseDate','購入日',false],['unitPrice','単価（円）',true],
+  ['quantity','個数',false],['taxType','税区分',false],['documentNumber','伝票番号',false]
+];
+function confClass(c){ return c==='high'?'conf-high':(c==='mid'?'conf-mid':'conf-low'); }
+function confLabel(c){ return c==='high'?'<span class="confdot high"></span>':(c==='mid'?'<span class="confdot mid"></span>':'<span class="confdot low"></span>'); }
+
+async function OcrConfirm(id){
+  id = parseInt(id,10);
+  const d = await DB.get('ocrDrafts', id);
+  if(!d){ view.innerHTML = '<div class="empty"><div class="em">🤷</div>下書きが見つかりません</div>'; return; }
+  const url = await imageUrl(d.imageId);
+  const t = (d.structuredResult&&d.structuredResult.tool)||{};
+  const pu = (d.structuredResult&&d.structuredResult.purchase)||{};
+  const conf = d.confidenceData||{};
+  const cats = await getCategories();
+  const sups = (await getSuppliers()).map(x=>x.name);
+  const lowCount = [...OC_TOOL_FIELDS,...OC_PUR_FIELDS].filter(([k])=>(conf[k]||'low')==='low').length;
+
+  const fieldHtml = ([k,label,req])=>{
+    const c = conf[k]||'low';
+    let input;
+    const v = k==='unitPrice'||k==='quantity' ? (pu[k]!=null?pu[k]:'') : esc((k in t ? t[k] : pu[k])||'');
+    if(k==='category') input = `<select id="oc_${k}" class="${confClass(c)}"><option value=""></option>${cats.map(x=>`<option ${x===t.category?'selected':''}>${esc(x)}</option>`).join('')}</select>`;
+    else if(k==='supplier') input = `<select id="oc_${k}" class="${confClass(c)}"><option value=""></option>${sups.map(x=>`<option ${x===pu.supplier?'selected':''}>${esc(x)}</option>`).join('')}</select>`;
+    else if(k==='taxType') input = `<select id="oc_${k}" class="${confClass(c)}">${['税別','税込','不明'].map(x=>`<option ${x===(pu.taxType||'不明')?'selected':''}>${x}</option>`).join('')}</select>`;
+    else if(k==='purchaseDate') input = `<input id="oc_${k}" type="date" class="${confClass(c)}" value="${esc(pu.purchaseDate||'')}">`;
+    else if(k==='unitPrice'||k==='quantity') input = `<input id="oc_${k}" type="number" inputmode="numeric" class="${confClass(c)}" value="${v}">`;
+    else input = `<input id="oc_${k}" class="${confClass(c)}" value="${v}" ${k==='modelNumber'?'oninput="checkOcPn()"':''}>`;
+    return `<label class="f">${confLabel(c)}${label}${req?'<span class="req"></span>':''}</label>${input}`;
+  };
+
+  view.innerHTML = `
+    <h2 class="section" style="margin-top:4px">🤖 AI読み取りの確認 <span style="font-weight:400;color:var(--sub)">（内容を確認・修正してから保存）</span></h2>
+    <div class="card pad">
+      ${url?`<img class="photo-preview" src="${url}" style="max-height:280px;object-fit:contain;background:#f1f5f9">`:''}
+      <div class="cand-legend" style="margin-top:8px">
+        <span><span class="confdot high"></span>ほぼ確実</span>
+        <span><span class="confdot mid"></span>要確認</span>
+        <span><span class="confdot low"></span>読めず・推測${lowCount?`（${lowCount}件）`:''}</span>
+      </div>
+    </div>
+
+    <div class="card pad" style="margin-top:12px">
+      <h3 style="margin:0;font-size:15px">🔧 工具情報</h3>
+      ${OC_TOOL_FIELDS.map(fieldHtml).join('')}
+      <div id="ocPnInfo"></div>
+    </div>
+
+    <div class="card pad" style="margin-top:12px">
+      <h3 style="margin:0;font-size:15px">🛒 購入情報</h3>
+      ${OC_PUR_FIELDS.map(fieldHtml).join('')}
+      <div id="oc_calc" style="text-align:right;font-size:13px;color:var(--sub);margin-top:8px"></div>
+    </div>
+
+    <button class="btn hero" style="margin-top:14px" onclick="saveOcr(${id})">💾 保存する</button>
+    <div style="display:flex;gap:8px;margin-top:10px">
+      <button id="oc_reBtn" class="btn ghost" style="flex:1" onclick="reAnalyze(${id})">🔄 再解析</button>
+      <button class="btn ghost" style="flex:1" onclick="document.getElementById('oc_file').click()">📷 画像を変更</button>
+    </div>
+    <input id="oc_file" type="file" accept="image/*" capture="environment" style="display:none" onchange="changeOcrImage(${id}, this)">
+    <div style="display:flex;gap:8px;margin-top:10px">
+      <button class="btn gray" style="flex:1" onclick="formDirty=false;toast('下書きに保存しました（登録画面から再開できます）');location.hash='#/register'">📝 下書き保存</button>
+      <button class="btn gray" style="flex:1" onclick="cancelOcr(${id})">キャンセル</button>
+    </div>
+    <div style="height:24px"></div>`;
+  updateOcCalc(); ['oc_unitPrice','oc_quantity','oc_taxType'].forEach(i=>{ const e=document.getElementById(i); if(e) e.addEventListener('input',updateOcCalc); });
+  checkOcPn();
+}
+function updateOcCalc(){
+  const el=document.getElementById('oc_calc'); if(!el) return;
+  const price=parseFloat(val('oc_unitPrice'))||0, qty=Math.max(1,parseInt(val('oc_quantity'),10)||1);
+  if(!price){ el.textContent=''; return; }
+  const sub=Math.round(price*qty);
+  el.innerHTML = val('oc_taxType')==='税込' ? `税込合計 <b>${yen(sub)}</b>` : `小計 <b>${yen(sub)}</b> ／ 税込 ${yen(Math.round(sub*1.1))}`;
+}
+let _ocPnT=null;
+function checkOcPn(){ clearTimeout(_ocPnT); _ocPnT=setTimeout(async()=>{
+  const box=document.getElementById('ocPnInfo'); if(!box) return;
+  const raw=val('oc_modelNumber'); if(!raw){ box.innerHTML=''; return; }
+  const tools=await DB.getAll('tools');
+  const exact=tools.find(x=>x.partNumber===raw);
+  if(exact){ box.innerHTML=`<div class="pninfo ok">📌 登録済みの工具です。保存すると購入履歴として追加されます</div>`; return; }
+  const norm=normalizePn(raw);
+  const similar=tools.filter(x=>normalizePn(x.partNumber)===norm || (x.name&&normalizePn(x.name)===norm));
+  box.innerHTML = similar.length? `<div class="pninfo warn">⚠ 似た品番が登録済み: ${similar.slice(0,3).map(x=>`<button class="btn sm gray" onclick="document.getElementById('oc_modelNumber').value='${esc(x.partNumber).replace(/'/g,'')}';checkOcPn()">「${esc(x.partNumber)}」の履歴に追加</button>`).join(' ')} <button class="btn sm gray" onclick="document.getElementById('ocPnInfo').innerHTML=''">別の工具として登録</button></div>` : '';
+},300); }
+
+async function reAnalyze(id){
+  const d=await DB.get('ocrDrafts', id); if(!d) return;
+  regState.lastOcrText = d.rawText||'';
+  await aiAnalyze(id);
+}
+async function changeOcrImage(id, input){
+  const file=input.files[0]; if(!file) return;
+  const d=await DB.get('ocrDrafts', id); if(!d) return;
+  const blob=await resizeImage(file);
+  await DB.put('images', {id:d.imageId, blob});
+  if(_urlCache.has(d.imageId)){ URL.revokeObjectURL(_urlCache.get(d.imageId)); _urlCache.delete(d.imageId); }
+  regState.imageBlob = blob; regState.lastOcrText='';
+  toast('画像を差し替えました。再解析します');
+  await aiAnalyze(id);
+}
+async function cancelOcr(id){
+  if(!confirm('この下書きを破棄しますか？')) return;
+  const d=await DB.get('ocrDrafts', id);
+  if(d && d.imageId!=null) await DB.del('images', d.imageId).catch(()=>{});
+  await DB.del('ocrDrafts', id);
+  formDirty=false;
+  location.hash='#/register';
+}
+async function saveOcr(id){
+  const d=await DB.get('ocrDrafts', id); if(!d) return;
+  const pn=val('oc_modelNumber');
+  const price=parseFloat(val('oc_unitPrice'));
+  if(!pn){ toast('品番・型番を入力してください'); markInvalid('oc_modelNumber'); return; }
+  if(!(price>=0)){ toast('単価を入力してください'); markInvalid('oc_unitPrice'); return; }
+  const qty=Math.max(1,parseInt(val('oc_quantity'),10)||1);
+  const shop=val('oc_supplier');
+  const purchaseDate=val('oc_purchaseDate')||new Date().toISOString().slice(0,10);
+  if(await isDuplicate(pn, purchaseDate, price)){
+    if(!confirm('同じ品番・同じ日・同じ価格の登録があります。追加しますか？')) return;
+  }
+  const now=new Date().toISOString();
+  const maker=normalizeMaker(val('oc_manufacturer'));
+  const existing=await DB.get('tools', pn);
+  await DB.put('tools', {
+    partNumber:pn,
+    name: val('oc_name')||(existing&&existing.name)||'',
+    maker: maker||(existing&&existing.maker)||'',
+    category: val('oc_category')||(existing&&existing.category)||'',
+    size: val('oc_size')||(existing&&existing.size)||'',
+    material: val('oc_material')||(existing&&existing.material)||'',
+    coating: val('oc_coating')||(existing&&existing.coating)||'',
+    usage: val('oc_application')||(existing&&existing.usage)||'',
+    memo: val('oc_notes')||(existing&&existing.memo)||'',
+    createdAt: existing?existing.createdAt:now, updatedAt: now
+  });
+  await DB.put('prices', {partNumber:pn, price, qty, shop, supplierId:await supplierIdFor(shop),
+    maker, category:val('oc_category')||'', memo:'', purchaseDate, imageId:d.imageId, createdAt:now,
+    taxType:val('oc_taxType')||'不明', taxRate:10, documentNumber:val('oc_documentNumber')||'', sourceType:'ocr'});
+  await rememberSuggestion('maker', maker);
+  await DB.del('ocrDrafts', id);
+  formDirty=false;
+  toast('保存しました ✅');
+  location.hash='#/tool?pn='+encodeURIComponent(pn);
+}
+
+/* ===================== CSV入出力 ===================== */
+function csvEscape(v){
+  v = String(v==null?'':v);
+  return /[",\n\r]/.test(v) ? '"'+v.replace(/"/g,'""')+'"' : v;
+}
+function downloadCsv(filename, rows){
+  const text = '﻿' + rows.map(r=>r.map(csvEscape).join(',')).join('\r\n');  // BOM付きUTF-8（Excel対応）
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], {type:'text/csv'}));
+  a.download = filename; a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href), 5000);
+}
+/* 引用符対応の簡易CSVパーサ */
+function parseCsv(text){
+  const rows=[]; let row=[], cur='', inQ=false;
+  for(let i=0;i<text.length;i++){
+    const c=text[i];
+    if(inQ){
+      if(c==='"'){ if(text[i+1]==='"'){cur+='"';i++;} else inQ=false; }
+      else cur+=c;
+    }else{
+      if(c==='"') inQ=true;
+      else if(c===','){ row.push(cur); cur=''; }
+      else if(c==='\n'||c==='\r'){ if(c==='\r'&&text[i+1]==='\n')i++; row.push(cur); rows.push(row); row=[]; cur=''; }
+      else cur+=c;
+    }
+  }
+  if(cur!==''||row.length){ row.push(cur); rows.push(row); }
+  return rows.filter(r=>r.some(c=>c!==''));
+}
+async function exportToolsCsv(){
+  const tools = await DB.getAll('tools');
+  downloadCsv('kougu_tools_'+new Date().toISOString().slice(0,10)+'.csv',
+    [['品番','工具名','メーカー','カテゴリ','サイズ','材質','コーティング','用途','メモ','登録日']]
+    .concat(tools.map(t=>[t.partNumber,t.name||'',t.maker||'',t.category||'',t.size||'',t.material||'',t.coating||'',t.usage||'',t.memo||'',(t.createdAt||'').slice(0,10)])));
+  toast('工具マスターを書き出しました ✅');
+}
+async function exportSuppliersCsv(){
+  const sup = await getSuppliers();
+  downloadCsv('kougu_suppliers_'+new Date().toISOString().slice(0,10)+'.csv',
+    [['工具屋名','担当者','電話','メール','住所','支払条件','締日','支払日','Web','備考']]
+    .concat(sup.map(x=>[x.name,x.contactPerson||'',x.phone||'',x.email||'',x.address||'',x.paymentTerms||'',x.closingDay||'',x.paymentDay||'',x.website||'',x.notes||''])));
+  toast('工具屋マスターを書き出しました ✅');
+}
+async function exportPricesCsv(){
+  const prices = sortByDate(await DB.getAll('prices'));
+  downloadCsv('kougu_history_'+new Date().toISOString().slice(0,10)+'.csv',
+    [['品番','購入日','工具屋','単価','個数','税区分','伝票番号','登録方法','メモ']]
+    .concat(prices.map(x=>[x.partNumber,x.purchaseDate||'',x.shop||'',x.price,x.qty||1,x.taxType||'税別',x.documentNumber||'',x.sourceType||'manual',x.memo||''])));
+  toast('購入履歴を書き出しました ✅');
+}
+/* 購入履歴CSV取込: 文字コード自動判別→プレビュー→エラー行/重複表示→確定 */
+let _csvRows = null;
+async function previewCsvImport(input){
+  const file = input.files[0]; input.value=''; if(!file) return;
+  const buf = await file.arrayBuffer();
+  let text = new TextDecoder('utf-8', {fatal:false}).decode(buf);
+  if(text.includes('�')) text = new TextDecoder('shift_jis').decode(buf);   // 文字化けならShift_JISで再試行
+  text = text.replace(/^﻿/,'');
+  const rows = parseCsv(text);
+  if(rows.length<2){ toast('データ行がありません'); return; }
+  const header = rows[0];
+  const idx = n => header.indexOf(n);
+  const col = {pn:idx('品番'), date:idx('購入日'), shop:idx('工具屋'), price:idx('単価'), qty:idx('個数'), tax:idx('税区分'), doc:idx('伝票番号'), memo:idx('メモ')};
+  if(col.pn<0 || col.price<0){ toast('ヘッダーに「品番」「単価」が必要です'); return; }
+  const existing = await DB.getAll('prices');
+  const checked = rows.slice(1).map((r,i)=>{
+    const pn=(r[col.pn]||'').trim();
+    const price=parseFloat(String(r[col.price]||'').replace(/[,¥\s]/g,''));
+    const date=(col.date>=0?r[col.date]:'').trim()||new Date().toISOString().slice(0,10);
+    const qty=Math.max(1,parseInt(col.qty>=0?r[col.qty]:'1',10)||1);
+    const errs=[];
+    if(!pn) errs.push('品番なし');
+    if(!(price>=0)) errs.push('単価が数値でない');
+    if(date && !/^\d{4}[-\/]\d{1,2}[-\/]\d{1,2}$/.test(date)) errs.push('日付形式が不正');
+    const normDate = date.replace(/\//g,'-');
+    const dup = existing.some(p=>p.partNumber===pn && p.purchaseDate===normDate && p.price===price);
+    return {line:i+2, pn, price, qty, date:normDate, shop:(col.shop>=0?r[col.shop]:'').trim(),
+      tax:(col.tax>=0?r[col.tax]:'').trim()||'税別', doc:(col.doc>=0?r[col.doc]:'').trim(), memo:(col.memo>=0?r[col.memo]:'').trim(),
+      errs, dup};
+  });
+  _csvRows = checked;
+  const okCount = checked.filter(r=>!r.errs.length).length;
+  const el = document.getElementById('csvPreview');
+  el.innerHTML = `
+    <h3 style="margin:14px 0 6px;font-size:15px">取込プレビュー（${checked.length}行中 ${okCount}行 取込可能）</h3>
+    <div style="max-height:260px;overflow:auto;border:1px solid var(--line);border-radius:10px">
+      ${checked.map(r=>`<div style="padding:8px 12px;border-bottom:1px solid var(--line);font-size:13px;${r.errs.length?'background:#fef2f2':''}">
+        <b>${r.line}行目</b> ${esc(r.pn)||'—'} ／ ${esc(r.date)} ／ ${isFinite(r.price)?yen(r.price):'—'} ×${r.qty} ／ ${esc(r.shop)||'-'}
+        ${r.errs.length?`<span style="color:var(--up);font-weight:700"> ⚠ ${r.errs.join('・')}</span>`:''}
+        ${r.dup?'<span style="color:#92400e;font-weight:700"> ⚠ 既存と重複の可能性</span>':''}
+      </div>`).join('')}
+    </div>
+    <button class="btn block" style="margin-top:10px" onclick="commitCsvImport()">✅ ${okCount}行を取り込む（エラー行はスキップ）</button>
+    <button class="btn gray block" style="margin-top:8px" onclick="_csvRows=null;document.getElementById('csvPreview').innerHTML=''">キャンセル</button>`;
+}
+async function commitCsvImport(){
+  if(!_csvRows) return;
+  const ok = _csvRows.filter(r=>!r.errs.length);
+  if(!ok.length){ toast('取り込める行がありません'); return; }
+  const now = new Date().toISOString();
+  let added=0;
+  for(const r of ok){
+    if(!(await DB.get('tools', r.pn)))
+      await DB.put('tools', {partNumber:r.pn, name:'', maker:'', category:'', size:'', material:'', coating:'', usage:'', memo:'', createdAt:now, updatedAt:now});
+    if(r.shop && !(await supplierByName(r.shop))){
+      await DB.put('suppliers', {name:r.shop, contactPerson:'', phone:'', email:'', address:'', paymentTerms:'', closingDay:'', paymentDay:'', website:'', notes:'', createdAt:now, updatedAt:now});
+    }
+    await DB.put('prices', {partNumber:r.pn, price:r.price, qty:r.qty, shop:r.shop, supplierId:await supplierIdFor(r.shop),
+      maker:'', category:'', memo:r.memo, purchaseDate:r.date, imageId:null, createdAt:now,
+      taxType:['税込','税別','不明'].includes(r.tax)?r.tax:'税別', taxRate:10, documentNumber:r.doc, sourceType:'csv'});
+    added++;
+  }
+  _csvRows=null; document.getElementById('csvPreview').innerHTML='';
+  toast(added+'行を取り込みました ✅');
+  render();
+}
+
 /* ===================== 画面: 設定（バックアップ・復元・サンプル削除） ===================== */
 async function Settings(){
   const [tools, prices, images] = await Promise.all([DB.getAll('tools'), DB.getAll('prices'), DB.getAll('images')]);
@@ -1622,6 +2136,19 @@ async function Settings(){
       <button class="btn ghost block" style="margin-top:10px" onclick="document.getElementById('importFile').click()">⬆️ バックアップから復元（読み込み）</button>
       <input id="importFile" type="file" accept="application/json,.json" style="display:none" onchange="importData(this)">
       <p style="font-size:12px;color:var(--sub);margin:10px 0 0">※復元すると、今のデータはファイルの内容に置き換わります。</p>
+    </div>
+
+    <h2 class="section">📄 CSV入出力</h2>
+    <div class="card pad">
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn sm gray" onclick="exportToolsCsv()">⬇️ 工具マスター</button>
+        <button class="btn sm gray" onclick="exportSuppliersCsv()">⬇️ 工具屋マスター</button>
+        <button class="btn sm gray" onclick="exportPricesCsv()">⬇️ 購入履歴</button>
+      </div>
+      <button class="btn ghost block" style="margin-top:10px" onclick="document.getElementById('csvFile').click()">⬆️ 購入履歴CSVを取り込む</button>
+      <input id="csvFile" type="file" accept=".csv,text/csv" style="display:none" onchange="previewCsvImport(this)">
+      <div id="csvPreview"></div>
+      <p style="font-size:12px;color:var(--sub);margin:10px 0 0">Excelで開けるUTF-8(BOM付き)で出力。取込はUTF-8/Shift_JIS対応、ヘッダーに「品番」「単価」が必要です。</p>
     </div>
 
     <h2 class="section">🧹 サンプルデータ</h2>

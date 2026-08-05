@@ -529,9 +529,46 @@ async function Home(){
   const rising = Object.entries(byPn).map(([pn,ps])=>({pn, st:stats(ps)}))
       .filter(x=>x.st.prevDelta!=null && x.st.prevDelta>0)
       .sort((a,b)=>b.st.prevDelta-a.st.prevDelta).slice(0,5);
+  // 今月・前月の購入金額と個数（税別換算・数量込み）
+  const now = new Date();
+  const ym = d => d.toISOString().slice(0,7);
+  const thisM = ym(now), lastM = ym(new Date(now.getFullYear(), now.getMonth()-1, 15));
+  const inMonth = m => prices.filter(p=>(p.purchaseDate||'').startsWith(m));
+  const amt = m => inMonth(m).reduce((a,p)=>a+unitPriceExcl(p)*(p.qty||1),0);
+  const qty = m => inMonth(m).reduce((a,p)=>a+(p.qty||1),0);
+  const thisAmt = amt(thisM), lastAmt = amt(lastM), momDelta = thisAmt-lastAmt;
+  // OCR確認待ち
+  const draftCount = (await DB.getAll('ocrDrafts')).filter(d=>d.status==='draft').length;
+  // 最安工具屋が変わった工具（直近の購入で最安店が入れ替わったもの）
+  const cheapestOf = arr => {
+    const by={}; sortByDate(arr).forEach(p=>{ by[p.shop||'?']=unitPriceExcl(p); });
+    const e=Object.entries(by).sort((a,b)=>a[1]-b[1]); return e.length>1? e[0][0] : null;
+  };
+  const cheapChanged = Object.entries(byPn).map(([pn,ps])=>{
+    if(ps.length<3) return null;
+    const sorted=sortByDate(ps);
+    const nowC=cheapestOf(sorted), prevC=cheapestOf(sorted.slice(0,-1));
+    return (nowC && prevC && nowC!==prevC) ? {pn, from:prevC, to:nowC} : null;
+  }).filter(Boolean).slice(0,5);
 
   view.innerHTML = `
     <a class="btn hero" href="#/register"><span class="ic">📷</span>写真で登録</a>
+
+    <div class="card" style="margin-top:14px">
+      <div class="statline" style="border-top:none;padding:12px 4px">
+        <div><div class="k">今月の購入</div><div class="v">${yen(thisAmt)}</div></div>
+        <div><div class="k">前月比</div><div class="v">${deltaHtml(lastAmt||thisAmt?momDelta:null)}</div></div>
+        <div><div class="k">今月の個数</div><div class="v">${qty(thisM)}個</div></div>
+        <div><div class="k">AI確認待ち</div><div class="v">${draftCount?`<a class="link" href="#/register">${draftCount}件</a>`:'0件'}</div></div>
+      </div>
+    </div>
+
+    ${cheapChanged.length? `<h2 class="section">🔄 最安の工具屋が変わった工具</h2>
+    <div class="card">${cheapChanged.map(c=>`
+      <a class="row" style="text-decoration:none;color:inherit" href="#/tool?pn=${encodeURIComponent(c.pn)}">
+        <div class="grow"><div class="pn">${esc(c.pn)}</div>
+        <div class="meta">${esc(c.from)} → <b style="color:var(--down)">${esc(c.to)}</b> が最安に</div></div>
+      </a>`).join('')}</div>`:''}
 
     <h2 class="section">最近登録した工具</h2>
     <div class="card" id="recent"></div>
@@ -1018,12 +1055,26 @@ async function ToolDetail(pn){
 
     <a class="btn block" style="margin-top:14px;text-decoration:none;text-align:center" href="#/addprice?pn=${encodeURIComponent(pn)}">➕ この品番の価格を追加</a>
 
+    <h2 class="section">📈 価格推移 <span style="font-weight:400;color:var(--sub)">（税別換算）</span></h2>
+    <div class="card pad">
+      <div style="display:flex;gap:8px">
+        <select id="ch_shop" onchange="drawPriceChart()" style="flex:1"><option value="">全工具屋</option>${Object.keys(byShop).map(x=>`<option>${esc(x)}</option>`).join('')}</select>
+        <select id="ch_period" onchange="drawPriceChart()" style="flex:1">
+          <option value="all">全期間</option><option value="y1">1年</option><option value="m6">半年</option><option value="m3">3ヶ月</option>
+        </select>
+      </div>
+      <div id="chartArea" style="margin-top:10px"></div>
+    </div>
+
     <h2 class="section">📅 価格履歴 <span style="font-weight:400;color:var(--sub)">（行をタップで編集・削除）</span></h2>
     <div class="card" id="hist"></div>
 
     <h2 class="section">🖼 登録写真</h2>
     <div class="thumbs" id="photos"></div>
     <div style="height:24px"></div>`;
+
+  window._chartRecs = prices;
+  drawPriceChart();
 
   // 履歴（新しい順）
   const histEl = document.getElementById('hist');
@@ -1446,6 +1497,44 @@ async function doSearch(){
 
 /* ---------- util ---------- */
 function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+/* ---------- 価格推移グラフ（SVG折れ線・工具屋別色分け・期間絞り込み） ---------- */
+function drawPriceChart(){
+  const el = document.getElementById('chartArea'); if(!el) return;
+  const recs = window._chartRecs||[];
+  const shop = val('ch_shop'), period = val('ch_period')||'all';
+  const days = {y1:365, m6:183, m3:92}[period];
+  const since = days ? new Date(Date.now()-days*86400000).toISOString().slice(0,10) : null;
+  let list = sortByDate(recs.filter(p=>(!shop || (p.shop||'(未選択)')===shop) && (!since || (p.purchaseDate||'')>=since)));
+  if(list.length<2){ el.innerHTML='<div style="text-align:center;color:var(--sub);padding:24px;font-size:13px">この条件では履歴が2件未満のため、グラフを表示できません</div>'; return; }
+  const W=640,H=250,PL=58,PR=14,PT=12,PB=30;
+  const ts = p=>new Date(p.purchaseDate||'2000-01-01').getTime();
+  const minX=ts(list[0]), maxX=ts(list[list.length-1]);
+  const vals=list.map(unitPriceExcl);
+  const minY=Math.min(...vals), maxY=Math.max(...vals);
+  const spanX=(maxX-minX)||1, pad=(maxY-minY)||Math.max(maxY*0.1,1);
+  const y0=minY-pad*0.15, y1v=maxY+pad*0.15;
+  const X=t=>PL+(t-minX)/spanX*(W-PL-PR);
+  const Y=v=>PT+(1-(v-y0)/(y1v-y0))*(H-PT-PB);
+  const shops=[...new Set(list.map(p=>p.shop||'(未選択)'))];
+  const colors=['#2563eb','#16a34a','#f59e0b','#dc2626','#7c3aed','#0891b2'];
+  let svg=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto" role="img" aria-label="価格推移グラフ">`;
+  for(let i=0;i<=3;i++){
+    const v=y0+(y1v-y0)*i/3, y=Y(v);
+    svg+=`<line x1="${PL}" y1="${y}" x2="${W-PR}" y2="${y}" stroke="#e2e8f0"/>`+
+         `<text x="${PL-6}" y="${y+4}" text-anchor="end" font-size="11" fill="#64748b">¥${Math.round(v).toLocaleString()}</text>`;
+  }
+  svg+=`<text x="${PL}" y="${H-6}" font-size="11" fill="#64748b">${esc(list[0].purchaseDate)}</text>`+
+       `<text x="${W-PR}" y="${H-6}" text-anchor="end" font-size="11" fill="#64748b">${esc(list[list.length-1].purchaseDate)}</text>`;
+  shops.forEach((sn,si)=>{
+    const pts=list.filter(p=>(p.shop||'(未選択)')===sn);
+    const col=colors[si%colors.length];
+    if(pts.length>1) svg+=`<polyline fill="none" stroke="${col}" stroke-width="2.5" points="${pts.map(p=>X(ts(p))+','+Y(unitPriceExcl(p))).join(' ')}"/>`;
+    pts.forEach(p=>{ svg+=`<circle cx="${X(ts(p))}" cy="${Y(unitPriceExcl(p))}" r="4" fill="${col}"><title>${esc(p.purchaseDate)} ${esc(sn)} ¥${unitPriceExcl(p).toLocaleString()}</title></circle>`; });
+  });
+  svg+='</svg>';
+  el.innerHTML = svg + `<div style="display:flex;gap:12px;flex-wrap:wrap;font-size:12px;margin-top:6px">${shops.map((sn,si)=>`<span style="display:inline-flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:3px;background:${colors[si%colors.length]}"></span>${esc(sn)}</span>`).join('')}</div>`;
+}
 
 /* ---------- 工具ごとの集計（税別換算で統一） ---------- */
 function aggregateTool(pn, ps, toolMap){
@@ -1905,6 +1994,124 @@ async function saveOcr(id){
   location.hash='#/tool?pn='+encodeURIComponent(pn);
 }
 
+/* ===================== CSV入出力 ===================== */
+function csvEscape(v){
+  v = String(v==null?'':v);
+  return /[",\n\r]/.test(v) ? '"'+v.replace(/"/g,'""')+'"' : v;
+}
+function downloadCsv(filename, rows){
+  const text = '﻿' + rows.map(r=>r.map(csvEscape).join(',')).join('\r\n');  // BOM付きUTF-8（Excel対応）
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], {type:'text/csv'}));
+  a.download = filename; a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href), 5000);
+}
+/* 引用符対応の簡易CSVパーサ */
+function parseCsv(text){
+  const rows=[]; let row=[], cur='', inQ=false;
+  for(let i=0;i<text.length;i++){
+    const c=text[i];
+    if(inQ){
+      if(c==='"'){ if(text[i+1]==='"'){cur+='"';i++;} else inQ=false; }
+      else cur+=c;
+    }else{
+      if(c==='"') inQ=true;
+      else if(c===','){ row.push(cur); cur=''; }
+      else if(c==='\n'||c==='\r'){ if(c==='\r'&&text[i+1]==='\n')i++; row.push(cur); rows.push(row); row=[]; cur=''; }
+      else cur+=c;
+    }
+  }
+  if(cur!==''||row.length){ row.push(cur); rows.push(row); }
+  return rows.filter(r=>r.some(c=>c!==''));
+}
+async function exportToolsCsv(){
+  const tools = await DB.getAll('tools');
+  downloadCsv('kougu_tools_'+new Date().toISOString().slice(0,10)+'.csv',
+    [['品番','工具名','メーカー','カテゴリ','サイズ','材質','コーティング','用途','メモ','登録日']]
+    .concat(tools.map(t=>[t.partNumber,t.name||'',t.maker||'',t.category||'',t.size||'',t.material||'',t.coating||'',t.usage||'',t.memo||'',(t.createdAt||'').slice(0,10)])));
+  toast('工具マスターを書き出しました ✅');
+}
+async function exportSuppliersCsv(){
+  const sup = await getSuppliers();
+  downloadCsv('kougu_suppliers_'+new Date().toISOString().slice(0,10)+'.csv',
+    [['工具屋名','担当者','電話','メール','住所','支払条件','締日','支払日','Web','備考']]
+    .concat(sup.map(x=>[x.name,x.contactPerson||'',x.phone||'',x.email||'',x.address||'',x.paymentTerms||'',x.closingDay||'',x.paymentDay||'',x.website||'',x.notes||''])));
+  toast('工具屋マスターを書き出しました ✅');
+}
+async function exportPricesCsv(){
+  const prices = sortByDate(await DB.getAll('prices'));
+  downloadCsv('kougu_history_'+new Date().toISOString().slice(0,10)+'.csv',
+    [['品番','購入日','工具屋','単価','個数','税区分','伝票番号','登録方法','メモ']]
+    .concat(prices.map(x=>[x.partNumber,x.purchaseDate||'',x.shop||'',x.price,x.qty||1,x.taxType||'税別',x.documentNumber||'',x.sourceType||'manual',x.memo||''])));
+  toast('購入履歴を書き出しました ✅');
+}
+/* 購入履歴CSV取込: 文字コード自動判別→プレビュー→エラー行/重複表示→確定 */
+let _csvRows = null;
+async function previewCsvImport(input){
+  const file = input.files[0]; input.value=''; if(!file) return;
+  const buf = await file.arrayBuffer();
+  let text = new TextDecoder('utf-8', {fatal:false}).decode(buf);
+  if(text.includes('�')) text = new TextDecoder('shift_jis').decode(buf);   // 文字化けならShift_JISで再試行
+  text = text.replace(/^﻿/,'');
+  const rows = parseCsv(text);
+  if(rows.length<2){ toast('データ行がありません'); return; }
+  const header = rows[0];
+  const idx = n => header.indexOf(n);
+  const col = {pn:idx('品番'), date:idx('購入日'), shop:idx('工具屋'), price:idx('単価'), qty:idx('個数'), tax:idx('税区分'), doc:idx('伝票番号'), memo:idx('メモ')};
+  if(col.pn<0 || col.price<0){ toast('ヘッダーに「品番」「単価」が必要です'); return; }
+  const existing = await DB.getAll('prices');
+  const checked = rows.slice(1).map((r,i)=>{
+    const pn=(r[col.pn]||'').trim();
+    const price=parseFloat(String(r[col.price]||'').replace(/[,¥\s]/g,''));
+    const date=(col.date>=0?r[col.date]:'').trim()||new Date().toISOString().slice(0,10);
+    const qty=Math.max(1,parseInt(col.qty>=0?r[col.qty]:'1',10)||1);
+    const errs=[];
+    if(!pn) errs.push('品番なし');
+    if(!(price>=0)) errs.push('単価が数値でない');
+    if(date && !/^\d{4}[-\/]\d{1,2}[-\/]\d{1,2}$/.test(date)) errs.push('日付形式が不正');
+    const normDate = date.replace(/\//g,'-');
+    const dup = existing.some(p=>p.partNumber===pn && p.purchaseDate===normDate && p.price===price);
+    return {line:i+2, pn, price, qty, date:normDate, shop:(col.shop>=0?r[col.shop]:'').trim(),
+      tax:(col.tax>=0?r[col.tax]:'').trim()||'税別', doc:(col.doc>=0?r[col.doc]:'').trim(), memo:(col.memo>=0?r[col.memo]:'').trim(),
+      errs, dup};
+  });
+  _csvRows = checked;
+  const okCount = checked.filter(r=>!r.errs.length).length;
+  const el = document.getElementById('csvPreview');
+  el.innerHTML = `
+    <h3 style="margin:14px 0 6px;font-size:15px">取込プレビュー（${checked.length}行中 ${okCount}行 取込可能）</h3>
+    <div style="max-height:260px;overflow:auto;border:1px solid var(--line);border-radius:10px">
+      ${checked.map(r=>`<div style="padding:8px 12px;border-bottom:1px solid var(--line);font-size:13px;${r.errs.length?'background:#fef2f2':''}">
+        <b>${r.line}行目</b> ${esc(r.pn)||'—'} ／ ${esc(r.date)} ／ ${isFinite(r.price)?yen(r.price):'—'} ×${r.qty} ／ ${esc(r.shop)||'-'}
+        ${r.errs.length?`<span style="color:var(--up);font-weight:700"> ⚠ ${r.errs.join('・')}</span>`:''}
+        ${r.dup?'<span style="color:#92400e;font-weight:700"> ⚠ 既存と重複の可能性</span>':''}
+      </div>`).join('')}
+    </div>
+    <button class="btn block" style="margin-top:10px" onclick="commitCsvImport()">✅ ${okCount}行を取り込む（エラー行はスキップ）</button>
+    <button class="btn gray block" style="margin-top:8px" onclick="_csvRows=null;document.getElementById('csvPreview').innerHTML=''">キャンセル</button>`;
+}
+async function commitCsvImport(){
+  if(!_csvRows) return;
+  const ok = _csvRows.filter(r=>!r.errs.length);
+  if(!ok.length){ toast('取り込める行がありません'); return; }
+  const now = new Date().toISOString();
+  let added=0;
+  for(const r of ok){
+    if(!(await DB.get('tools', r.pn)))
+      await DB.put('tools', {partNumber:r.pn, name:'', maker:'', category:'', size:'', material:'', coating:'', usage:'', memo:'', createdAt:now, updatedAt:now});
+    if(r.shop && !(await supplierByName(r.shop))){
+      await DB.put('suppliers', {name:r.shop, contactPerson:'', phone:'', email:'', address:'', paymentTerms:'', closingDay:'', paymentDay:'', website:'', notes:'', createdAt:now, updatedAt:now});
+    }
+    await DB.put('prices', {partNumber:r.pn, price:r.price, qty:r.qty, shop:r.shop, supplierId:await supplierIdFor(r.shop),
+      maker:'', category:'', memo:r.memo, purchaseDate:r.date, imageId:null, createdAt:now,
+      taxType:['税込','税別','不明'].includes(r.tax)?r.tax:'税別', taxRate:10, documentNumber:r.doc, sourceType:'csv'});
+    added++;
+  }
+  _csvRows=null; document.getElementById('csvPreview').innerHTML='';
+  toast(added+'行を取り込みました ✅');
+  render();
+}
+
 /* ===================== 画面: 設定（バックアップ・復元・サンプル削除） ===================== */
 async function Settings(){
   const [tools, prices, images] = await Promise.all([DB.getAll('tools'), DB.getAll('prices'), DB.getAll('images')]);
@@ -1929,6 +2136,19 @@ async function Settings(){
       <button class="btn ghost block" style="margin-top:10px" onclick="document.getElementById('importFile').click()">⬆️ バックアップから復元（読み込み）</button>
       <input id="importFile" type="file" accept="application/json,.json" style="display:none" onchange="importData(this)">
       <p style="font-size:12px;color:var(--sub);margin:10px 0 0">※復元すると、今のデータはファイルの内容に置き換わります。</p>
+    </div>
+
+    <h2 class="section">📄 CSV入出力</h2>
+    <div class="card pad">
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn sm gray" onclick="exportToolsCsv()">⬇️ 工具マスター</button>
+        <button class="btn sm gray" onclick="exportSuppliersCsv()">⬇️ 工具屋マスター</button>
+        <button class="btn sm gray" onclick="exportPricesCsv()">⬇️ 購入履歴</button>
+      </div>
+      <button class="btn ghost block" style="margin-top:10px" onclick="document.getElementById('csvFile').click()">⬆️ 購入履歴CSVを取り込む</button>
+      <input id="csvFile" type="file" accept=".csv,text/csv" style="display:none" onchange="previewCsvImport(this)">
+      <div id="csvPreview"></div>
+      <p style="font-size:12px;color:var(--sub);margin:10px 0 0">Excelで開けるUTF-8(BOM付き)で出力。取込はUTF-8/Shift_JIS対応、ヘッダーに「品番」「単価」が必要です。</p>
     </div>
 
     <h2 class="section">🧹 サンプルデータ</h2>
