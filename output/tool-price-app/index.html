@@ -319,6 +319,22 @@ function zenToHan(str){
   return String(str||'').replace(/[Ａ-Ｚａ-ｚ０-９]/g,c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0)).replace(/[－ー―]/g,'-').replace(/　/g,' ');
 }
 function normalizePn(str){ return zenToHan(str).toUpperCase().replace(/[\s\-\/\.]/g,''); }
+/* 母体品番の抽出: CNMG120404N-GU → CNMG120404（ブレーカー・チップブレーカー記号を除いた共通部）
+   ISO旋削インサート型番（英字2-5+数字/Tの寸法列）を想定。合わなければnull */
+function basePn(str){
+  const n = normalizePn(str);
+  const m = n.match(/^([A-Z]{2,5}(?:\d|T){4,8})/);
+  if(!m) return null;
+  if(m[1].length < 7) return null;   // 短すぎる母体は誤検知しやすいので対象外
+  return m[1];
+}
+/* 同じ母体品番を持つ別品番（ブレーカー違い等）を探す */
+function findRelatedTools(pn, tools){
+  const b = basePn(pn);
+  if(!b) return [];
+  return tools.filter(t=>t.partNumber!==pn && basePn(t.partNumber)===b);
+}
+
 function normalizeMaker(str){
   const t = zenToHan(str).trim().toUpperCase();
   return MAKER_ALIASES[t] || str;
@@ -905,6 +921,13 @@ async function checkPnInfo(){
     box.innerHTML = `<div class="pninfo warn">⚠ 似た品番が登録済みです。同じ工具ですか？<div style="margin-top:6px">
       ${similar.slice(0,3).map(t=>`<button class="btn sm gray" onclick="useExistingPn('${esc(t.partNumber).replace(/'/g,'')}')">「${esc(t.partNumber)}」の履歴に追加</button>`).join(' ')}
       <button class="btn sm gray" onclick="dismissPnInfo()">別の工具として登録</button></div></div>`;
+    return;
+  }
+  const related = findRelatedTools(raw, tools);
+  if(related.length){
+    box.innerHTML = `<div class="pninfo warn">🔀 同じ母体品番の工具が登録済みです（ブレーカー違いかも）: ${related.slice(0,3).map(t=>esc(t.partNumber)).join('・')}<div style="margin-top:6px;font-size:12px">
+      同じ工具なら ${related.slice(0,2).map(t=>`<button class="btn sm gray" onclick="useExistingPn('${esc(t.partNumber).replace(/'/g,'')}')">「${esc(t.partNumber)}」の履歴に追加</button>`).join(' ')}
+      ／ 別品番のまま登録すれば詳細画面の「🔀 関連品番」で価格を並べて比較できます <button class="btn sm gray" onclick="dismissPnInfo()">OK</button></div></div>`;
   } else box.innerHTML='';
 }
 function useExistingPn(pn){
@@ -1050,6 +1073,8 @@ async function ToolDetail(pn){
         </a>`).join('')}
     </div>
 
+    <div id="relatedArea"></div>
+
     <a class="btn block" style="margin-top:14px;text-decoration:none;text-align:center" href="#/addprice?pn=${encodeURIComponent(pn)}">➕ この品番の価格を追加</a>
 
     <h2 class="section">📈 価格推移 <span style="font-weight:400;color:var(--sub)">（税別換算）</span></h2>
@@ -1072,6 +1097,7 @@ async function ToolDetail(pn){
 
   window._chartRecs = prices;
   drawPriceChart();
+  renderRelatedPns(pn);
 
   // 履歴（新しい順）
   const histEl = document.getElementById('hist');
@@ -1499,6 +1525,34 @@ async function doSearch(){
 
 /* ---------- util ---------- */
 function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+/* ---------- 関連品番（同じ母体・ブレーカー違い等）の価格比較 ---------- */
+async function renderRelatedPns(pn){
+  const el = document.getElementById('relatedArea'); if(!el) return;
+  const tools = await DB.getAll('tools');
+  const related = findRelatedTools(pn, tools);
+  if(!related.length){ el.innerHTML=''; return; }
+  const prices = await DB.getAll('prices');
+  // 自分＋関連品番の最新税別換算単価を並べる
+  const rows = [pn, ...related.map(t=>t.partNumber)].map(p2=>{
+    const ps = sortByDate(prices.filter(x=>x.partNumber===p2));
+    const last = ps[ps.length-1];
+    return last ? {pn:p2, price:unitPriceExcl(last), date:last.purchaseDate, shop:last.shop||'', self:p2===pn} : null;
+  }).filter(Boolean).sort((a,b)=>a.price-b.price);
+  if(rows.length<2){ el.innerHTML=''; return; }
+  const mx = Math.max(...rows.map(r=>r.price));
+  el.innerHTML = `
+    <h2 class="section">🔀 関連品番くらべ <span style="font-weight:400;color:var(--sub)">（母体 ${esc(basePn(pn)||'')} ・ ブレーカー違い等）</span></h2>
+    <div class="card pad bars">
+      ${rows.map((r,i)=>`
+        <a class="bar-row" style="text-decoration:none;color:inherit" href="#/tool?pn=${encodeURIComponent(r.pn)}">
+          <div class="bar-name" style="width:128px">${i===0?'🏆 ':''}${esc(r.pn)}${r.self?'<div style="font-size:10px;font-weight:400;color:var(--pri)">この品番</div>':`<div style="font-size:10px;font-weight:400;color:var(--sub)">${esc(r.shop)}</div>`}</div>
+          <div class="bar-track"><div class="bar-fill ${i===0?'best':''}" style="width:${Math.max(8,r.price/mx*100)}%"></div></div>
+          <div class="bar-val" style="${i===0?'color:var(--down)':''}">${yen(r.price)}</div>
+        </a>`).join('')}
+      <div style="font-size:11px;color:var(--sub);margin-top:6px">最新の税別換算単価で比較。品番タップでその工具のページへ</div>
+    </div>`;
+}
 
 /* ---------- 価格推移グラフ（SVG折れ線・工具屋別色分け・期間絞り込み） ---------- */
 function drawPriceChart(){
@@ -2039,7 +2093,12 @@ function checkOcPn(i){ clearTimeout(_ocPnT[i]); _ocPnT[i]=setTimeout(async()=>{
   if(tools.find(x=>x.partNumber===raw)){ box.innerHTML=`<div class="pninfo ok">📌 登録済みの工具。購入履歴として追加されます</div>`; return; }
   const norm=normalizePn(raw);
   const similar=tools.filter(x=>normalizePn(x.partNumber)===norm || (x.name&&normalizePn(x.name)===norm));
-  box.innerHTML = similar.length? `<div class="pninfo warn">⚠ 似た品番が登録済み: ${similar.slice(0,3).map(x=>`<button class="btn sm gray" onclick="document.getElementById('oc_${i}_modelNumber').value='${esc(x.partNumber).replace(/'/g,'')}';checkOcPn(${i})">「${esc(x.partNumber)}」の履歴に追加</button>`).join(' ')} <button class="btn sm gray" onclick="document.getElementById('ocPnInfo_${i}').innerHTML=''">別の工具として登録</button></div>` : '';
+  if(similar.length){
+    box.innerHTML = `<div class="pninfo warn">⚠ 似た品番が登録済み: ${similar.slice(0,3).map(x=>`<button class="btn sm gray" onclick="document.getElementById('oc_${i}_modelNumber').value='${esc(x.partNumber).replace(/'/g,'')}';checkOcPn(${i})">「${esc(x.partNumber)}」の履歴に追加</button>`).join(' ')} <button class="btn sm gray" onclick="document.getElementById('ocPnInfo_${i}').innerHTML=''">別の工具として登録</button></div>`;
+    return;
+  }
+  const related=findRelatedTools(raw, tools);
+  box.innerHTML = related.length? `<div class="pninfo warn">🔀 同系の品番あり（ブレーカー違い？）: ${related.slice(0,3).map(x=>esc(x.partNumber)).join('・')}。別品番のまま保存すれば詳細画面で並べて比較できます <button class="btn sm gray" onclick="document.getElementById('ocPnInfo_${i}').innerHTML=''">OK</button></div>` : '';
 },300); }
 
 async function reAnalyze(id){
