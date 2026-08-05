@@ -1602,6 +1602,7 @@ async function aiClassify(){
       body: JSON.stringify({tools: tools.map(t=>({partNumber:t.partNumber, maker:t.maker, name:t.name, usage:t.memo||t.usage, size:t.size})), categories:cats})});
     const data = await resp.json().catch(()=>({}));
     if(!resp.ok) throw new Error(data.error||'AI仕分けに失敗しました');
+    await recordAiCost(data.meta);
     const results = (data.results||[]).filter(r=>r.category);
     if(!results.length){ el.innerHTML='<div class="pninfo warn">仕分けできる工具がありませんでした（手動でカテゴリを設定してください）</div>'; return; }
     el.innerHTML = `<div class="card pad" style="margin-top:10px">
@@ -1617,7 +1618,7 @@ async function aiClassify(){
         </div>`).join('')}
       <button class="btn block" style="margin-top:12px" onclick='applyClassify(${JSON.stringify(results.map(r=>r.partNumber))})'>✅ チェックした工具に適用</button>
       <button class="btn gray block" style="margin-top:8px" onclick="showAiSortBanner()">キャンセル</button>
-      <p style="font-size:11px;color:var(--sub);margin:8px 0 0">🟢=確実 🟡=たぶん 🔴=自信なし（🔴は初めからチェックを外しています）</p>
+      <p style="font-size:11px;color:var(--sub);margin:8px 0 0">🟢=確実 🟡=たぶん 🔴=自信なし（🔴は初めからチェックを外しています）${data.meta&&data.meta.costYen!=null?'　'+costLabel(data.meta):''}</p>
     </div>`;
   }catch(e){ console.error(e); el.innerHTML=`<div class="pninfo warn">⚠ ${esc(e.message||'AI仕分けに失敗しました')}</div>`; }
   finally{ _clsBusy=false; }
@@ -1853,6 +1854,18 @@ async function saveSupplier(id){
 }
 
 /* ===================== AI-OCR（解析・確認画面・下書き） ===================== */
+/* AI利用の概算費用を累計（meta 'aiUsage'） */
+async function recordAiCost(meta){
+  if(!meta || meta.costYen==null) return;
+  const u = await getMeta('aiUsage', {count:0, totalYen:0});
+  u.count++; u.totalYen = Math.round((u.totalYen + meta.costYen)*100)/100;
+  await setMeta('aiUsage', u);
+}
+function costLabel(meta){
+  if(!meta || meta.costYen==null) return '';
+  const y = meta.costYen<1 ? meta.costYen.toFixed(2) : meta.costYen.toFixed(1);
+  return `💰 この読み取り: 約${y}円（${esc(meta.model||meta.provider||'AI')}）`;
+}
 const AI_ENDPOINT = 'https://creating-visual-explainers-cyan.vercel.app/api/tool-ocr';
 let _aiBusy = false;   // 二重送信防止
 
@@ -1876,6 +1889,7 @@ async function aiAnalyze(existingDraftId){
       body: JSON.stringify({image:b64, mediaType:'image/jpeg', ocrText:regState.lastOcrText||'', categories:cats, suppliers:sups.map(x=>x.name)})});
     const data = await resp.json().catch(()=>({}));
     if(!resp.ok) throw new Error(data.error || 'AI解析に失敗しました');
+    await recordAiCost(data.meta);
     let draftId = existingDraftId;
     if(draftId){
       const d = await DB.get('ocrDrafts', draftId);
@@ -1911,6 +1925,7 @@ function confLabel(c){ return c==='high'?'<span class="confdot high"></span>':(c
 function normalizeDraftResult(sr){
   sr = sr||{};
   if(Array.isArray(sr.items) && sr.items.length) return sr;
+  // 旧形式にはmetaが無い場合もある
   const t = sr.tool||{}, pu = sr.purchase||{}, c = sr.confidence||{};
   return {
     common:{supplier:pu.supplier||'', purchaseDate:pu.purchaseDate||'', taxType:pu.taxType||'不明', documentNumber:pu.documentNumber||'',
@@ -1959,6 +1974,7 @@ async function OcrConfirm(id){
         <span><span class="confdot mid"></span>要確認</span>
         <span><span class="confdot low"></span>読めず・推測</span>
       </div>
+      ${sr.meta && sr.meta.costYen!=null ? `<div style="font-size:12px;color:var(--sub);margin-top:6px">${costLabel(sr.meta)}</div>`:''}
     </div>
 
     <div class="card pad" style="margin-top:12px">
@@ -2244,6 +2260,15 @@ async function Settings(){
       <p style="font-size:12px;color:var(--sub);margin:10px 0 0">※復元すると、今のデータはファイルの内容に置き換わります。</p>
     </div>
 
+    <h2 class="section">🤖 AI利用状況</h2>
+    <div class="card pad" id="aiUsageCard">
+      <div class="statline" style="border-top:none;padding-top:0">
+        <div><div class="k">読み取り回数</div><div class="v" id="aiUseCount">—</div></div>
+        <div><div class="k">概算費用の累計</div><div class="v" id="aiUseTotal">—</div></div>
+      </div>
+      <p style="font-size:11px;color:var(--sub);margin:8px 0 0">※トークン使用量からの概算（1ドル150円換算）。実際の請求はGoogle/Anthropicの明細をご確認ください。</p>
+    </div>
+
     <h2 class="section">📄 CSV入出力</h2>
     <div class="card pad">
       <div style="display:flex;gap:8px;flex-wrap:wrap">
@@ -2263,6 +2288,10 @@ async function Settings(){
       <button class="btn gray block" onclick="deleteSampleData()">🗑 サンプルデータを削除</button>
     </div>
     <div style="height:24px"></div>`;
+  const u = await getMeta('aiUsage', {count:0, totalYen:0});
+  const ec=document.getElementById('aiUseCount'), et=document.getElementById('aiUseTotal');
+  if(ec) ec.textContent = u.count+'回';
+  if(et) et.textContent = '約'+(u.totalYen<1?u.totalYen.toFixed(2):u.totalYen.toFixed(1))+'円';
 }
 
 /* ---------- バックアップ（写真はbase64で内包） ---------- */

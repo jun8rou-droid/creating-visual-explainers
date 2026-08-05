@@ -7,6 +7,21 @@ import { GoogleGenAI } from '@google/genai';
 
 const ALLOWED_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 
+/* 概算コスト計算（USD/100万トークン → 円）。レートは目安 */
+const USD_JPY = Number(process.env.USD_JPY || 150);
+const PRICE_TABLE = [
+  { match: /gemini-2\.5-flash/, in: 0.30, out: 2.50 },
+  { match: /gemini-2\.5-pro/,   in: 1.25, out: 10.0 },
+  { match: /gemini/,             in: 0.30, out: 2.50 },
+  { match: /claude.*haiku/,      in: 1.00, out: 5.00 },
+  { match: /claude/,             in: 3.00, out: 15.0 },
+];
+function estimateCostYen(model, inputTokens, outputTokens) {
+  const row = PRICE_TABLE.find(r => r.match.test(String(model || ''))) || PRICE_TABLE[2];
+  const usd = (inputTokens / 1e6) * row.in + (outputTokens / 1e6) * row.out;
+  return Math.round(usd * USD_JPY * 100) / 100;
+}
+
 function buildPrompt(ocrText, categories, suppliers) {
   const catList = Array.isArray(categories) ? categories.slice(0, 50).map(String) : [];
   const supList = Array.isArray(suppliers) ? suppliers.slice(0, 50).map(String) : [];
@@ -68,7 +83,13 @@ async function callClaude(image, mediaType, prompt) {
   if (r.status === 429) { const e = new Error('AIの利用上限に達しました。少し待ってからお試しください'); e.status = 429; throw e; }
   if (!r.ok) { const e = new Error('AIが応答しませんでした。もう一度お試しください'); e.status = 502; throw e; }
   const data = await r.json();
-  return (data.content && data.content[0] && data.content[0].text) || '';
+  const model = process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-6';
+  return {
+    text: (data.content && data.content[0] && data.content[0].text) || '',
+    provider: 'claude', model,
+    inputTokens: (data.usage && data.usage.input_tokens) || 0,
+    outputTokens: (data.usage && data.usage.output_tokens) || 0,
+  };
 }
 
 async function callGemini(image, mediaType, prompt) {
@@ -82,7 +103,13 @@ async function callGemini(image, mediaType, prompt) {
       { text: prompt },
     ] }],
   });
-  return result.text || '';
+  const um = result.usageMetadata || {};
+  return {
+    text: result.text || '',
+    provider: 'gemini', model: modelId,
+    inputTokens: um.promptTokenCount || 0,
+    outputTokens: (um.candidatesTokenCount || 0) + (um.thoughtsTokenCount || 0),
+  };
 }
 
 async function callText(prompt) {
@@ -94,14 +121,19 @@ async function callText(prompt) {
     });
     if (!r.ok) { const e = new Error('AIが応答しませんでした'); e.status = r.status === 429 ? 429 : 502; throw e; }
     const data = await r.json();
-    return (data.content && data.content[0] && data.content[0].text) || '';
+    const model = process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-6';
+    return { text: (data.content && data.content[0] && data.content[0].text) || '', provider:'claude', model,
+      inputTokens:(data.usage&&data.usage.input_tokens)||0, outputTokens:(data.usage&&data.usage.output_tokens)||0 };
   }
   const ai = new GoogleGenAI({ apiKey: process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY });
+  const modelId = process.env.GOOGLE_MODEL || process.env.GEMINI_MODEL || 'gemini-2.5-flash';
   const result = await ai.models.generateContent({
-    model: process.env.GOOGLE_MODEL || process.env.GEMINI_MODEL || 'gemini-2.5-flash',
+    model: modelId,
     contents: [{ role: 'user', parts: [{ text: prompt }] }],
   });
-  return result.text || '';
+  const um = result.usageMetadata || {};
+  return { text: result.text || '', provider:'gemini', model:modelId,
+    inputTokens:um.promptTokenCount||0, outputTokens:(um.candidatesTokenCount||0)+(um.thoughtsTokenCount||0) };
 }
 
 /**
@@ -129,14 +161,15 @@ export async function classifyTools(body) {
 次のJSON配列「だけ」を出力（説明不要）:
 [{"partNumber":"...","category":"リスト内のカテゴリ名","confidence":"high|mid|low"}]
 自信がなければ confidence を "low" にし、どうしても判断できなければ category は空文字にする。リストにないカテゴリ名は使わない。`;
-  const text = await callText(prompt);
-  const m = String(text || '').match(/\[[\s\S]*\]/);
+  const r = await callText(prompt);
+  const m = String(r.text || '').match(/\[[\s\S]*\]/);
   if (!m) { const e = new Error('解析結果を読み取れませんでした'); e.status = 502; throw e; }
   let arr;
   try { arr = JSON.parse(m[0]); } catch { const e = new Error('解析結果の形式が不正でした'); e.status = 502; throw e; }
   return { results: arr.filter(x => x && x.partNumber).map(x => ({
     partNumber: String(x.partNumber), category: catList.includes(x.category) ? x.category : '', confidence: ['high','mid','low'].includes(x.confidence) ? x.confidence : 'low',
-  })) };
+  })), meta: { provider: r.provider, model: r.model, inputTokens: r.inputTokens, outputTokens: r.outputTokens,
+    costYen: estimateCostYen(r.model, r.inputTokens, r.outputTokens) } };
 }
 
 export function isToolOcrEnabled() {
@@ -155,11 +188,16 @@ export async function analyzeToolImage(body) {
   if (!isToolOcrEnabled()) { const e = new Error('AIが未設定です（管理者がAPIキーを設定してください）'); e.status = 503; throw e; }
 
   const prompt = buildPrompt(ocrText, categories, suppliers);
-  const text = process.env.ANTHROPIC_API_KEY
+  const r = process.env.ANTHROPIC_API_KEY
     ? await callClaude(image, mediaType, prompt)
     : await callGemini(image, mediaType, prompt);
 
-  const parsed = parseModelJson(text);
+  const parsed = parseModelJson(r.text);
   if (!parsed) { const e = new Error('解析結果を読み取れませんでした'); e.status = 502; throw e; }
+  parsed.meta = {
+    provider: r.provider, model: r.model,
+    inputTokens: r.inputTokens, outputTokens: r.outputTokens,
+    costYen: estimateCostYen(r.model, r.inputTokens, r.outputTokens),
+  };
   return parsed;
 }
