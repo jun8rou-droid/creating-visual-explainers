@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>工具費くらべ — 工具価格管理</title>
 <!-- Tesseract.js: 端末内/オフラインOCR（品番読み取り）。CDN1本のみ依存 -->
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
@@ -38,7 +38,9 @@
   .btn:active{transform:scale(.98)}
   .btn.ghost{background:#fff;color:var(--pri);border:1.5px solid var(--pri)}
   .btn.gray{background:#eef2f7;color:var(--ink)}
-  .btn.sm{padding:8px 12px;font-size:14px;border-radius:10px}
+  .btn.sm{padding:10px 14px;font-size:14px;border-radius:10px;min-width:44px;min-height:44px}
+  a.btn{text-decoration:none}
+  input.invalid,textarea.invalid{border-color:var(--up)!important;background:#fef2f2}
   .btn.block{width:100%;display:block}
   .btn.hero{
     width:100%;padding:22px;font-size:20px;border-radius:18px;
@@ -79,6 +81,8 @@
   .row .pn{font-weight:800;font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .row .meta{font-size:12px;color:var(--sub)}
   .row .price{font-weight:800;font-size:16px;text-align:right;white-space:nowrap}
+  .edit-chip{flex:none;padding:7px 11px;border-radius:10px;border:1.5px solid var(--pri);color:var(--pri);
+    font-size:13px;font-weight:800;white-space:nowrap;background:#eff6ff}
   .delta{font-size:12px;font-weight:800}
   .delta.up{color:var(--up)} .delta.down{color:var(--down)} .delta.flat{color:var(--sub)}
 
@@ -89,6 +93,12 @@
   .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
   .stat{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px;text-align:center}
   .stat .v{font-size:19px;font-weight:800} .stat .k{font-size:11px;color:var(--sub)}
+  /* 詳細画面のコンパクトな価格まとめ（1行4項目） */
+  .statline{display:flex;text-align:center;border-top:1px solid var(--line);padding-top:10px}
+  .statline>div{flex:1;min-width:0}
+  .statline>div+div{border-left:1px solid var(--line)}
+  .statline .k{font-size:11px;color:var(--sub)}
+  .statline .v{font-size:15px;font-weight:800;white-space:nowrap}
 
   .cat-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
   .cat-tile{background:#fff;border:1px solid var(--line);border-radius:14px;padding:16px;box-shadow:var(--shadow)}
@@ -135,6 +145,7 @@
   .bars .bar-name{width:96px;font-size:13px;font-weight:700;flex:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .bars .bar-track{flex:1;background:#eef2f7;border-radius:8px;height:22px;overflow:hidden}
   .bars .bar-fill{height:100%;background:linear-gradient(90deg,#60a5fa,#2563eb);border-radius:8px}
+  .bars .bar-fill.best{background:linear-gradient(90deg,#4ade80,#16a34a)}
   .bars .bar-val{width:78px;text-align:right;font-size:13px;font-weight:800;flex:none}
 
   .toast{position:fixed;left:50%;bottom:96px;transform:translateX(-50%);background:#1c2530;color:#fff;
@@ -152,6 +163,19 @@
     .two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
     .cat-grid{grid-template-columns:repeat(3,1fr)}
   }
+  /* PC: 下部タブを左サイドメニューに切替 */
+  @media(min-width:900px){
+    body{padding-left:200px;padding-bottom:24px}
+    nav.tabs{top:0;bottom:0;left:0;right:auto;width:200px;z-index:20;
+      flex-direction:column;justify-content:flex-start;gap:4px;
+      border-top:none;border-right:1px solid var(--line);padding:76px 10px 10px}
+    nav.tabs a{flex:none;display:flex;align-items:center;gap:12px;text-align:left;
+      font-size:15px;padding:13px 14px;border-radius:10px}
+    nav.tabs a .ic{display:inline;font-size:20px;line-height:1}
+    nav.tabs a.on{background:#eef2ff}
+    .fab{bottom:24px}
+    .toast{bottom:40px}
+  }
 </style>
 </head>
 <body>
@@ -159,17 +183,20 @@
 <header class="appbar">
   <span class="logo">🔧 工具費くらべ</span>
   <span class="spacer"></span>
-  <button class="btn sm gray" onclick="location.hash='#/search'">🔍</button>
+  <button class="btn sm gray" aria-label="検索" onclick="location.hash='#/search'">🔍</button>
+  <button class="btn sm gray" aria-label="設定・バックアップ" onclick="location.hash='#/settings'" title="設定・バックアップ">⚙️</button>
 </header>
 
 <main id="view" class="wrap"><!-- 画面はJSで描画 --></main>
 
-<a class="fab" href="#/register" title="写真で登録">📷</a>
+<a class="fab" href="#/register" title="写真で登録" aria-label="写真で登録">📷</a>
 
 <nav class="tabs">
   <a data-tab="home" href="#/home"><span class="ic">🏠</span>ホーム</a>
-  <a data-tab="category" href="#/category"><span class="ic">📂</span>カテゴリ</a>
-  <a data-tab="search" href="#/search"><span class="ic">🔍</span>検索</a>
+  <a data-tab="tools" href="#/tools"><span class="ic">🔧</span>工具</a>
+  <a data-tab="suppliers" href="#/suppliers"><span class="ic">🏪</span>工具屋</a>
+  <a data-tab="history" href="#/history"><span class="ic">📅</span>履歴</a>
+  <a data-tab="settings" href="#/settings"><span class="ic">⚙️</span>設定</a>
 </nav>
 
 <div class="toast" id="toast"></div>
@@ -181,13 +208,15 @@
  * ========================================================================= */
 
 const DEFAULT_CATEGORIES = ['ドリル','チップ','タップ','エンドミル','ホルダー','測定具','その他'];
+/* 工具屋は選択制（固定リスト） */
+const SHOPS = ['武岡','フジタ','センナン','旭','その他'];
 
 /* ---------- IndexedDB 薄ラッパ ---------- */
 const DB = (() => {
   let db;
   function open(){
     return new Promise((res,rej)=>{
-      const r = indexedDB.open('toolPriceDB', 1);
+      const r = indexedDB.open('toolPriceDB', 2);
       r.onupgradeneeded = e => {
         const d = e.target.result;
         if(!d.objectStoreNames.contains('tools'))
@@ -202,6 +231,11 @@ const DB = (() => {
           d.createObjectStore('images',{keyPath:'id',autoIncrement:true});
         if(!d.objectStoreNames.contains('meta'))
           d.createObjectStore('meta',{keyPath:'name'});
+        // v2: 工具屋マスター / OCR下書き
+        if(!d.objectStoreNames.contains('suppliers'))
+          d.createObjectStore('suppliers',{keyPath:'id',autoIncrement:true});
+        if(!d.objectStoreNames.contains('ocrDrafts'))
+          d.createObjectStore('ocrDrafts',{keyPath:'id',autoIncrement:true});
       };
       r.onsuccess = e => { db = e.target.result; res(db); };
       r.onerror = e => rej(e.target.error);
@@ -213,7 +247,8 @@ const DB = (() => {
   function get(store,key){ return reqP(tx(store).get(key)); }
   function put(store,val){ return reqP(tx(store,'readwrite').put(val)); }
   function del(store,key){ return reqP(tx(store,'readwrite').delete(key)); }
-  return {open,getAll,get,put,del};
+  function clear(store){ return reqP(tx(store,'readwrite').clear()); }
+  return {open,getAll,get,put,del,clear};
 })();
 
 /* ---------- メタ（カテゴリ・候補値） ---------- */
@@ -223,6 +258,75 @@ async function getMeta(name, fallback){
 }
 async function setMeta(name, value){ await DB.put('meta', {name, value}); }
 async function getCategories(){ return await getMeta('categories', DEFAULT_CATEGORIES.slice()); }
+
+/* ---------- v1→v2 データ移行（既存データ完全保持・一度だけ実行） ---------- */
+async function migrateV2(){
+  if(await getMeta('dbVersion2', false)) return;
+  const now = new Date().toISOString();
+  // 1) 工具屋マスター初期投入: 固定5店 + 既存履歴に出てくる店名
+  const existing = await DB.getAll('suppliers');
+  const byName = {}; existing.forEach(s=>byName[s.name]=s);
+  const names = new Set(SHOPS);
+  (await DB.getAll('prices')).forEach(p=>{ if(p.shop) names.add(p.shop); });
+  for(const name of names){
+    if(!byName[name]){
+      const id = await DB.put('suppliers', {name, contactPerson:'', phone:'', email:'', address:'',
+        paymentTerms:'', closingDay:'', paymentDay:'', website:'', notes:'', createdAt:now, updatedAt:now});
+      byName[name] = {id, name};
+    }
+  }
+  // 2) 購入履歴に新項目の既定値と supplierId を付与
+  for(const p of await DB.getAll('prices')){
+    const q = {...p};
+    if(q.taxType==null) q.taxType = '税別';       // 既存データはB2B前提で税別扱い（編集で変更可）
+    if(q.taxRate==null) q.taxRate = 10;
+    if(q.sourceType==null) q.sourceType = 'manual';
+    if(q.documentNumber==null) q.documentNumber = '';
+    if(q.qty==null) q.qty = 1;
+    q.supplierId = (q.shop && byName[q.shop]) ? byName[q.shop].id : null;
+    await DB.put('prices', q);
+  }
+  // 3) 工具マスターに新項目の既定値
+  for(const t of await DB.getAll('tools')){
+    const q = {...t};
+    for(const k of ['name','size','material','coating']) if(q[k]==null) q[k]='';
+    if(q.updatedAt==null) q.updatedAt = q.createdAt || now;
+    await DB.put('tools', q);
+  }
+  await setMeta('dbVersion2', true);
+}
+
+/* ---------- 工具屋マスター ---------- */
+async function getSuppliers(){ return (await DB.getAll('suppliers')).sort((a,b)=>a.id-b.id); }
+async function supplierByName(name){ return (await DB.getAll('suppliers')).find(s=>s.name===name)||null; }
+async function supplierIdFor(name){ const s = await supplierByName(name); return s? s.id : null; }
+/* 税別換算単価（比較・集計はこれで統一。税込は割り戻す） */
+function unitPriceExcl(p){
+  const rate = (p.taxRate==null?10:p.taxRate)/100;
+  return p.taxType==='税込' ? Math.round(p.price/(1+rate)) : p.price;
+}
+function taxBadge(p){
+  if(p.taxType==='税込') return '<span class="badge" style="background:#fef3c7;color:#92400e">税込→換算</span>';
+  if(p.taxType==='不明') return '<span class="badge">税区分不明</span>';
+  return '';
+}
+
+/* 工具屋の選択チップ（選択制）。工具屋マスターの登録店から生成 */
+function shopChipsHtml(inputId, selected, names){
+  const list = (names && names.length ? names : SHOPS).slice();
+  if(selected && !list.includes(selected)) list.push(selected);
+  return `<div class="chips" id="${inputId}Chips">` +
+    list.map(s=>`<span class="chip ${s===selected?'on':''}" onclick="pickShop('${inputId}','${esc(s).replace(/'/g,'')}',this)">${esc(s)}</span>`).join('') +
+    `</div><input type="hidden" id="${inputId}" value="${esc(selected||'')}">`;
+}
+function pickShop(inputId, name, el){
+  formDirty = true;
+  const input = document.getElementById(inputId);
+  const already = input.value===name;
+  input.value = already ? '' : name;   // もう一度タップで選択解除
+  document.querySelectorAll('#'+inputId+'Chips .chip').forEach(c=>
+    c.classList.toggle('on', !already && c.textContent===name));
+}
 async function rememberSuggestion(name, val){
   if(!val) return;
   const list = await getMeta('sug_'+name, []);
@@ -306,9 +410,30 @@ function parseHash(){
   const q = {}; new URLSearchParams(qs||'').forEach((v,k)=>q[k]=v);
   return {path, q};
 }
+let _prevHash = null, _restoringHash = false, formDirty = false;
 async function render(){
+  if(_restoringHash){ _restoringHash = false; return; }
   const {path,q} = parseHash();
-  document.querySelectorAll('nav.tabs a').forEach(a=>a.classList.toggle('on', a.dataset.tab===path));
+  // 入力途中の画面（登録・追加・編集）から離れるときは確認する
+  const formPaths = ['register','addprice','edit','tooledit'];
+  const prevPath = _prevHash ? _prevHash.replace(/^#\//,'').split('?')[0] : null;
+  if(formDirty && prevPath && formPaths.includes(prevPath) && location.hash !== _prevHash){
+    if(!confirm('入力内容が消えます。移動しますか？')){
+      _restoringHash = true;
+      location.hash = _prevHash.replace(/^#/,'');
+      return;
+    }
+    formDirty = false;
+  }
+  _prevHash = location.hash;
+  // 現在地のタブ強調（詳細・編集画面は親タブを光らせる）
+  const tabMap = {home:'home', tools:'tools', tool:'tools', tooledit:'tools', addprice:'tools', category:'tools', search:'tools',
+    suppliers:'suppliers', supplier:'suppliers', history:'history', edit:'history', settings:'settings'};
+  const activeTab = tabMap[path] || '';
+  document.querySelectorAll('nav.tabs a').forEach(a=>a.classList.toggle('on', a.dataset.tab===activeTab));
+  // 登録・編集系の画面ではカメラFABを隠す（誤タップで入力が消えるのを防ぐ）
+  const fab = document.querySelector('.fab');
+  if(fab) fab.style.display = formPaths.includes(path) ? 'none' : 'flex';
   try{
     if(path==='home') await Home();
     else if(path==='register') await Register();
@@ -318,17 +443,33 @@ async function render(){
     else if(path==='edit') await EditPrice(q.id);
     else if(path==='category') await q.name ? CategoryDetail(q.name) : Category();
     else if(path==='search') await Search(q);
+    else if(path==='tools') await ToolsList(q);
+    else if(path==='history') await HistoryList(q);
+    else if(path==='suppliers') await SuppliersList();
+    else if(path==='supplier') await SupplierDetail(q.id);
+    else if(path==='settings') await Settings();
     else await Home();
   }catch(err){ view.innerHTML = `<div class="empty"><div class="em">⚠️</div>${err.message}</div>`; console.error(err); }
   window.scrollTo(0,0);
 }
 window.addEventListener('hashchange', render);
+// 登録・編集系の画面で何か入力したら「入力途中」フラグを立てる
+view.addEventListener('input', ()=>{
+  if(['register','addprice','edit','tooledit'].includes(parseHash().path)) formDirty = true;
+});
 
 /* ---------- toast ---------- */
 let toastT;
 function toast(msg){
   const t = document.getElementById('toast'); t.textContent=msg; t.classList.add('show');
-  clearTimeout(toastT); toastT = setTimeout(()=>t.classList.remove('show'),1900);
+  clearTimeout(toastT); toastT = setTimeout(()=>t.classList.remove('show'),3200);
+}
+/* 入力エラーの欄を赤枠にしてスクロール表示（次の入力で解除） */
+function markInvalid(id){
+  const el = document.getElementById(id); if(!el) return;
+  el.classList.add('invalid');
+  el.scrollIntoView({behavior:'smooth', block:'center'});
+  el.addEventListener('input', ()=>el.classList.remove('invalid'), {once:true});
 }
 
 /* ===================== 画面: ホーム ===================== */
@@ -361,14 +502,40 @@ async function Home(){
     ${rising.length? `<h2 class="section">📈 値上がりしている工具</h2>
     <div class="card" id="rising"></div>`:''}
 
+    <h2 class="section">🏪 工具屋別まとめ</h2>
+    <div class="card pad bars">
+      ${(()=>{
+        const byShop={};
+        prices.forEach(p=>{ const k=p.shop||'(未選択)'; (byShop[k]=byShop[k]||{n:0,sum:0}); byShop[k].n++; byShop[k].sum+=p.price*(p.qty||1); });
+        const es=Object.entries(byShop).sort((a,b)=>b[1].sum-a[1].sum);
+        const mx=Math.max(...es.map(([,v])=>v.sum));
+        return es.map(([s,v])=>`
+          <div class="bar-row">
+            <div class="bar-name">${esc(s)}</div>
+            <div class="bar-track"><div class="bar-fill" style="width:${Math.max(8,v.sum/mx*100)}%"></div></div>
+            <div class="bar-val">${yen(v.sum)}<div style="font-size:10px;color:var(--sub);font-weight:400">${v.n}件</div></div>
+          </div>`).join('');
+      })()}
+    </div>
+
     <h2 class="section">カテゴリ</h2>
     <div class="cat-grid">
       ${cats.map(c=>{
         const n = prices.filter(p=>catOf(p.partNumber,toolMap)===c).length;
         return `<a class="cat-tile" style="text-decoration:none;color:inherit" href="#/category?name=${encodeURIComponent(c)}">
-          <div class="n">${esc(c)}</div><div class="c">${n}件</div></a>`;
+          <div class="n">${esc(c)}</div>
+          <div class="c">${n}件</div></a>`;
       }).join('')}
-    </div>`;
+    </div>
+
+    <a class="card pad" style="display:flex;align-items:center;gap:12px;margin-top:20px;text-decoration:none;color:inherit" href="#/settings">
+      <span style="font-size:26px">💾</span>
+      <span style="flex:1">
+        <b>バックアップ</b>
+        <span style="display:block;font-size:12px;color:var(--sub)">データはこの端末だけに保存されています。定期的に保存を。</span>
+      </span>
+      <span style="color:var(--pri);font-weight:700">開く ›</span>
+    </a>`;
 
   await fillRows('recent', recent.map(p=>({p, st:stats(byPn[p.partNumber])})));
   if(rising.length){
@@ -390,6 +557,7 @@ async function fillRows(elId, items){
       <div class="grow">
         <div class="pn">${esc(p.partNumber)}</div>
         <div class="meta">${esc(tool.category||'未分類')}${tool.maker?' ・ '+esc(tool.maker):''}${p.shop?' ・ '+esc(p.shop):''}</div>
+        ${tool.usage?`<div class="meta" style="color:#166534">🔧 ${esc(tool.usage)}</div>`:''}
       </div>
       <div>
         <div class="price">${yen(st.latest)}</div>
@@ -405,12 +573,12 @@ let regState = {};
 async function Register(){
   regState = {imageBlob:null, partNumber:'', candidates:[]};
   const cats = await getCategories();
-  const sugShop = await getSuggestions('shop');
   const sugMaker = await getSuggestions('maker');
+  const shopNames = (await getSuppliers()).map(x=>x.name);
   const today = new Date().toISOString().slice(0,10);
 
   view.innerHTML = `
-    <div class="topnote">📷 写真を撮る → 品番を確認 → 価格を入れる → 保存。これだけで完了します。</div>
+    <div class="topnote">📷 写真を撮る → 品番を確認 → 価格を入れる → 工具屋をタップ → 保存。</div>
 
     <div class="card pad">
       <label class="f">① 写真<span class="req"></span></label>
@@ -423,14 +591,21 @@ async function Register(){
       <input id="pn" placeholder="例: A1234-5  （候補をタップ、または手入力）" oninput="regState.partNumber=this.value">
       <div id="cands" class="chips"></div>
 
-      <label class="f">③ 価格（税抜・円）<span class="req"></span></label>
-      <input id="price" type="number" inputmode="numeric" placeholder="例: 1980">
+      <label class="f">③ 価格（1個あたり・税抜円）<span class="req"></span></label>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input id="price" type="number" inputmode="numeric" placeholder="例: 1980" style="flex:2">
+        <span style="color:var(--sub);font-weight:700">×</span>
+        <input id="qty" type="number" inputmode="numeric" min="1" placeholder="個数" style="flex:1">
+        <span style="color:var(--sub);font-weight:700">個</span>
+      </div>
+
+      <label class="f">④ 工具屋（タップで選択）</label>
+      ${shopChipsHtml('shop','',shopNames)}
 
       <details class="opt">
-        <summary>任意項目（工具屋・メーカー・カテゴリ・購入日・メモ）</summary>
-        <label class="f">工具屋</label>
-        <input id="shop" list="dl-shop" placeholder="例: ○○工具店">
-        <datalist id="dl-shop">${sugShop.map(s=>`<option value="${esc(s)}">`).join('')}</datalist>
+        <summary>任意項目（用途・メーカー・カテゴリ・購入日・メモ）</summary>
+        <label class="f">🔧 使用用途（何の加工・どの部品に使うか）</label>
+        <textarea id="usage" rows="2" placeholder="例: SUS304のΦ8穴あけ / ○○社△△部品の面取り"></textarea>
 
         <label class="f">メーカー</label>
         <input id="maker" list="dl-maker" placeholder="例: 三菱 / OSG など">
@@ -452,6 +627,7 @@ async function Register(){
 
 async function onPhoto(input){
   const file = input.files[0]; if(!file) return;
+  formDirty = true;
   const blob = await resizeImage(file);
   regState.imageBlob = blob;
   const url = URL.createObjectURL(blob);
@@ -542,13 +718,13 @@ function renderCandidates(cands){
   const sorted = cands.slice().sort((a,b)=> (a.type==='pn'?0:1) - (b.type==='pn'?0:1));
   document.getElementById('cands').innerHTML =
     `<div class="cand-legend">
-       <span><span class="dot pn"></span>品番らしい</span>
-       <span><span class="dot num"></span>数字（価格・数量かも）</span>
+       <span><span class="dot pn"></span>品番らしい → 品番欄へ</span>
+       <span><span class="dot num"></span>数字 → 価格欄へ</span>
      </div>` +
     sorted.map(c=>{
       const cls = c.type==='pn' ? 'cand-pn' : 'cand-num';
       const v = esc(c.text).replace(/'/g,'');
-      return `<span class="chip ${cls}" data-cand="${v}" onclick="pickCandidate('${v}')">${esc(c.text)}</span>`;
+      return `<span class="chip ${cls}" data-cand="${v}" data-type="${c.type}" onclick="pickCandidate('${v}','${c.type}')">${esc(c.text)}</span>`;
     }).join('');
 }
 /* 写真の上に、読み取った位置へ色付き枠を重ねる（枠タップで確定） */
@@ -565,19 +741,27 @@ function renderBoxes(cands){
     const box = document.createElement('div');
     box.className = 'ocr-box ' + (c.type==='pn'?'pn':'num');
     box.setAttribute('data-cand', v);
+    box.setAttribute('data-type', c.type);
     box.style.left   = (x0/W*100)+'%';
     box.style.top    = (y0/H*100)+'%';
     box.style.width  = ((x1-x0)/W*100)+'%';
     box.style.height = ((y1-y0)/H*100)+'%';
-    box.onclick = ()=>pickCandidate(c.text);
+    box.onclick = ()=>pickCandidate(c.text, c.type);
     box.innerHTML = `<span class="tag">${esc(c.text)}</span>`;
     wrap.appendChild(box);
   });
 }
-function pickCandidate(v){
-  document.getElementById('pn').value = v; regState.partNumber = v;
-  // チップ・写真の枠の両方で、選んだものをハイライト
-  document.querySelectorAll('[data-cand]').forEach(e=>
+function pickCandidate(v, type){
+  formDirty = true;
+  // 数字だけの候補は価格欄へ、品番らしい候補は品番欄へ振り分け
+  if(type==='num'){
+    const el = document.getElementById('price');
+    if(el){ el.value = v.replace(/[^0-9.]/g,''); toast('価格に入れました: '+v); }
+  }else{
+    document.getElementById('pn').value = v; regState.partNumber = v;
+  }
+  // チップ・写真の枠の両方で、選んだものをハイライト（品番と価格は別グループ）
+  document.querySelectorAll(`[data-cand][data-type="${type}"]`).forEach(e=>
     e.classList.toggle('picked', e.getAttribute('data-cand')===v));
 }
 /* OCR結果(blocks)から単語＋座標を集めて候補化。種類を判定。
@@ -613,12 +797,13 @@ function extractCandidates(data){
 async function saveRegister(){
   const pn = (document.getElementById('pn').value||'').trim();
   const price = parseFloat(document.getElementById('price').value);
-  if(!pn){ toast('品番を入力してください'); return; }
-  if(!(price>=0)){ toast('価格を入力してください'); return; }
-  if(!regState.imageBlob){ toast('写真を選んでください'); return; }
+  if(!pn){ toast('品番を入力してください'); markInvalid('pn'); return; }
+  if(!(price>=0)){ toast('価格を入力してください'); markInvalid('price'); return; }
+  if(!regState.imageBlob){ toast('写真を選んでください'); window.scrollTo({top:0,behavior:'smooth'}); return; }
 
   const shop = val('shop'), maker = val('maker'), category = val('category'),
-        memo = val('memo');
+        memo = val('memo'), usage = val('usage');
+  const qty = Math.max(1, parseInt(val('qty'),10)||1);
   const purchaseDate = val('purchaseDate') || new Date().toISOString().slice(0,10);
   if(await isDuplicate(pn, purchaseDate, price)){
     if(!confirm('同じ品番・同じ日・同じ価格の登録があります。追加しますか？')) return;
@@ -633,12 +818,15 @@ async function saveRegister(){
     maker: maker || (existing&&existing.maker) || '',
     category: category || (existing&&existing.category) || '',
     memo: memo || (existing&&existing.memo) || '',
+    usage: usage || (existing&&existing.usage) || '',
     createdAt: existing ? existing.createdAt : createdAt
   });
-  await DB.put('prices', {partNumber:pn, price, shop, maker, category, memo, purchaseDate, imageId, createdAt});
+  await DB.put('prices', {partNumber:pn, price, qty, shop, supplierId: await supplierIdFor(shop), maker, category, memo,
+    purchaseDate, imageId, createdAt, taxType: val('taxType')||'税別', taxRate: 10, documentNumber: val('documentNumber')||'', sourceType: 'manual'});
   await rememberSuggestion('shop', shop);
   await rememberSuggestion('maker', maker);
 
+  formDirty = false;
   toast('保存しました ✅');
   location.hash = '#/tool?pn='+encodeURIComponent(pn);
 }
@@ -652,44 +840,98 @@ async function ToolDetail(pn){
   const tool = await DB.get('tools', pn);
   const st = stats(prices);
 
-  // 工具屋別の最新価格
+  const suppliers = await getSuppliers();
+  // 工具屋別の集計（メイン機能）。単価は税別換算で統一。最新に加え前回・回数・累計も持つ
   const byShop = {};
-  sortByDate(prices).forEach(p=>{ const k=p.shop||'(不明)'; byShop[k]=p.price; });
-  const shopMax = Math.max(...Object.values(byShop));
+  sortByDate(prices).forEach(p=>{
+    const k = p.shop||'(不明)';
+    const e = byShop[k] = byShop[k]||{recs:[], count:0, totalQty:0, totalAmount:0};
+    e.recs.push(p); e.count++;
+    e.totalQty += (p.qty||1);
+    e.totalAmount += unitPriceExcl(p)*(p.qty||1);
+  });
+  Object.entries(byShop).forEach(([k,e])=>{
+    const last = e.recs[e.recs.length-1], prev = e.recs[e.recs.length-2];
+    e.price = unitPriceExcl(last); e.date = last.purchaseDate||''; e.lastQty = last.qty||1;
+    e.taxType = last.taxType||'税別';
+    e.prevPrice = prev ? unitPriceExcl(prev) : null;
+    e.delta = prev ? e.price - e.prevPrice : null;
+    e.rate = (prev && e.prevPrice>0) ? Math.round((e.price-e.prevPrice)/e.prevPrice*1000)/10 : null;
+    const sp = suppliers.find(s=>s.name===k);
+    e.supplierId = sp ? sp.id : null;
+  });
+  const shopEntries = Object.entries(byShop).sort((a,b)=>a[1].price-b[1].price);
+  const shopMax = Math.max(...shopEntries.map(([,v])=>v.price));
+  const cheapestShop = shopEntries[0];
+  const lastRec = st.sorted[st.sorted.length-1];
+  // 全体統計も税別換算で
+  const exclVals = st.sorted.map(unitPriceExcl);
+  const exclStats = {
+    latest: exclVals[exclVals.length-1],
+    min: Math.min(...exclVals), max: Math.max(...exclVals),
+    prevDelta: exclVals.length>1 ? exclVals[exclVals.length-1]-exclVals[exclVals.length-2] : null
+  };
+  // 90日以上前の価格は「古い価格」として注記（古いほど安く見える誤解を防ぐ）
+  const staleLimit = new Date(Date.now()-90*86400000).toISOString().slice(0,10);
+  const isStale = d => d && d < staleLimit;
+  const shortDate = d => d ? d.slice(5).replace('-','/') : '';
 
   view.innerHTML = `
     <a class="link" href="#/home">← ホーム</a>
+
     <div class="card pad" style="margin-top:10px">
       <div style="display:flex;align-items:flex-start;gap:8px">
-        <div style="flex:1">
+        <div style="flex:1;min-width:0">
           <h2 style="margin:0 0 4px;font-size:22px">${esc(pn)}</h2>
           <div style="color:var(--sub);font-size:13px">
             ${tool&&tool.category?`<span class="badge">${esc(tool.category)}</span> `:''}
             ${tool&&tool.maker?esc(tool.maker):''}
           </div>
+          ${tool&&tool.usage?`<div style="font-size:13px;margin-top:6px;color:#166534">🔧 ${esc(tool.usage)}</div>`:''}
+          <div style="font-size:12px;margin-top:4px;color:var(--sub)">最終購入 ${esc(lastRec.purchaseDate)}${lastRec.shop?`・${esc(lastRec.shop)}`:''}</div>
         </div>
-        <a class="btn sm gray" style="text-decoration:none" href="#/tooledit?pn=${encodeURIComponent(pn)}">✏️ 品番情報</a>
+        <a class="btn sm gray" style="flex:none" aria-label="品番情報を編集" href="#/tooledit?pn=${encodeURIComponent(pn)}">✏️</a>
       </div>
-
-      <a class="btn block" style="margin-top:14px;text-decoration:none;text-align:center" href="#/addprice?pn=${encodeURIComponent(pn)}">➕ この品番の価格を追加</a>
-
-      <div class="stats" style="margin-top:14px">
-        <div class="stat"><div class="v">${yen(st.latest)}</div><div class="k">最新価格</div></div>
-        <div class="stat"><div class="v" style="color:var(--down)">${yen(st.min)}</div><div class="k">最安価格</div></div>
-        <div class="stat"><div class="v" style="color:var(--up)">${yen(st.max)}</div><div class="k">最高価格</div></div>
-      </div>
-      <div style="text-align:center;margin-top:12px">前回比：${deltaHtml(st.prevDelta)}</div>
     </div>
 
-    <h2 class="section">🏪 工具屋別（最新価格）</h2>
-    <div class="card pad bars">
-      ${Object.entries(byShop).sort((a,b)=>a[1]-b[1]).map(([s,v])=>`
-        <div class="bar-row">
-          <div class="bar-name">${esc(s)}</div>
-          <div class="bar-track"><div class="bar-fill" style="width:${Math.max(8,v/shopMax*100)}%"></div></div>
-          <div class="bar-val">${yen(v)}</div>
-        </div>`).join('')}
+    <h2 class="section">🏪 工具屋別 単価くらべ</h2>
+    <div class="card pad">
+      <div style="font-size:11px;color:var(--sub);margin-bottom:6px">単価は税別換算で比較しています</div>
+      ${shopEntries.length>1 && cheapestShop ? `<div style="font-size:14px;color:var(--down);font-weight:800;margin-bottom:8px">🏆 最安は「${esc(cheapestShop[0])}」 ${yen(cheapestShop[1].price)}<span style="font-weight:400;color:var(--sub);font-size:12px">（${shortDate(cheapestShop[1].date)}時点）</span></div>`:''}
+      <div class="bars">
+        ${shopEntries.map(([s,v],i)=>`
+          <div class="bar-row">
+            <div class="bar-name">${esc(s)}<div style="font-size:10px;font-weight:400;color:${isStale(v.date)?'var(--warn)':'var(--sub)'}">${shortDate(v.date)}${isStale(v.date)?' ⚠':''}</div></div>
+            <div class="bar-track"><div class="bar-fill ${i===0&&shopEntries.length>1?'best':''}" style="width:${Math.max(8,v.price/shopMax*100)}%${isStale(v.date)?';opacity:.5':''}"></div></div>
+            <div class="bar-val" style="${i===0&&shopEntries.length>1?'color:var(--down)':''}">${yen(v.price)}</div>
+          </div>`).join('')}
+      </div>
+      ${shopEntries.some(([,v])=>isStale(v.date))?`<div style="font-size:11px;color:var(--warn);margin-top:6px">⚠ 90日以上前の価格です。今は変わっている可能性があります。</div>`:''}
+      <div class="statline" style="margin-top:12px">
+        <div><div class="k">最新</div><div class="v">${yen(exclStats.latest)}</div></div>
+        <div><div class="k">最安</div><div class="v" style="color:var(--down)">${yen(exclStats.min)}</div></div>
+        <div><div class="k">最高</div><div class="v" style="color:var(--up)">${yen(exclStats.max)}</div></div>
+        <div><div class="k">前回比</div><div class="v">${deltaHtml(exclStats.prevDelta)}</div></div>
+      </div>
     </div>
+
+    <h2 class="section">📊 工具屋ごとの詳細 <span style="font-weight:400;color:var(--sub)">（タップで工具屋ページへ）</span></h2>
+    <div class="card">
+      ${shopEntries.map(([s,v],i)=>`
+        <a class="row" style="text-decoration:none;color:inherit;flex-wrap:wrap" ${v.supplierId?`href="#/supplier?id=${v.supplierId}"`:''}>
+          <div class="grow" style="min-width:140px">
+            <div class="pn">${i===0&&shopEntries.length>1?'🏆 ':''}${esc(s)} ${v.taxType==='税込'?taxBadge({taxType:'税込'}):''}</div>
+            <div class="meta">最新 ${esc(v.date)} ・ ×${v.lastQty}個 ・ ${v.count}回購入</div>
+            <div class="meta">累計 ${v.totalQty}個 ／ ${yen(v.totalAmount)}</div>
+          </div>
+          <div style="text-align:right">
+            <div class="price">${yen(v.price)}</div>
+            <div class="meta">${v.prevPrice!=null?`前回 ${yen(v.prevPrice)} ${deltaHtml(v.delta)}${v.rate!=null?` (${v.rate>0?'+':''}${v.rate}%)`:''}`:'初回購入'}</div>
+          </div>
+        </a>`).join('')}
+    </div>
+
+    <a class="btn block" style="margin-top:14px;text-decoration:none;text-align:center" href="#/addprice?pn=${encodeURIComponent(pn)}">➕ この品番の価格を追加</a>
 
     <h2 class="section">📅 価格履歴 <span style="font-weight:400;color:var(--sub)">（行をタップで編集・削除）</span></h2>
     <div class="card" id="hist"></div>
@@ -707,7 +949,9 @@ async function ToolDetail(pn){
     return `<a class="row" style="text-decoration:none;color:inherit" href="#/edit?id=${p.id}">
       <div class="grow"><div class="pn" style="font-size:14px">${esc(p.purchaseDate)}</div>
         <div class="meta">${esc(p.shop||'(工具屋不明)')}</div></div>
-      <div><div class="price">${yen(p.price)}</div><div style="text-align:right">${deltaHtml(d)} <span style="color:var(--sub)">✏️</span></div></div>
+      <div style="text-align:right"><div class="price">${yen(p.price)}${(p.qty||1)>1?`<span style="font-size:12px;color:var(--sub)"> ×${p.qty}個</span>`:''}</div>
+        ${(p.qty||1)>1?`<div class="meta">計 ${yen(p.price*p.qty)}</div>`:''}${deltaHtml(d)}</div>
+      <span class="edit-chip">✏️ 編集</span>
     </a>`;
   }).join('');
 
@@ -724,7 +968,7 @@ async function AddPrice(pn){
   pn = decodeURIComponent(pn||'');
   const tool = await DB.get('tools', pn);
   addState = {imageBlob:null, pn};
-  const sugShop = await getSuggestions('shop');
+  const shopNames = (await getSuppliers()).map(x=>x.name);
   const today = new Date().toISOString().slice(0,10);
   view.innerHTML = `
     <a class="link" href="#/tool?pn=${encodeURIComponent(pn)}">← 戻る</a>
@@ -735,12 +979,16 @@ async function AddPrice(pn){
       </div>
       <div class="topnote">この工具の新しい価格だけ入れればOK。写真は任意です。</div>
 
-      <label class="f">価格（税抜・円）<span class="req"></span></label>
-      <input id="a_price" type="number" inputmode="numeric" placeholder="例: 1980">
+      <label class="f">価格（1個あたり・税抜円）<span class="req"></span></label>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input id="a_price" type="number" inputmode="numeric" placeholder="例: 1980" style="flex:2">
+        <span style="color:var(--sub);font-weight:700">×</span>
+        <input id="a_qty" type="number" inputmode="numeric" min="1" placeholder="個数" style="flex:1">
+        <span style="color:var(--sub);font-weight:700">個</span>
+      </div>
 
-      <label class="f">工具屋</label>
-      <input id="a_shop" list="dl-shop" placeholder="どこで買ったか（任意）">
-      <datalist id="dl-shop">${sugShop.map(s=>`<option value="${esc(s)}">`).join('')}</datalist>
+      <label class="f">工具屋（タップで選択）</label>
+      ${shopChipsHtml('a_shop','',shopNames)}
 
       <label class="f">購入日（未入力なら今日: ${today}）</label>
       <input id="a_purchaseDate" type="date">
@@ -756,6 +1004,7 @@ async function AddPrice(pn){
 }
 async function onAddPhoto(input){
   const file = input.files[0]; if(!file) return;
+  formDirty = true;
   addState.imageBlob = await resizeImage(file);
   document.getElementById('a_photoArea').innerHTML =
     `<img class="photo-preview" src="${URL.createObjectURL(addState.imageBlob)}">`;
@@ -763,8 +1012,9 @@ async function onAddPhoto(input){
 async function saveAddPrice(){
   const pn = addState.pn;
   const price = parseFloat(document.getElementById('a_price').value);
-  if(!(price>=0)){ toast('価格を入力してください'); return; }
+  if(!(price>=0)){ toast('価格を入力してください'); markInvalid('a_price'); return; }
   const shop = val('a_shop');
+  const qty = Math.max(1, parseInt(val('a_qty'),10)||1);
   const purchaseDate = val('a_purchaseDate') || new Date().toISOString().slice(0,10);
   if(await isDuplicate(pn, purchaseDate, price)){
     if(!confirm('同じ品番・同じ日・同じ価格の登録があります。追加しますか？')) return;
@@ -773,8 +1023,10 @@ async function saveAddPrice(){
   const tool = await DB.get('tools', pn) || {};
   let imageId = null;
   if(addState.imageBlob) imageId = await DB.put('images', {blob: addState.imageBlob});
-  await DB.put('prices', {partNumber:pn, price, shop, maker:tool.maker||'', category:tool.category||'', memo:'', purchaseDate, imageId, createdAt});
+  await DB.put('prices', {partNumber:pn, price, qty, shop, supplierId: await supplierIdFor(shop), maker:tool.maker||'', category:tool.category||'', memo:'',
+    purchaseDate, imageId, createdAt, taxType: val('a_taxType')||'税別', taxRate: 10, documentNumber: '', sourceType: 'manual'});
   await rememberSuggestion('shop', shop);
+  formDirty = false;
   toast('追加しました ✅');
   location.hash = '#/tool?pn='+encodeURIComponent(pn);
 }
@@ -804,6 +1056,9 @@ async function ToolEdit(pn){
       <label class="f">カテゴリ</label>
       <select id="t_category"><option value="">未分類</option>${cats.map(c=>`<option ${c===tool.category?'selected':''}>${esc(c)}</option>`).join('')}</select>
 
+      <label class="f">🔧 使用用途（何の加工・どの部品に使うか）</label>
+      <textarea id="t_usage" rows="2" placeholder="例: SUS304のΦ8穴あけ / ○○社△△部品の面取り">${esc(tool.usage||'')}</textarea>
+
       <label class="f">メモ</label>
       <textarea id="t_memo" rows="2">${esc(tool.memo||'')}</textarea>
 
@@ -812,36 +1067,45 @@ async function ToolEdit(pn){
 }
 async function saveToolEdit(pn){
   const tool = await DB.get('tools', pn); if(!tool) return;
-  const maker = val('t_maker'), category = val('t_category'), memo = val('t_memo');
-  await DB.put('tools', {...tool, maker, category, memo});
+  const maker = val('t_maker'), category = val('t_category'), memo = val('t_memo'), usage = val('t_usage');
+  await DB.put('tools', {...tool, maker, category, memo, usage});
   await rememberSuggestion('maker', maker);
+  formDirty = false;
   toast('保存しました ✅');
   location.hash = '#/tool?pn='+encodeURIComponent(pn);
 }
 
 /* ===================== 画面: 登録内容の編集・削除 ===================== */
+let editState = {};
 async function EditPrice(id){
   id = parseInt(id,10);
   const rec = await DB.get('prices', id);
   if(!rec){ view.innerHTML = `<div class="empty"><div class="em">🤷</div>データが見つかりません</div>`; return; }
-  const sugShop = await getSuggestions('shop');
+  editState = {newImageBlob:null};
+  const shopNames = (await getSuppliers()).map(x=>x.name);
   const url = await imageUrl(rec.imageId);
 
   view.innerHTML = `
     <a class="link" href="#/tool?pn=${encodeURIComponent(rec.partNumber)}">← 戻る</a>
     <div class="card pad" style="margin-top:10px">
       <h2 style="margin:0 0 6px;font-size:20px">登録内容の編集</h2>
-      ${url?`<img class="photo-preview" src="${url}">`:''}
+      <div id="editPhotoArea">${url?`<img class="photo-preview" src="${url}">`:''}</div>
+      <button class="btn gray block" style="margin-top:10px" onclick="document.getElementById('e_file').click()">📷 写真を撮り直す / 差し替え</button>
+      <input id="e_file" type="file" accept="image/*" capture="environment" style="display:none" onchange="onEditPhoto(this)">
 
       <label class="f">品番<span class="req"></span></label>
       <input id="e_pn" value="${esc(rec.partNumber)}">
 
-      <label class="f">価格（円）<span class="req"></span></label>
-      <input id="e_price" type="number" inputmode="numeric" value="${rec.price}">
+      <label class="f">価格（1個あたり・円）<span class="req"></span></label>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input id="e_price" type="number" inputmode="numeric" value="${rec.price}" style="flex:2">
+        <span style="color:var(--sub);font-weight:700">×</span>
+        <input id="e_qty" type="number" inputmode="numeric" min="1" value="${rec.qty||1}" style="flex:1">
+        <span style="color:var(--sub);font-weight:700">個</span>
+      </div>
 
-      <label class="f">工具屋</label>
-      <input id="e_shop" list="dl-shop" value="${esc(rec.shop||'')}">
-      <datalist id="dl-shop">${sugShop.map(s=>`<option value="${esc(s)}">`).join('')}</datalist>
+      <label class="f">工具屋（タップで選択）</label>
+      ${shopChipsHtml('e_shop', rec.shop||'', shopNames)}
 
       <label class="f">購入日</label>
       <input id="e_purchaseDate" type="date" value="${esc(rec.purchaseDate||'')}">
@@ -857,17 +1121,39 @@ async function EditPrice(id){
     <div style="height:24px"></div>`;
 }
 
+/* 編集画面: 写真の差し替え（保存を押すまで確定しない） */
+async function onEditPhoto(input){
+  const file = input.files[0]; if(!file) return;
+  formDirty = true;
+  editState.newImageBlob = await resizeImage(file);
+  document.getElementById('editPhotoArea').innerHTML =
+    `<img class="photo-preview" src="${URL.createObjectURL(editState.newImageBlob)}">
+     <p style="font-size:12px;color:var(--pri);font-weight:700;margin:6px 0 0">📷 新しい写真に差し替えます（「変更を保存」で確定）</p>`;
+}
+
 async function saveEdit(id){
   const rec = await DB.get('prices', id);
   if(!rec) return;
   const pn = val('e_pn');
   const price = parseFloat(document.getElementById('e_price').value);
-  if(!pn){ toast('品番を入力してください'); return; }
-  if(!(price>=0)){ toast('価格を入力してください'); return; }
+  if(!pn){ toast('品番を入力してください'); markInvalid('e_pn'); return; }
+  if(!(price>=0)){ toast('価格を入力してください'); markInvalid('e_price'); return; }
   const shop = val('e_shop'), memo = val('e_memo');
+  const qty = Math.max(1, parseInt(val('e_qty'),10)||1);
   const purchaseDate = val('e_purchaseDate') || rec.purchaseDate || new Date().toISOString().slice(0,10);
 
-  await DB.put('prices', {...rec, partNumber:pn, price, shop, memo, purchaseDate});
+  // 写真差し替え: 新画像を保存し、旧画像を削除
+  let imageId = rec.imageId;
+  if(editState.newImageBlob){
+    imageId = await DB.put('images', {blob: editState.newImageBlob});
+    if(rec.imageId!=null){
+      await DB.del('images', rec.imageId).catch(()=>{});
+      if(_urlCache.has(rec.imageId)){ URL.revokeObjectURL(_urlCache.get(rec.imageId)); _urlCache.delete(rec.imageId); }
+    }
+  }
+
+  await DB.put('prices', {...rec, partNumber:pn, price, qty, shop, supplierId: await supplierIdFor(shop), memo, purchaseDate, imageId,
+    taxType: val('e_taxType')||rec.taxType||'税別', documentNumber: val('e_documentNumber')!==''?val('e_documentNumber'):(rec.documentNumber||'')});
   // 品番を変えた場合、行き先のマスタが無ければ用意（メーカー等は品番情報編集で設定）
   const existing = await DB.get('tools', pn);
   if(!existing){
@@ -875,6 +1161,7 @@ async function saveEdit(id){
   }
   await rememberSuggestion('shop', shop);
   await cleanupTool(rec.partNumber);
+  formDirty = false;
   toast('変更を保存しました ✅');
   location.hash = '#/tool?pn='+encodeURIComponent(pn);
 }
@@ -890,6 +1177,7 @@ async function deletePrice(id){
   }
   const pn = rec.partNumber;
   await cleanupTool(pn);
+  formDirty = false;
   toast('削除しました');
   const remain = (await DB.getAll('prices')).filter(p=>p.partNumber===pn);
   location.hash = remain.length ? '#/tool?pn='+encodeURIComponent(pn) : '#/home';
@@ -902,23 +1190,28 @@ async function cleanupTool(pn){
 }
 
 /* ===================== 画面: カテゴリ一覧 ===================== */
+let catEditMode = false;
 async function Category(){
   const {prices, cats, toolMap} = await loadAll();
   view.innerHTML = `
-    <h2 class="section">カテゴリ <span style="font-weight:400;color:var(--sub)">（名前の右で編集・削除）</span></h2>
+    <div style="display:flex;align-items:center">
+      <h2 class="section" style="flex:1;margin-bottom:10px">カテゴリ</h2>
+      <button class="btn sm ${catEditMode?'':'gray'}" aria-label="カテゴリの編集モード切替" onclick="catEditMode=!catEditMode;render()">${catEditMode?'✔ 完了':'✏️ 編集'}</button>
+    </div>
     <div class="cat-grid">
       ${cats.map(c=>{
         const ps = prices.filter(p=>catOf(p.partNumber,toolMap)===c);
-        const sum = ps.reduce((a,p)=>a+p.price,0);
+        const sum = ps.reduce((a,p)=>a+p.price*(p.qty||1),0);
         const ce = esc(c).replace(/'/g,'');
         return `<div class="cat-tile">
           <div style="display:flex;align-items:center;gap:6px">
-            <a style="flex:1;text-decoration:none;color:inherit" href="#/category?name=${encodeURIComponent(c)}">
+            <a style="flex:1;text-decoration:none;color:inherit;min-width:0" href="#/category?name=${encodeURIComponent(c)}">
               <div class="n">${esc(c)}</div>
-              <div class="c">${ps.length}件 ・ 合計${yen(sum)}</div>
+              <div class="c" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${ps.length}件 ・ ${yen(sum)}</div>
             </a>
-            <button class="btn sm gray" style="padding:6px 8px" onclick="renameCategory('${ce}')">✏️</button>
-            <button class="btn sm gray" style="padding:6px 8px" onclick="deleteCategory('${ce}')">🗑</button>
+            ${catEditMode?`
+            <button class="btn sm gray" aria-label="${ce}の名前を変更" onclick="renameCategory('${ce}')">✏️</button>
+            <button class="btn sm gray" aria-label="${ce}を削除" onclick="deleteCategory('${ce}')">🗑</button>`:''}
           </div>
         </div>`;
       }).join('')}
@@ -929,7 +1222,7 @@ async function Category(){
         <input id="newCat" placeholder="新しいカテゴリ名">
         <button class="btn" onclick="addCategory()">追加</button>
       </div>
-      <p style="font-size:12px;color:var(--sub);margin-top:10px">カテゴリ名をタップで詳細・価格比較。✏️で名前変更、🗑で削除します。</p>
+      <p style="font-size:12px;color:var(--sub);margin-top:10px">カテゴリ名をタップで詳細・価格比較。名前の変更・削除は右上の「✏️ 編集」から。</p>
     </div>`;
 }
 async function addCategory(){
@@ -970,8 +1263,8 @@ async function CategoryDetail(name){
   // 品番ごと集約
   const byPn = {}; ps.forEach(p=>{ (byPn[p.partNumber]=byPn[p.partNumber]||[]).push(p); });
   const pnList = Object.entries(byPn).map(([pn,arr])=>({pn, st:stats(arr), buys:arr.length}));
-  const sum = ps.reduce((a,p)=>a+p.price,0);
-  const avg = ps.length? sum/ps.length : 0;
+  const sum = ps.reduce((a,p)=>a+p.price*(p.qty||1),0);       // 合計金額は数量込み
+  const avg = ps.length? ps.reduce((a,p)=>a+p.price,0)/ps.length : 0;  // 平均は単価ベース
   const frequent = pnList.slice().sort((a,b)=>b.buys-a.buys).slice(0,5);
   const rising = pnList.filter(x=>x.st.prevDelta!=null && x.st.prevDelta>0).sort((a,b)=>b.st.prevDelta-a.st.prevDelta);
 
@@ -999,11 +1292,14 @@ async function CategoryDetail(name){
 
   const el = document.getElementById('catList');
   if(pnList.length===0){ el.innerHTML='<div class="empty">この カテゴリの登録はありません</div>'; return; }
-  el.innerHTML = pnList.sort((a,b)=>a.pn.localeCompare(b.pn)).map(x=>`
+  el.innerHTML = pnList.sort((a,b)=>a.pn.localeCompare(b.pn)).map(x=>{
+    const usage = (toolMap[x.pn]&&toolMap[x.pn].usage)||'';
+    return `
     <a class="row" style="text-decoration:none;color:inherit" href="#/tool?pn=${encodeURIComponent(x.pn)}">
-      <div class="grow"><div class="pn">${esc(x.pn)}</div><div class="meta">${x.buys}件</div></div>
+      <div class="grow"><div class="pn">${esc(x.pn)}</div>
+        <div class="meta">${x.buys}件${usage?` ・ 🔧 ${esc(usage)}`:''}</div></div>
       <div><div class="price">${yen(x.st.latest)}</div><div style="text-align:right">${deltaHtml(x.st.prevDelta)}</div></div>
-    </a>`).join('');
+    </a>`;}).join('');
 }
 
 /* ===================== 画面: 検索 ===================== */
@@ -1011,7 +1307,7 @@ async function Search(q){
   const cats = await getCategories();
   view.innerHTML = `
     <div class="card pad">
-      <label class="f">キーワード（品番・メーカー・工具屋）</label>
+      <label class="f">キーワード（品番・メーカー・工具屋・用途）</label>
       <input id="kw" placeholder="文字を入力" value="${esc(q.kw||'')}" oninput="doSearch()">
       <label class="f">カテゴリで絞り込み</label>
       <select id="fcat" onchange="doSearch()">
@@ -1028,7 +1324,8 @@ async function doSearch(){
   let res = all.filter(p=>{
     if(cat && catOf(p.partNumber,toolMap)!==cat) return false;
     if(!kw) return true;
-    return [p.partNumber, makerOf(p.partNumber,toolMap), p.shop].some(f=>(f||'').toLowerCase().includes(kw));
+    const usage = (toolMap[p.partNumber]&&toolMap[p.partNumber].usage)||'';
+    return [p.partNumber, makerOf(p.partNumber,toolMap), p.shop, usage].some(f=>(f||'').toLowerCase().includes(kw));
   });
   // 品番ごとに集約して1件に
   const byPn={}; res.forEach(p=>{(byPn[p.partNumber]=byPn[p.partNumber]||[]).push(p);});
@@ -1042,24 +1339,381 @@ async function doSearch(){
 /* ---------- util ---------- */
 function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 
+/* ---------- 工具ごとの集計（税別換算で統一） ---------- */
+function aggregateTool(pn, ps, toolMap){
+  const st = stats(ps);
+  const last = st.sorted[st.sorted.length-1];
+  const byShop = {};
+  sortByDate(ps).forEach(p=>{ const k=p.shop||'(未選択)'; byShop[k]={price:unitPriceExcl(p), date:p.purchaseDate}; });
+  const shopEntries = Object.entries(byShop).sort((a,b)=>a[1].price-b[1].price);
+  return {
+    pn, tool: toolMap[pn]||{}, st, last,
+    latestExcl: last ? unitPriceExcl(last) : null,
+    lastDate: last ? last.purchaseDate : '',
+    cheapest: shopEntries[0]||null,
+    supplierCount: shopEntries.length,
+    totalQty: ps.reduce((a,p)=>a+(p.qty||1),0),
+    totalAmount: ps.reduce((a,p)=>a+unitPriceExcl(p)*(p.qty||1),0)
+  };
+}
+
+/* ===================== 画面: 工具一覧 ===================== */
+async function ToolsList(q){
+  const cats = await getCategories();
+  const shopNames = (await getSuppliers()).map(s=>s.name);
+  view.innerHTML = `
+    <div class="card pad">
+      <input id="tl_kw" placeholder="🔍 工具名・メーカー・型番・用途で検索" value="${esc(q.kw||'')}" oninput="doToolsList()">
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <select id="tl_cat" onchange="doToolsList()" style="flex:1"><option value="">全カテゴリ</option>${cats.map(c=>`<option>${esc(c)}</option>`).join('')}</select>
+        <select id="tl_shop" onchange="doToolsList()" style="flex:1"><option value="">全工具屋</option>${shopNames.map(s=>`<option>${esc(s)}</option>`).join('')}</select>
+      </div>
+      <select id="tl_sort" onchange="doToolsList()" style="margin-top:8px">
+        <option value="recent">最新購入日順</option>
+        <option value="priceHigh">単価が高い順</option>
+        <option value="priceLow">単価が安い順</option>
+        <option value="amount">累計購入金額順</option>
+        <option value="qty">累計購入個数順</option>
+        <option value="name">工具名順</option>
+      </select>
+    </div>
+    <div id="tl_results"></div>
+    <div style="height:24px"></div>`;
+  doToolsList();
+}
+async function doToolsList(){
+  const kw = (val('tl_kw')||'').toLowerCase();
+  const cat = val('tl_cat'), shop = val('tl_shop'), sort = val('tl_sort')||'recent';
+  const {byPn, toolMap} = await loadAll();
+  let items = Object.entries(byPn).map(([pn,ps])=>aggregateTool(pn, ps, toolMap));
+  items = items.filter(it=>{
+    if(cat && (it.tool.category||'')!==cat) return false;
+    if(shop && !it.st.sorted.some(p=>p.shop===shop)) return false;
+    if(!kw) return true;
+    return [it.pn, it.tool.name, it.tool.maker, it.tool.usage].some(f=>(f||'').toLowerCase().includes(kw));
+  });
+  const sorters = {
+    recent:(a,b)=>(b.lastDate||'').localeCompare(a.lastDate||''),
+    priceHigh:(a,b)=>(b.latestExcl||0)-(a.latestExcl||0),
+    priceLow:(a,b)=>(a.latestExcl||0)-(b.latestExcl||0),
+    amount:(a,b)=>b.totalAmount-a.totalAmount,
+    qty:(a,b)=>b.totalQty-a.totalQty,
+    name:(a,b)=>(a.tool.name||a.pn).localeCompare(b.tool.name||b.pn)
+  };
+  items.sort(sorters[sort]);
+  const el = document.getElementById('tl_results');
+  if(!items.length){ el.innerHTML='<div class="empty"><div class="em">🔍</div>該当する工具がありません</div>'; return; }
+  el.innerHTML = `<h2 class="section">${items.length}件 <span style="font-weight:400">（単価は税別換算）</span></h2><div class="card" id="tl_rows"></div>`;
+  const html = await Promise.all(items.map(async it=>{
+    const url = await imageUrl(it.last && it.last.imageId);
+    return `<a class="row" style="text-decoration:none;color:inherit" href="#/tool?pn=${encodeURIComponent(it.pn)}">
+      ${url?`<img class="thumb" src="${url}">`:'<div class="thumb"></div>'}
+      <div class="grow">
+        <div class="pn">${esc(it.tool.name||it.pn)}</div>
+        <div class="meta">${esc(it.pn)}${it.tool.maker?' ・ '+esc(it.tool.maker):''}${it.tool.category?' ・ '+esc(it.tool.category):''}</div>
+        <div class="meta">最終 ${esc(it.lastDate)} ・ 累計${it.totalQty}個 ${yen(it.totalAmount)} ・ ${it.supplierCount}店</div>
+      </div>
+      <div style="text-align:right">
+        <div class="price">${yen(it.latestExcl)}</div>
+        ${it.cheapest?`<div class="meta" style="color:var(--down)">最安 ${esc(it.cheapest[0])}</div>`:''}
+      </div>
+    </a>`;
+  }));
+  document.getElementById('tl_rows').innerHTML = html.join('');
+}
+
+/* ===================== 画面: 購入履歴一覧 ===================== */
+async function HistoryList(q){
+  const shopNames = (await getSuppliers()).map(s=>s.name);
+  view.innerHTML = `
+    <div class="card pad">
+      <input id="hl_kw" placeholder="🔍 品番・工具名・メーカーで検索" value="${esc(q.kw||'')}" oninput="doHistoryList()">
+      <select id="hl_shop" onchange="doHistoryList()" style="margin-top:8px">
+        <option value="">全工具屋</option>${shopNames.map(s=>`<option ${q.shop===s?'selected':''}>${esc(s)}</option>`).join('')}
+      </select>
+    </div>
+    <div id="hl_results"></div>
+    <div style="height:24px"></div>`;
+  doHistoryList();
+}
+async function doHistoryList(){
+  const kw = (val('hl_kw')||'').toLowerCase();
+  const shop = val('hl_shop');
+  const {prices, toolMap} = await loadAll();
+  let list = prices.filter(p=>{
+    if(shop && p.shop!==shop) return false;
+    if(!kw) return true;
+    const t = toolMap[p.partNumber]||{};
+    return [p.partNumber, t.name, t.maker].some(f=>(f||'').toLowerCase().includes(kw));
+  });
+  list.sort((a,b)=>(b.purchaseDate||'').localeCompare(a.purchaseDate||'') || (b.id-a.id));
+  const el = document.getElementById('hl_results');
+  if(!list.length){ el.innerHTML='<div class="empty"><div class="em">📅</div>購入履歴がありません</div>'; return; }
+  const sum = list.reduce((a,p)=>a+unitPriceExcl(p)*(p.qty||1),0);
+  el.innerHTML = `<h2 class="section">${list.length}件 ・ 合計 ${yen(sum)}（税別換算）</h2>
+    <div class="card">${list.map(p=>`
+      <a class="row" style="text-decoration:none;color:inherit" href="#/edit?id=${p.id}">
+        <div class="grow">
+          <div class="pn" style="font-size:14px">${esc(p.partNumber)}</div>
+          <div class="meta">${esc(p.purchaseDate)} ・ ${esc(p.shop||'(未選択)')} ${p.sourceType==='ocr'?'📷':''}</div>
+        </div>
+        <div style="text-align:right">
+          <div class="price">${yen(p.price)}${(p.qty||1)>1?`<span style="font-size:12px;color:var(--sub)"> ×${p.qty}</span>`:''}</div>
+          <div class="meta">${(p.qty||1)>1?`計 ${yen(p.price*(p.qty||1))} ・ `:''}${esc(p.taxType||'税別')}</div>
+        </div>
+        <span class="edit-chip">✏️</span>
+      </a>`).join('')}</div>`;
+}
+
+/* ===================== 画面: 工具屋一覧 ===================== */
+async function SuppliersList(){
+  const [sup, prices] = await Promise.all([getSuppliers(), DB.getAll('prices')]);
+  view.innerHTML = `
+    <div style="display:flex;align-items:center">
+      <h2 class="section" style="flex:1;margin-bottom:10px">🏪 工具屋一覧</h2>
+      <button class="btn sm" onclick="addSupplier()">＋ 追加</button>
+    </div>
+    <div class="card">${sup.map(s=>{
+      const ps = prices.filter(p=>p.supplierId===s.id || p.shop===s.name);
+      const pnSet = new Set(ps.map(p=>p.partNumber));
+      const total = ps.reduce((a,p)=>a+unitPriceExcl(p)*(p.qty||1),0);
+      const last = ps.map(p=>p.purchaseDate||'').sort().pop()||'';
+      return `<a class="row" style="text-decoration:none;color:inherit" href="#/supplier?id=${s.id}">
+        <div class="grow">
+          <div class="pn">${esc(s.name)}</div>
+          <div class="meta">${s.contactPerson?esc(s.contactPerson)+' ・ ':''}${s.phone?esc(s.phone)+' ・ ':''}工具${pnSet.size}種 ・ ${ps.length}回</div>
+        </div>
+        <div style="text-align:right">
+          <div class="price">${yen(total)}</div>
+          <div class="meta">${last?'最終 '+esc(last):'購入なし'}</div>
+        </div>
+      </a>`;
+    }).join('')}</div>
+    <div style="height:24px"></div>`;
+}
+async function addSupplier(){
+  const name = (prompt('工具屋の名前')||'').trim();
+  if(!name) return;
+  if(await supplierByName(name)){ toast('同じ名前の工具屋があります'); return; }
+  const now = new Date().toISOString();
+  const id = await DB.put('suppliers', {name, contactPerson:'', phone:'', email:'', address:'',
+    paymentTerms:'', closingDay:'', paymentDay:'', website:'', notes:'', createdAt:now, updatedAt:now});
+  toast('追加しました ✅');
+  location.hash = '#/supplier?id='+id;
+}
+
+/* ===================== 画面: 工具屋詳細 ===================== */
+async function SupplierDetail(id){
+  id = parseInt(id,10);
+  const s = await DB.get('suppliers', id);
+  if(!s){ view.innerHTML = '<div class="empty"><div class="em">🤷</div>工具屋が見つかりません</div>'; return; }
+  const {prices, toolMap} = await loadAll();
+  const ps = prices.filter(p=>p.supplierId===s.id || p.shop===s.name);
+  // 品番ごと集計（この工具屋での購入）
+  const byPn = {}; ps.forEach(p=>{ (byPn[p.partNumber]=byPn[p.partNumber]||[]).push(p); });
+  const toolRows = Object.entries(byPn).map(([pn,arr])=>{
+    const sorted = sortByDate(arr); const last = sorted[sorted.length-1];
+    return {pn, tool:toolMap[pn]||{}, last, buys:arr.length,
+      totalQty: arr.reduce((a,p)=>a+(p.qty||1),0),
+      totalAmount: arr.reduce((a,p)=>a+unitPriceExcl(p)*(p.qty||1),0)};
+  }).sort((a,b)=>(b.last.purchaseDate||'').localeCompare(a.last.purchaseDate||''));
+  const total = ps.reduce((a,p)=>a+unitPriceExcl(p)*(p.qty||1),0);
+  const info = [
+    ['担当者','contactPerson'],['電話','phone'],['メール','email'],['住所','address'],
+    ['支払条件','paymentTerms'],['締日','closingDay'],['支払日','paymentDay'],['Web','website'],['備考','notes']
+  ].filter(([,k])=>s[k]);
+
+  view.innerHTML = `
+    <a class="link" href="#/suppliers">← 工具屋一覧</a>
+    <div class="card pad" style="margin-top:10px">
+      <div style="display:flex;align-items:flex-start;gap:8px">
+        <div style="flex:1;min-width:0">
+          <h2 style="margin:0 0 4px;font-size:22px">🏪 ${esc(s.name)}</h2>
+          ${info.length? `<div style="font-size:13px;color:var(--sub)">${info.map(([l,k])=>`${l}: ${esc(s[k])}`).join('<br>')}</div>` : '<div style="font-size:13px;color:var(--sub)">連絡先未登録（✏️で編集）</div>'}
+        </div>
+        <button class="btn sm gray" aria-label="工具屋情報を編集" onclick="editSupplier(${s.id})">✏️</button>
+      </div>
+      <div class="statline" style="margin-top:12px">
+        <div><div class="k">工具</div><div class="v">${Object.keys(byPn).length}種</div></div>
+        <div><div class="k">購入回数</div><div class="v">${ps.length}回</div></div>
+        <div><div class="k">累計金額</div><div class="v">${yen(total)}</div></div>
+      </div>
+    </div>
+
+    <h2 class="section">🔧 この工具屋から買った工具 <span style="font-weight:400;color:var(--sub)">（単価は税別換算）</span></h2>
+    <div class="card">${toolRows.length? toolRows.map(r=>`
+      <a class="row" style="text-decoration:none;color:inherit" href="#/tool?pn=${encodeURIComponent(r.pn)}">
+        <div class="grow">
+          <div class="pn">${esc(r.tool.name||r.pn)}</div>
+          <div class="meta">${esc(r.pn)}${r.tool.maker?' ・ '+esc(r.tool.maker):''} ・ ${r.buys}回 ・ 累計${r.totalQty}個 ${yen(r.totalAmount)}</div>
+        </div>
+        <div style="text-align:right">
+          <div class="price">${yen(unitPriceExcl(r.last))}</div>
+          <div class="meta">${esc(r.last.purchaseDate)} ×${r.last.qty||1}個</div>
+        </div>
+      </a>`).join('') : '<div class="empty">購入履歴がありません</div>'}</div>
+
+    <h2 class="section">📅 購入履歴（新しい順）</h2>
+    <div class="card">${sortByDate(ps).reverse().map(p=>`
+      <a class="row" style="text-decoration:none;color:inherit" href="#/edit?id=${p.id}">
+        <div class="grow"><div class="pn" style="font-size:14px">${esc(p.partNumber)}</div>
+          <div class="meta">${esc(p.purchaseDate)}</div></div>
+        <div style="text-align:right"><div class="price">${yen(p.price)}${(p.qty||1)>1?` ×${p.qty}`:''}</div>
+          <div class="meta">${esc(p.taxType||'税別')}</div></div>
+      </a>`).join('') || '<div class="empty">履歴なし</div>'}</div>
+    <div style="height:24px"></div>`;
+}
+async function editSupplier(id){
+  const s = await DB.get('suppliers', id); if(!s) return;
+  view.innerHTML = `
+    <a class="link" href="#/supplier?id=${id}">← 戻る</a>
+    <div class="card pad" style="margin-top:10px">
+      <h2 style="margin:0 0 8px;font-size:20px">工具屋情報の編集</h2>
+      ${[['名前','sp_name','name'],['担当者','sp_contact','contactPerson'],['電話番号','sp_phone','phone'],
+         ['メールアドレス','sp_email','email'],['住所','sp_address','address'],['支払条件','sp_terms','paymentTerms'],
+         ['締日','sp_closing','closingDay'],['支払日','sp_payday','paymentDay'],['ウェブサイト','sp_web','website']]
+        .map(([l,i,k])=>`<label class="f">${l}${k==='name'?'<span class="req"></span>':''}</label><input id="${i}" value="${esc(s[k]||'')}">`).join('')}
+      <label class="f">備考</label>
+      <textarea id="sp_notes" rows="2">${esc(s.notes||'')}</textarea>
+      <button class="btn hero" style="margin-top:18px" onclick="saveSupplier(${id})">💾 保存する</button>
+    </div>
+    <div style="height:24px"></div>`;
+}
+async function saveSupplier(id){
+  const s = await DB.get('suppliers', id); if(!s) return;
+  const name = val('sp_name');
+  if(!name){ toast('名前を入力してください'); markInvalid('sp_name'); return; }
+  const dup = await supplierByName(name);
+  if(dup && dup.id!==id){ toast('同じ名前の工具屋があります'); markInvalid('sp_name'); return; }
+  const oldName = s.name;
+  const upd = {...s, name, contactPerson:val('sp_contact'), phone:val('sp_phone'), email:val('sp_email'),
+    address:val('sp_address'), paymentTerms:val('sp_terms'), closingDay:val('sp_closing'), paymentDay:val('sp_payday'),
+    website:val('sp_web'), notes:val('sp_notes'), updatedAt:new Date().toISOString()};
+  await DB.put('suppliers', upd);
+  if(oldName!==name){  // 店名変更時は履歴のshop表示名も追従
+    for(const p of await DB.getAll('prices')){ if(p.supplierId===id || p.shop===oldName){ await DB.put('prices', {...p, shop:name, supplierId:id}); } }
+  }
+  formDirty = false;
+  toast('保存しました ✅');
+  location.hash = '#/supplier?id='+id;
+}
+
+/* ===================== 画面: 設定（バックアップ・復元・サンプル削除） ===================== */
+async function Settings(){
+  const [tools, prices, images] = await Promise.all([DB.getAll('tools'), DB.getAll('prices'), DB.getAll('images')]);
+  const sampleCount = prices.filter(isSamplePrice).length;
+  view.innerHTML = `
+    <h2 class="section">⚙️ 設定・データ管理</h2>
+
+    <div class="card pad">
+      <div class="stats">
+        <div class="stat"><div class="v">${tools.length}</div><div class="k">品番</div></div>
+        <div class="stat"><div class="v">${prices.length}</div><div class="k">価格登録</div></div>
+        <div class="stat"><div class="v">${images.length}</div><div class="k">写真</div></div>
+      </div>
+    </div>
+
+    <h2 class="section">💾 バックアップ</h2>
+    <div class="card pad">
+      <p style="font-size:13px;color:var(--sub);margin:0 0 12px">
+        データは<b>この端末のブラウザ内だけ</b>に保存されています。機種変更やデータ消失に備えて、定期的にバックアップを保存してください（写真も含まれます）。
+      </p>
+      <button class="btn block" onclick="exportData()">⬇️ バックアップを保存（ファイルに書き出し）</button>
+      <button class="btn ghost block" style="margin-top:10px" onclick="document.getElementById('importFile').click()">⬆️ バックアップから復元（読み込み）</button>
+      <input id="importFile" type="file" accept="application/json,.json" style="display:none" onchange="importData(this)">
+      <p style="font-size:12px;color:var(--sub);margin:10px 0 0">※復元すると、今のデータはファイルの内容に置き換わります。</p>
+    </div>
+
+    <h2 class="section">🧹 サンプルデータ</h2>
+    <div class="card pad">
+      <p style="font-size:13px;color:var(--sub);margin:0 0 12px">お試し用サンプル：<b>${sampleCount}件</b></p>
+      <button class="btn gray block" onclick="deleteSampleData()">🗑 サンプルデータを削除</button>
+    </div>
+    <div style="height:24px"></div>`;
+}
+
+/* ---------- バックアップ（写真はbase64で内包） ---------- */
+function blobToBase64(blob){ return new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=rej; r.readAsDataURL(blob); }); }
+async function base64ToBlob(dataUrl){ return await (await fetch(dataUrl)).blob(); }
+
+async function exportData(){
+  try{
+    toast('書き出し中…');
+    const [tools, prices, images, meta, suppliers, ocrDrafts] = await Promise.all(
+      ['tools','prices','images','meta','suppliers','ocrDrafts'].map(s=>DB.getAll(s)));
+    const imgs = [];
+    for(const im of images){ imgs.push({id: im.id, data: await blobToBase64(im.blob)}); }
+    const payload = {app:'kouguhi-kurabe', version:2, exportedAt:new Date().toISOString(), tools, prices, images:imgs, meta, suppliers, ocrDrafts};
+    const blob = new Blob([JSON.stringify(payload)], {type:'application/json'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'kouguhi-backup-' + new Date().toISOString().slice(0,10) + '.json';
+    a.click();
+    setTimeout(()=>URL.revokeObjectURL(a.href), 10000);
+    toast('バックアップを保存しました ✅');
+  }catch(e){ console.error(e); toast('書き出しに失敗しました'); }
+}
+
+async function importData(input){
+  const file = input.files[0]; input.value=''; if(!file) return;
+  try{
+    const data = JSON.parse(await file.text());
+    if(data.app!=='kouguhi-kurabe' || !Array.isArray(data.prices)){ toast('このアプリのバックアップファイルではありません'); return; }
+    const when = (data.exportedAt||'').slice(0,10) || '不明';
+    if(!confirm(`バックアップを読み込みます（${when} 保存 / ${data.prices.length}件）。\n今のデータはすべて置き換わります。よろしいですか？`)) return;
+    toast('読み込み中…');
+    for(const s of ['tools','prices','images','meta','suppliers','ocrDrafts']) await DB.clear(s);
+    _urlCache.forEach(u=>URL.revokeObjectURL(u)); _urlCache.clear();
+    for(const t of data.tools||[]) await DB.put('tools', t);
+    for(const p of data.prices||[]) await DB.put('prices', p);
+    for(const im of data.images||[]) await DB.put('images', {id: im.id, blob: await base64ToBlob(im.data)});
+    for(const m of data.meta||[]) await DB.put('meta', m);
+    for(const sp of data.suppliers||[]) await DB.put('suppliers', sp);
+    for(const od of data.ocrDrafts||[]) await DB.put('ocrDrafts', od);
+    await migrateV2();   // v1バックアップならここでv2形式に変換される（v2なら何もしない）
+    toast('復元しました ✅');
+    location.hash = '#/home'; render();
+  }catch(e){ console.error(e); toast('読み込みに失敗しました'); }
+}
+
+/* ---------- サンプルデータ削除 ---------- */
+const SAMPLE_PNS = ['A640-2','CCMT09T308','EX-SUS-M8','VQMHZVD0800','BT40-SLA12','CD-15'];
+function isSamplePrice(p){ return p.sample===true || SAMPLE_PNS.includes(p.partNumber); }
+async function deleteSampleData(){
+  const prices = await DB.getAll('prices');
+  const targets = prices.filter(isSamplePrice);
+  if(!targets.length){ toast('サンプルデータはありません'); return; }
+  if(!confirm(`サンプルデータ ${targets.length}件を削除します。\n（サンプル品番 ${SAMPLE_PNS.join(', ')} の登録が対象）\nよろしいですか？`)) return;
+  for(const p of targets){
+    await DB.del('prices', p.id);
+    if(p.imageId!=null){
+      await DB.del('images', p.imageId).catch(()=>{});
+      if(_urlCache.has(p.imageId)){ URL.revokeObjectURL(_urlCache.get(p.imageId)); _urlCache.delete(p.imageId); }
+    }
+  }
+  for(const pn of new Set(targets.map(p=>p.partNumber))) await cleanupTool(pn);
+  toast('サンプルを削除しました ✅');
+  render();
+}
+
 /* ---------- サンプルデータ ---------- */
 async function seedSample(){
   const today = new Date();
   const d = off => new Date(today.getTime()-off*86400000).toISOString().slice(0,10);
   const samples = [
     // partNumber, category, maker, shop, price, dayOffset
-    ['A640-2',  'ドリル','三菱マテリアル','山田工具', 1200, 90],
-    ['A640-2',  'ドリル','三菱マテリアル','本田商会', 1280, 40],
-    ['A640-2',  'ドリル','三菱マテリアル','山田工具', 1450, 5],
-    ['CCMT09T308','チップ','住友電工','本田商会', 880, 70],
-    ['CCMT09T308','チップ','住友電工','山田工具', 920, 30],
-    ['CCMT09T308','チップ','住友電工','本田商会', 1050, 3],
-    ['EX-SUS-M8','タップ','OSG','ミスミ', 1650, 60],
-    ['EX-SUS-M8','タップ','OSG','ミスミ', 1620, 10],
-    ['VQMHZVD0800','エンドミル','三菱マテリアル','山田工具', 5400, 50],
-    ['VQMHZVD0800','エンドミル','三菱マテリアル','本田商会', 5950, 8],
-    ['BT40-SLA12','ホルダー','BIG','ミスミ', 8800, 45],
-    ['CD-15','測定具','ミツトヨ','山田工具', 14800, 20],
+    ['A640-2',  'ドリル','三菱マテリアル','武岡', 1200, 90],
+    ['A640-2',  'ドリル','三菱マテリアル','フジタ', 1280, 40],
+    ['A640-2',  'ドリル','三菱マテリアル','武岡', 1450, 5],
+    ['CCMT09T308','チップ','住友電工','フジタ', 880, 70],
+    ['CCMT09T308','チップ','住友電工','武岡', 920, 30],
+    ['CCMT09T308','チップ','住友電工','フジタ', 1050, 3],
+    ['EX-SUS-M8','タップ','OSG','センナン', 1650, 60],
+    ['EX-SUS-M8','タップ','OSG','センナン', 1620, 10],
+    ['VQMHZVD0800','エンドミル','三菱マテリアル','武岡', 5400, 50],
+    ['VQMHZVD0800','エンドミル','三菱マテリアル','フジタ', 5950, 8],
+    ['BT40-SLA12','ホルダー','BIG','センナン', 8800, 45],
+    ['CD-15','測定具','ミツトヨ','旭', 14800, 20],
   ];
   for(const [pn,category,maker,shop,price,offset] of samples){
     // 1x1 透明pngをダミー画像に
@@ -1068,7 +1722,7 @@ async function seedSample(){
     const imageId = await DB.put('images', {blob});
     const createdAt = new Date(today.getTime()-offset*86400000).toISOString();
     await DB.put('tools', {partNumber:pn, maker, category, memo:'', createdAt});
-    await DB.put('prices', {partNumber:pn, price, shop, maker, category, memo:'', purchaseDate:d(offset), imageId, createdAt});
+    await DB.put('prices', {partNumber:pn, price, shop, maker, category, memo:'', purchaseDate:d(offset), imageId, createdAt, sample:true});
     await rememberSuggestion('shop', shop);
     await rememberSuggestion('maker', maker);
   }
@@ -1079,6 +1733,7 @@ async function seedSample(){
 /* ---------- 起動 ---------- */
 (async function init(){
   await DB.open();
+  await migrateV2();   // v1データを自動でv2形式へ（初回のみ）
   if(!location.hash) location.hash = '#/home';
   render();
 })();
