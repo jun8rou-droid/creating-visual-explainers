@@ -11,19 +11,26 @@ function buildPrompt(ocrText, categories, suppliers) {
   const catList = Array.isArray(categories) ? categories.slice(0, 50).map(String) : [];
   const supList = Array.isArray(suppliers) ? suppliers.slice(0, 50).map(String) : [];
   return `あなたは町工場の工具購入情報の抽出係です。画像は工具のラベル・箱・本体・納品書・見積書・請求書のいずれかです。
-画像から読み取れる情報を、次のJSON形式「だけ」で出力してください（説明文は不要）。
+納品書などに明細行が複数ある場合は、工具の明細を「すべて」items配列に入れてください（工具1点だけの写真ならitemsは1件）。
+次のJSON形式「だけ」で出力してください（説明文は不要）。
 
-{"tool":{"manufacturer":"メーカー名","name":"工具名","modelNumber":"品番・型番","category":"カテゴリ","material":"材質または被削材","size":"サイズ・寸法","coating":"コーティング","application":"用途","notes":"備考"},
-"purchase":{"supplier":"工具屋名","purchaseDate":"YYYY-MM-DD","unitPrice":単価数値,"quantity":個数数値,"taxType":"税込か税別か不明","documentNumber":"納品書・見積番号"},
-"confidence":{"manufacturer":"high","name":"mid","modelNumber":"high","category":"low","material":"low","size":"low","coating":"low","application":"low","supplier":"low","purchaseDate":"low","unitPrice":"low","quantity":"low","taxType":"low","documentNumber":"low"}}
+{"common":{"supplier":"工具屋名","purchaseDate":"YYYY-MM-DD","taxType":"税込か税別か不明","documentNumber":"納品書・見積番号",
+  "confidence":{"supplier":"high","purchaseDate":"mid","taxType":"low","documentNumber":"low"}},
+"items":[
+  {"manufacturer":"メーカー名","name":"工具名","modelNumber":"品番・型番","category":"カテゴリ","notes":"備考",
+   "unitPrice":単価数値,"quantity":個数数値,
+   "confidence":{"manufacturer":"high","name":"mid","modelNumber":"high","category":"low","notes":"low","unitPrice":"high","quantity":"high"}}
+]}
 
 ルール:
-- 読み取れない・写っていない項目は空文字（数値はnull）にして confidence を "low" にする
+- 明細行ごとに items の要素を1つ作る（送料・値引き・小計行は含めない。工具・工具関連消耗品のみ）
+- 読み取れない項目は空文字（数値はnull）にして confidence を "low" にする
 - confidence は各項目 "high"（確実）/"mid"（たぶん）/"low"（不明・推測）
 - カテゴリは次の既存リストに合うものがあればそれを使う: ${JSON.stringify(catList)}
 - 工具屋は次の既存リストに合うものがあればそれを使う: ${JSON.stringify(supList)}
 - メーカー名は日本語の正式表記に統一（例: KYOCERA→京セラ、MITSUBISHI→三菱マテリアル、SUMITOMO→住友電工）
-- 金額・数量はカンマなしの数値。税込/税別は表記から判断し、判断できなければ"不明"
+- 単価は1個あたりの金額（金額欄しか無い場合は 金額÷数量）。カンマなしの数値
+- 税込/税別は表記から判断し、判断できなければ"不明"
 - 日付は西暦YYYY-MM-DD。和暦や「R6」等は西暦に変換
 - 参考: 通常OCRの結果（誤認識を含む）: ${String(ocrText || '').slice(0, 2000)}`;
 }
@@ -33,7 +40,9 @@ function parseModelJson(text) {
   if (!m) return null;
   try {
     const parsed = JSON.parse(m[0]);
-    return { tool: parsed.tool || {}, purchase: parsed.purchase || {}, confidence: parsed.confidence || {} };
+    const items = Array.isArray(parsed.items) ? parsed.items.slice(0, 20) : [];
+    if (!items.length) return null;
+    return { common: parsed.common || {}, items };
   } catch {
     return null;
   }

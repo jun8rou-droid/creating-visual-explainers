@@ -1303,10 +1303,7 @@ async function saveEdit(id){
   let imageId = rec.imageId;
   if(editState.newImageBlob){
     imageId = await DB.put('images', {blob: editState.newImageBlob});
-    if(rec.imageId!=null){
-      await DB.del('images', rec.imageId).catch(()=>{});
-      if(_urlCache.has(rec.imageId)){ URL.revokeObjectURL(_urlCache.get(rec.imageId)); _urlCache.delete(rec.imageId); }
-    }
+    await safeDeleteImage(rec.imageId, rec.id);
   }
 
   await DB.put('prices', {...rec, partNumber:pn, price, qty, shop, supplierId: await supplierIdFor(shop), memo, purchaseDate, imageId,
@@ -1328,16 +1325,22 @@ async function deletePrice(id){
   const rec = await DB.get('prices', id);
   if(!rec) return;
   await DB.del('prices', id);
-  if(rec.imageId!=null){
-    await DB.del('images', rec.imageId).catch(()=>{});
-    if(_urlCache.has(rec.imageId)){ URL.revokeObjectURL(_urlCache.get(rec.imageId)); _urlCache.delete(rec.imageId); }
-  }
+  await safeDeleteImage(rec.imageId, id);
   const pn = rec.partNumber;
   await cleanupTool(pn);
   formDirty = false;
   toast('削除しました');
   const remain = (await DB.getAll('prices')).filter(p=>p.partNumber===pn);
   location.hash = remain.length ? '#/tool?pn='+encodeURIComponent(pn) : '#/home';
+}
+
+/* 画像を安全に削除（他の履歴が同じ画像を使っていれば残す） */
+async function safeDeleteImage(imageId, exceptPriceId){
+  if(imageId==null) return;
+  const stillUsed = (await DB.getAll('prices')).some(p=>p.imageId===imageId && p.id!==exceptPriceId);
+  if(stillUsed) return;
+  await DB.del('images', imageId).catch(()=>{});
+  if(_urlCache.has(imageId)){ URL.revokeObjectURL(_urlCache.get(imageId)); _urlCache.delete(imageId); }
 }
 
 /* 品番にひも付く価格が0件になったらマスタも削除 */
@@ -1895,66 +1898,90 @@ async function aiAnalyze(existingDraftId){
 }
 
 /* OCR確認画面: 上=元画像 / 下=項目別の読み取り結果（信頼度で色分け・全て編集可） */
-const OC_TOOL_FIELDS = [
+const OC_ITEM_FIELDS = [
   ['modelNumber','品番・型番',true],['name','工具名',false],['manufacturer','メーカー',false],
-  ['category','カテゴリ',false],['notes','備考',false]
+  ['category','カテゴリ',false],['notes','備考',false],['unitPrice','単価（1個あたり・円）',true],['quantity','個数',false]
 ];
-const OC_PUR_FIELDS = [
-  ['supplier','工具屋',false],['purchaseDate','購入日',false],['unitPrice','単価（円）',true],
-  ['quantity','個数',false],['taxType','税区分',false],['documentNumber','伝票番号',false]
+const OC_COMMON_FIELDS = [
+  ['supplier','工具屋',false],['purchaseDate','購入日',false],['taxType','税区分',false],['documentNumber','伝票番号',false]
 ];
 function confClass(c){ return c==='high'?'conf-high':(c==='mid'?'conf-mid':'conf-low'); }
 function confLabel(c){ return c==='high'?'<span class="confdot high"></span>':(c==='mid'?'<span class="confdot mid"></span>':'<span class="confdot low"></span>'); }
+/* 旧形式（tool/purchase単品）の下書きを新形式（common/items）に変換 */
+function normalizeDraftResult(sr){
+  sr = sr||{};
+  if(Array.isArray(sr.items) && sr.items.length) return sr;
+  const t = sr.tool||{}, pu = sr.purchase||{}, c = sr.confidence||{};
+  return {
+    common:{supplier:pu.supplier||'', purchaseDate:pu.purchaseDate||'', taxType:pu.taxType||'不明', documentNumber:pu.documentNumber||'',
+      confidence:{supplier:c.supplier||'low', purchaseDate:c.purchaseDate||'low', taxType:c.taxType||'low', documentNumber:c.documentNumber||'low'}},
+    items:[{manufacturer:t.manufacturer||'', name:t.name||'', modelNumber:t.modelNumber||'', category:t.category||'', notes:t.notes||'',
+      unitPrice:pu.unitPrice, quantity:pu.quantity,
+      confidence:{manufacturer:c.manufacturer||'low', name:c.name||'low', modelNumber:c.modelNumber||'low', category:c.category||'low', notes:c.notes||'low', unitPrice:c.unitPrice||'low', quantity:c.quantity||'low'}}]
+  };
+}
 
 async function OcrConfirm(id){
   id = parseInt(id,10);
   const d = await DB.get('ocrDrafts', id);
   if(!d){ view.innerHTML = '<div class="empty"><div class="em">🤷</div>下書きが見つかりません</div>'; return; }
   const url = await imageUrl(d.imageId);
-  const t = (d.structuredResult&&d.structuredResult.tool)||{};
-  const pu = (d.structuredResult&&d.structuredResult.purchase)||{};
-  const conf = d.confidenceData||{};
+  const sr = normalizeDraftResult(d.structuredResult);
+  const common = sr.common||{}, cconf = common.confidence||{};
+  const items = sr.items;
   const cats = await getCategories();
   const sups = (await getSuppliers()).map(x=>x.name);
-  const lowCount = [...OC_TOOL_FIELDS,...OC_PUR_FIELDS].filter(([k])=>(conf[k]||'low')==='low').length;
 
-  const fieldHtml = ([k,label,req])=>{
-    const c = conf[k]||'low';
+  const commonFieldHtml = ([k,label])=>{
+    const c = cconf[k]||'low';
     let input;
-    const v = k==='unitPrice'||k==='quantity' ? (pu[k]!=null?pu[k]:'') : esc((k in t ? t[k] : pu[k])||'');
-    if(k==='category') input = `<select id="oc_${k}" class="${confClass(c)}"><option value=""></option>${cats.map(x=>`<option ${x===t.category?'selected':''}>${esc(x)}</option>`).join('')}</select>`;
-    else if(k==='supplier') input = `<select id="oc_${k}" class="${confClass(c)}"><option value=""></option>${sups.map(x=>`<option ${x===pu.supplier?'selected':''}>${esc(x)}</option>`).join('')}</select>`;
-    else if(k==='taxType') input = `<select id="oc_${k}" class="${confClass(c)}">${['税別','税込','不明'].map(x=>`<option ${x===(pu.taxType||'不明')?'selected':''}>${x}</option>`).join('')}</select>`;
-    else if(k==='purchaseDate') input = `<input id="oc_${k}" type="date" class="${confClass(c)}" value="${esc(pu.purchaseDate||'')}">`;
-    else if(k==='unitPrice'||k==='quantity') input = `<input id="oc_${k}" type="number" inputmode="numeric" class="${confClass(c)}" value="${v}">`;
-    else input = `<input id="oc_${k}" class="${confClass(c)}" value="${v}" ${k==='modelNumber'?'oninput="checkOcPn()"':''}>`;
+    if(k==='supplier') input = `<select id="oc_${k}" class="${confClass(c)}"><option value=""></option>${sups.map(x=>`<option ${x===common.supplier?'selected':''}>${esc(x)}</option>`).join('')}</select>`;
+    else if(k==='taxType') input = `<select id="oc_${k}" class="${confClass(c)}">${['税別','税込','不明'].map(x=>`<option ${x===(common.taxType||'不明')?'selected':''}>${x}</option>`).join('')}</select>`;
+    else if(k==='purchaseDate') input = `<input id="oc_${k}" type="date" class="${confClass(c)}" value="${esc(common.purchaseDate||'')}">`;
+    else input = `<input id="oc_${k}" class="${confClass(c)}" value="${esc(common[k]||'')}">`;
+    return `<label class="f">${confLabel(c)}${label}</label>${input}`;
+  };
+  const itemFieldHtml = (it, i)=>([k,label,req])=>{
+    const c = (it.confidence&&it.confidence[k])||'low';
+    let input;
+    if(k==='category') input = `<select id="oc_${i}_${k}" class="${confClass(c)}"><option value=""></option>${cats.map(x=>`<option ${x===it.category?'selected':''}>${esc(x)}</option>`).join('')}</select>`;
+    else if(k==='unitPrice'||k==='quantity') input = `<input id="oc_${i}_${k}" type="number" inputmode="numeric" class="${confClass(c)}" value="${it[k]!=null?it[k]:''}" oninput="updateOcCalc(${i})">`;
+    else input = `<input id="oc_${i}_${k}" class="${confClass(c)}" value="${esc(it[k]||'')}" ${k==='modelNumber'?`oninput="checkOcPn(${i})"`:''}>`;
     return `<label class="f">${confLabel(c)}${label}${req?'<span class="req"></span>':''}</label>${input}`;
   };
 
   view.innerHTML = `
-    <h2 class="section" style="margin-top:4px">🤖 AI読み取りの確認 <span style="font-weight:400;color:var(--sub)">（内容を確認・修正してから保存）</span></h2>
+    <h2 class="section" style="margin-top:4px">🤖 AI読み取りの確認 <span style="font-weight:400;color:var(--sub)">（${items.length}件の明細。確認・修正してから保存）</span></h2>
     <div class="card pad">
       ${url?`<img class="photo-preview" src="${url}" style="max-height:280px;object-fit:contain;background:#f1f5f9">`:''}
       <div class="cand-legend" style="margin-top:8px">
         <span><span class="confdot high"></span>ほぼ確実</span>
         <span><span class="confdot mid"></span>要確認</span>
-        <span><span class="confdot low"></span>読めず・推測${lowCount?`（${lowCount}件）`:''}</span>
+        <span><span class="confdot low"></span>読めず・推測</span>
       </div>
     </div>
 
     <div class="card pad" style="margin-top:12px">
-      <h3 style="margin:0;font-size:15px">🔧 工具情報</h3>
-      ${OC_TOOL_FIELDS.map(fieldHtml).join('')}
-      <div id="ocPnInfo"></div>
+      <h3 style="margin:0;font-size:15px">🛒 購入情報（全明細に共通）</h3>
+      ${OC_COMMON_FIELDS.map(commonFieldHtml).join('')}
     </div>
 
-    <div class="card pad" style="margin-top:12px">
-      <h3 style="margin:0;font-size:15px">🛒 購入情報</h3>
-      ${OC_PUR_FIELDS.map(fieldHtml).join('')}
-      <div id="oc_calc" style="text-align:right;font-size:13px;color:var(--sub);margin-top:8px"></div>
+    ${items.map((it,i)=>`
+    <div class="card pad" style="margin-top:12px" id="ocItem_${i}">
+      <div style="display:flex;align-items:center;gap:8px">
+        <input type="checkbox" id="oc_${i}_use" checked style="width:24px;height:24px;flex:none">
+        <h3 style="margin:0;font-size:15px;flex:1">🔧 明細 ${i+1}${items.length>1?` / ${items.length}`:''}</h3>
+      </div>
+      ${OC_ITEM_FIELDS.map(itemFieldHtml(it,i)).join('')}
+      <div id="ocPnInfo_${i}"></div>
+      <div id="oc_calc_${i}" style="text-align:right;font-size:13px;color:var(--sub);margin-top:8px"></div>
+    </div>`).join('')}
+
+    <div class="card pad" style="margin-top:12px" id="ocTotalCard">
+      <div id="oc_total" style="text-align:right;font-weight:800"></div>
     </div>
 
-    <button class="btn hero" style="margin-top:14px" onclick="saveOcr(${id})">💾 保存する</button>
+    <button class="btn hero" style="margin-top:14px" onclick="saveOcr(${id})">💾 チェックした明細を保存する</button>
     <div style="display:flex;gap:8px;margin-top:10px">
       <button id="oc_reBtn" class="btn ghost" style="flex:1" onclick="reAnalyze(${id})">🔄 再解析</button>
       <button class="btn ghost" style="flex:1" onclick="document.getElementById('oc_file').click()">📷 画像を変更</button>
@@ -1965,26 +1992,38 @@ async function OcrConfirm(id){
       <button class="btn gray" style="flex:1" onclick="cancelOcr(${id})">キャンセル</button>
     </div>
     <div style="height:24px"></div>`;
-  updateOcCalc(); ['oc_unitPrice','oc_quantity','oc_taxType'].forEach(i=>{ const e=document.getElementById(i); if(e) e.addEventListener('input',updateOcCalc); });
-  checkOcPn();
+  window._ocItemCount = items.length;
+  items.forEach((_,i)=>{ updateOcCalc(i); checkOcPn(i); const cb=document.getElementById(`oc_${i}_use`); if(cb) cb.addEventListener('change',()=>updateOcTotal()); });
+  const taxSel=document.getElementById('oc_taxType'); if(taxSel) taxSel.addEventListener('change',()=>{ for(let i=0;i<items.length;i++) updateOcCalc(i); });
+  updateOcTotal();
 }
-function updateOcCalc(){
-  const el=document.getElementById('oc_calc'); if(!el) return;
-  const price=parseFloat(val('oc_unitPrice'))||0, qty=Math.max(1,parseInt(val('oc_quantity'),10)||1);
-  if(!price){ el.textContent=''; return; }
+function updateOcCalc(i){
+  const el=document.getElementById('oc_calc_'+i); if(!el) return;
+  const price=parseFloat(val(`oc_${i}_unitPrice`))||0, qty=Math.max(1,parseInt(val(`oc_${i}_quantity`),10)||1);
+  if(!price){ el.textContent=''; updateOcTotal(); return; }
   const sub=Math.round(price*qty);
-  el.innerHTML = val('oc_taxType')==='税込' ? `税込合計 <b>${yen(sub)}</b>` : `小計 <b>${yen(sub)}</b> ／ 税込 ${yen(Math.round(sub*1.1))}`;
+  el.innerHTML = val('oc_taxType')==='税込' ? `税込 <b>${yen(sub)}</b>` : `小計 <b>${yen(sub)}</b> ／ 税込 ${yen(Math.round(sub*1.1))}`;
+  updateOcTotal();
 }
-let _ocPnT=null;
-function checkOcPn(){ clearTimeout(_ocPnT); _ocPnT=setTimeout(async()=>{
-  const box=document.getElementById('ocPnInfo'); if(!box) return;
-  const raw=val('oc_modelNumber'); if(!raw){ box.innerHTML=''; return; }
+function updateOcTotal(){
+  const el=document.getElementById('oc_total'); if(!el) return;
+  const n=window._ocItemCount||0; let total=0, count=0;
+  for(let i=0;i<n;i++){
+    const cb=document.getElementById(`oc_${i}_use`); if(!cb||!cb.checked) continue;
+    const price=parseFloat(val(`oc_${i}_unitPrice`))||0, qty=Math.max(1,parseInt(val(`oc_${i}_quantity`),10)||1);
+    if(price>0){ total+=Math.round(price*qty); count++; }
+  }
+  el.innerHTML = count? `保存対象 ${count}件 ／ 合計 ${yen(total)}${val('oc_taxType')==='税込'?'（税込）':'（税別）'}` : '保存対象なし';
+}
+let _ocPnT={};
+function checkOcPn(i){ clearTimeout(_ocPnT[i]); _ocPnT[i]=setTimeout(async()=>{
+  const box=document.getElementById('ocPnInfo_'+i); if(!box) return;
+  const raw=val(`oc_${i}_modelNumber`); if(!raw){ box.innerHTML=''; return; }
   const tools=await DB.getAll('tools');
-  const exact=tools.find(x=>x.partNumber===raw);
-  if(exact){ box.innerHTML=`<div class="pninfo ok">📌 登録済みの工具です。保存すると購入履歴として追加されます</div>`; return; }
+  if(tools.find(x=>x.partNumber===raw)){ box.innerHTML=`<div class="pninfo ok">📌 登録済みの工具。購入履歴として追加されます</div>`; return; }
   const norm=normalizePn(raw);
   const similar=tools.filter(x=>normalizePn(x.partNumber)===norm || (x.name&&normalizePn(x.name)===norm));
-  box.innerHTML = similar.length? `<div class="pninfo warn">⚠ 似た品番が登録済み: ${similar.slice(0,3).map(x=>`<button class="btn sm gray" onclick="document.getElementById('oc_modelNumber').value='${esc(x.partNumber).replace(/'/g,'')}';checkOcPn()">「${esc(x.partNumber)}」の履歴に追加</button>`).join(' ')} <button class="btn sm gray" onclick="document.getElementById('ocPnInfo').innerHTML=''">別の工具として登録</button></div>` : '';
+  box.innerHTML = similar.length? `<div class="pninfo warn">⚠ 似た品番が登録済み: ${similar.slice(0,3).map(x=>`<button class="btn sm gray" onclick="document.getElementById('oc_${i}_modelNumber').value='${esc(x.partNumber).replace(/'/g,'')}';checkOcPn(${i})">「${esc(x.partNumber)}」の履歴に追加</button>`).join(' ')} <button class="btn sm gray" onclick="document.getElementById('ocPnInfo_${i}').innerHTML=''">別の工具として登録</button></div>` : '';
 },300); }
 
 async function reAnalyze(id){
@@ -2010,41 +2049,55 @@ async function cancelOcr(id){
   formDirty=false;
   location.hash='#/register';
 }
+/* チェックした明細を一括保存（工具マスター整備＋購入履歴を明細ごとに1件） */
 async function saveOcr(id){
   const d=await DB.get('ocrDrafts', id); if(!d) return;
-  const pn=val('oc_modelNumber');
-  const price=parseFloat(val('oc_unitPrice'));
-  if(!pn){ toast('品番・型番を入力してください'); markInvalid('oc_modelNumber'); return; }
-  if(!(price>=0)){ toast('単価を入力してください'); markInvalid('oc_unitPrice'); return; }
-  const qty=Math.max(1,parseInt(val('oc_quantity'),10)||1);
+  const n=window._ocItemCount||0;
   const shop=val('oc_supplier');
   const purchaseDate=val('oc_purchaseDate')||new Date().toISOString().slice(0,10);
-  if(await isDuplicate(pn, purchaseDate, price)){
-    if(!confirm('同じ品番・同じ日・同じ価格の登録があります。追加しますか？')) return;
+  const taxType=val('oc_taxType')||'不明';
+  const documentNumber=val('oc_documentNumber')||'';
+  // 入力チェック（チェック済み明細のみ）
+  const targets=[];
+  for(let i=0;i<n;i++){
+    const cb=document.getElementById(`oc_${i}_use`); if(!cb||!cb.checked) continue;
+    const pn=val(`oc_${i}_modelNumber`);
+    const price=parseFloat(val(`oc_${i}_unitPrice`));
+    if(!pn){ toast(`明細${i+1}: 品番を入力してください`); markInvalid(`oc_${i}_modelNumber`); return; }
+    if(!(price>=0)){ toast(`明細${i+1}: 単価を入力してください`); markInvalid(`oc_${i}_unitPrice`); return; }
+    targets.push({i, pn, price, qty:Math.max(1,parseInt(val(`oc_${i}_quantity`),10)||1)});
+  }
+  if(!targets.length){ toast('保存する明細にチェックを入れてください'); return; }
+  for(const t of targets){
+    if(await isDuplicate(t.pn, purchaseDate, t.price)){
+      if(!confirm(`明細${t.i+1}（${t.pn}）は同じ品番・同じ日・同じ価格の登録があります。追加しますか？`)) return;
+    }
   }
   const now=new Date().toISOString();
-  const maker=normalizeMaker(val('oc_manufacturer'));
-  const existing=await DB.get('tools', pn);
-  await DB.put('tools', {
-    partNumber:pn,
-    name: val('oc_name')||(existing&&existing.name)||'',
-    maker: maker||(existing&&existing.maker)||'',
-    category: val('oc_category')||(existing&&existing.category)||'',
-    size: (existing&&existing.size)||'',
-    material: (existing&&existing.material)||'',
-    coating: (existing&&existing.coating)||'',
-    usage: (existing&&existing.usage)||'',
-    memo: val('oc_notes')||(existing&&existing.memo)||'',
-    createdAt: existing?existing.createdAt:now, updatedAt: now
-  });
-  await DB.put('prices', {partNumber:pn, price, qty, shop, supplierId:await supplierIdFor(shop),
-    maker, category:val('oc_category')||'', memo:'', purchaseDate, imageId:d.imageId, createdAt:now,
-    taxType:val('oc_taxType')||'不明', taxRate:10, documentNumber:val('oc_documentNumber')||'', sourceType:'ocr'});
-  await rememberSuggestion('maker', maker);
+  const supplierId=await supplierIdFor(shop);
+  for(const t of targets){
+    const maker=normalizeMaker(val(`oc_${t.i}_manufacturer`));
+    const category=val(`oc_${t.i}_category`);
+    const existing=await DB.get('tools', t.pn);
+    await DB.put('tools', {
+      partNumber:t.pn,
+      name: val(`oc_${t.i}_name`)||(existing&&existing.name)||'',
+      maker: maker||(existing&&existing.maker)||'',
+      category: category||(existing&&existing.category)||'',
+      size:(existing&&existing.size)||'', material:(existing&&existing.material)||'',
+      coating:(existing&&existing.coating)||'', usage:(existing&&existing.usage)||'',
+      memo: val(`oc_${t.i}_notes`)||(existing&&existing.memo)||'',
+      createdAt: existing?existing.createdAt:now, updatedAt: now
+    });
+    await DB.put('prices', {partNumber:t.pn, price:t.price, qty:t.qty, shop, supplierId,
+      maker, category, memo:'', purchaseDate, imageId:d.imageId, createdAt:now,
+      taxType, taxRate:10, documentNumber, sourceType:'ocr'});
+    if(maker) await rememberSuggestion('maker', maker);
+  }
   await DB.del('ocrDrafts', id);
   formDirty=false;
-  toast('保存しました ✅');
-  location.hash='#/tool?pn='+encodeURIComponent(pn);
+  toast(targets.length+'件の明細を保存しました ✅');
+  location.hash = targets.length===1 ? '#/tool?pn='+encodeURIComponent(targets[0].pn) : '#/history';
 }
 
 /* ===================== CSV入出力 ===================== */
@@ -2266,11 +2319,8 @@ async function deleteSampleData(){
   if(!confirm(`サンプルデータ ${targets.length}件を削除します。\n（サンプル品番 ${SAMPLE_PNS.join(', ')} の登録が対象）\nよろしいですか？`)) return;
   for(const p of targets){
     await DB.del('prices', p.id);
-    if(p.imageId!=null){
-      await DB.del('images', p.imageId).catch(()=>{});
-      if(_urlCache.has(p.imageId)){ URL.revokeObjectURL(_urlCache.get(p.imageId)); _urlCache.delete(p.imageId); }
-    }
   }
+  for(const p of targets){ await safeDeleteImage(p.imageId, p.id); }
   for(const pn of new Set(targets.map(p=>p.partNumber))) await cleanupTool(pn);
   toast('サンプルを削除しました ✅');
   render();
