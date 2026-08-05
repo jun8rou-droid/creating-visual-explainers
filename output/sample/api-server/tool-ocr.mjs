@@ -76,6 +76,60 @@ async function callGemini(image, mediaType, prompt) {
   return result.text || '';
 }
 
+async function callText(prompt) {
+  if (process.env.ANTHROPIC_API_KEY) {
+    const r = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+      body: JSON.stringify({ model: process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-6', max_tokens: 2000, messages: [{ role: 'user', content: prompt }] }),
+    });
+    if (!r.ok) { const e = new Error('AIが応答しませんでした'); e.status = r.status === 429 ? 429 : 502; throw e; }
+    const data = await r.json();
+    return (data.content && data.content[0] && data.content[0].text) || '';
+  }
+  const ai = new GoogleGenAI({ apiKey: process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY });
+  const result = await ai.models.generateContent({
+    model: process.env.GOOGLE_MODEL || process.env.GEMINI_MODEL || 'gemini-2.5-flash',
+    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+  });
+  return result.text || '';
+}
+
+/**
+ * 工具のカテゴリ自動仕分け（テキストのみ・提案止まり）
+ * @param {{ tools: Array<{partNumber:string, maker?:string, name?:string, usage?:string, size?:string}>, categories: string[] }} body
+ */
+export async function classifyTools(body) {
+  const { tools, categories } = body || {};
+  if (!Array.isArray(tools) || !tools.length) { const e = new Error('工具リストがありません'); e.status = 400; throw e; }
+  if (tools.length > 100) { const e = new Error('一度に仕分けできるのは100件までです'); e.status = 400; throw e; }
+  if (!isToolOcrEnabled()) { const e = new Error('AIが未設定です'); e.status = 503; throw e; }
+  const catList = (Array.isArray(categories) ? categories : []).slice(0, 50).map(String);
+  const list = tools.slice(0, 100).map(t => ({
+    partNumber: String(t.partNumber || '').slice(0, 60),
+    maker: String(t.maker || '').slice(0, 40),
+    name: String(t.name || '').slice(0, 60),
+    usage: String(t.usage || '').slice(0, 100),
+    size: String(t.size || '').slice(0, 40),
+  }));
+  const prompt = `あなたは切削工具の分類係です。以下の工具リストを、カテゴリリストのどれかに仕分けしてください。
+カテゴリリスト: ${JSON.stringify(catList)}
+工具リスト: ${JSON.stringify(list)}
+
+型番の規則も手がかりにしてください（例: CCMT/DCMT/TNMG/VNMG等はチップ、EX-SUS等のタップ表記、VQ/MS2等のエンドミル型番、BT/SK始まりはホルダー、ノギス・マイクロメータは測定具）。
+次のJSON配列「だけ」を出力（説明不要）:
+[{"partNumber":"...","category":"リスト内のカテゴリ名","confidence":"high|mid|low"}]
+自信がなければ confidence を "low" にし、どうしても判断できなければ category は空文字にする。リストにないカテゴリ名は使わない。`;
+  const text = await callText(prompt);
+  const m = String(text || '').match(/\[[\s\S]*\]/);
+  if (!m) { const e = new Error('解析結果を読み取れませんでした'); e.status = 502; throw e; }
+  let arr;
+  try { arr = JSON.parse(m[0]); } catch { const e = new Error('解析結果の形式が不正でした'); e.status = 502; throw e; }
+  return { results: arr.filter(x => x && x.partNumber).map(x => ({
+    partNumber: String(x.partNumber), category: catList.includes(x.category) ? x.category : '', confidence: ['high','mid','low'].includes(x.confidence) ? x.confidence : 'low',
+  })) };
+}
+
 export function isToolOcrEnabled() {
   return Boolean(process.env.ANTHROPIC_API_KEY || process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY);
 }

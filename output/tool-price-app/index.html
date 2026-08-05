@@ -1574,8 +1574,63 @@ async function ToolsList(q){
         <option value="name">工具名順</option>
       </select>
     </div>
+    <div id="aiSortArea"></div>
     <div id="tl_results"></div>
     <div style="height:24px"></div>`;
+  showAiSortBanner();
+  doToolsList();
+}
+
+/* ---------- AIカテゴリ自動仕分け（提案→確認→適用） ---------- */
+async function showAiSortBanner(){
+  const el = document.getElementById('aiSortArea'); if(!el) return;
+  const un = (await DB.getAll('tools')).filter(t=>!t.category);
+  el.innerHTML = un.length ? `<div class="pninfo warn" style="margin-top:10px">📂 カテゴリ未分類の工具が <b>${un.length}件</b> あります
+    <button class="btn sm" style="margin-left:6px" onclick="aiClassify()">🤖 AIで自動仕分け</button></div>` : '';
+}
+let _clsBusy=false;
+async function aiClassify(){
+  if(_clsBusy) return; _clsBusy=true;
+  const el = document.getElementById('aiSortArea');
+  el.innerHTML = '<div class="pninfo warn"><span class="spin" style="display:inline-block;vertical-align:middle"></span> AIが仕分け中…（数秒）</div>';
+  try{
+    const tools = (await DB.getAll('tools')).filter(t=>!t.category).slice(0,100);
+    const cats = await getCategories();
+    const resp = await fetch(AI_ENDPOINT.replace('tool-ocr','tool-classify'), {method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({tools: tools.map(t=>({partNumber:t.partNumber, maker:t.maker, name:t.name, usage:t.usage, size:t.size})), categories:cats})});
+    const data = await resp.json().catch(()=>({}));
+    if(!resp.ok) throw new Error(data.error||'AI仕分けに失敗しました');
+    const results = (data.results||[]).filter(r=>r.category);
+    if(!results.length){ el.innerHTML='<div class="pninfo warn">仕分けできる工具がありませんでした（手動でカテゴリを設定してください）</div>'; return; }
+    el.innerHTML = `<div class="card pad" style="margin-top:10px">
+      <h3 style="margin:0 0 8px;font-size:15px">🤖 AIの仕分け提案（確認して適用）</h3>
+      ${results.map((r,i)=>`
+        <div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--line)">
+          <input type="checkbox" id="cls_${i}" ${r.confidence!=='low'?'checked':''} style="width:22px;height:22px;flex:none">
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:700;font-size:14px">${esc(r.partNumber)}</div>
+          </div>
+          <span class="confdot ${r.confidence}"></span>
+          <select id="clsCat_${i}" style="width:130px;padding:8px">${(cats).map(c=>`<option ${c===r.category?'selected':''}>${esc(c)}</option>`).join('')}</select>
+        </div>`).join('')}
+      <button class="btn block" style="margin-top:12px" onclick='applyClassify(${JSON.stringify(results.map(r=>r.partNumber))})'>✅ チェックした工具に適用</button>
+      <button class="btn gray block" style="margin-top:8px" onclick="showAiSortBanner()">キャンセル</button>
+      <p style="font-size:11px;color:var(--sub);margin:8px 0 0">🟢=確実 🟡=たぶん 🔴=自信なし（🔴は初めからチェックを外しています）</p>
+    </div>`;
+  }catch(e){ console.error(e); el.innerHTML=`<div class="pninfo warn">⚠ ${esc(e.message||'AI仕分けに失敗しました')}</div>`; }
+  finally{ _clsBusy=false; }
+}
+async function applyClassify(pns){
+  let applied=0;
+  for(let i=0;i<pns.length;i++){
+    const cb=document.getElementById('cls_'+i); if(!cb||!cb.checked) continue;
+    const cat=val('clsCat_'+i); if(!cat) continue;
+    const t=await DB.get('tools', pns[i]); if(!t) continue;
+    await DB.put('tools', {...t, category:cat, updatedAt:new Date().toISOString()});
+    applied++;
+  }
+  toast(applied+'件を仕分けしました ✅');
+  showAiSortBanner();
   doToolsList();
 }
 async function doToolsList(){

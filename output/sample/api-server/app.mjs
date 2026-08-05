@@ -129,6 +129,18 @@ app.post('/api/tool-ocr', async (req, res) => {
   }
 });
 
+// 工具費くらべ: 未分類工具のカテゴリ自動仕分け（提案のみ）
+app.post('/api/tool-classify', async (req, res) => {
+  try {
+    const { classifyTools } = await import('./tool-ocr.mjs');
+    const result = await classifyTools(req.body);
+    res.json(result);
+  } catch (err) {
+    const status = err && err.status ? err.status : 500;
+    res.status(status).json({ error: (err && err.status ? err.message : 'サーバーエラーが発生しました') });
+  }
+});
+
 app.get('/api/health', async (_req, res) => {
   const db = await pingDb();
   const vision = getVisionStatus();
