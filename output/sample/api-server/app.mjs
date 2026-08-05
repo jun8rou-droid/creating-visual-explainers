@@ -117,6 +117,18 @@ function suggestionFromDbRow(row, response, quoteId) {
   };
 }
 
+// 工具費くらべ（tool-price-app）用 AI-OCR。既存APIとは独立
+app.post('/api/tool-ocr', async (req, res) => {
+  try {
+    const { analyzeToolImage } = await import('./tool-ocr.mjs');
+    const result = await analyzeToolImage(req.body);
+    res.json(result);
+  } catch (err) {
+    const status = err && err.status ? err.status : 500;
+    res.status(status).json({ error: (err && err.status ? err.message : 'サーバーエラーが発生しました') });
+  }
+});
+
 app.get('/api/health', async (_req, res) => {
   const db = await pingDb();
   const vision = getVisionStatus();

@@ -43,19 +43,18 @@
 ## 税込・税別の扱い
 登録時に税区分を記録し、**比較・集計はすべて「税別換算単価」で統一**しています（税込は÷1.1で割り戻し、「税込→換算」バッジを表示）。税込と税別をそのまま混ぜて比較することはありません。
 
-## AI-OCRのセットアップ（管理者向け・初回のみ）
+## AI-OCRについて
 
-AI読み取りにはAnthropic APIキーが必要です（従量課金・写真1枚あたり数円程度）。
+AI読み取りは Vercel上のAPI（`/api/tool-ocr`）経由で動作します。
+**既にVercelに設定済みのGeminiキー（GOOGLE_API_KEY）を自動で使うため、追加設定なしで動きます。**
 
-1. https://console.anthropic.com にアクセスしてアカウント作成（Googleログイン可）
-2. 「API Keys」→「Create Key」でキーを発行（`sk-ant-...`をコピー）
-3. 「Billing」でクレジットを購入（$5から）
-4. https://vercel.com のダッシュボード → プロジェクト `creating-visual-explainers` → Settings → Environment Variables
-5. Key: `ANTHROPIC_API_KEY` / Value: 発行したキー を追加して Save
-6. Deployments → 最新のデプロイ → 「Redeploy」
+より高精度なClaudeに切り替えたい場合（任意）:
+1. https://console.anthropic.com でAPIキーを発行（従量課金・写真1枚数円程度）
+2. Vercelダッシュボード → `creating-visual-explainers` → Settings → Environment Variables に `ANTHROPIC_API_KEY` を追加 → Redeploy
+3. キーがあれば自動的にClaude優先で動作します
 
-キー未設定の間もアプリは使えます（AIボタンだけ「AI未設定」エラーになり、通常OCR・手入力で登録できます）。
 **APIキーはVercelの環境変数のみに保存され、アプリのコードや端末には含まれません。**
+AIが使えない状況でも、通常OCR・手入力で登録できます。
 
 ## データ管理
 
@@ -79,7 +78,7 @@ AI読み取りにはAnthropic APIキーが必要です（従量課金・写真1�
 
 ## 技術構成
 - フロント: 単一HTML（HTML/CSS/JS内包）、IndexedDB、Tesseract.js（端末内OCR）、SVG自作グラフ
-- AI: Vercel Serverless Function `api/ocr.js` → Claude API（Vision）。項目別信頼度付きJSONを返却
+- AI: Vercel上の既存Express API に `/api/tool-ocr` を追加（Claude優先・Gemini フォールバック）。項目別信頼度付きJSONを返却
 - セキュリティ: APIキーは環境変数のみ／CORS制限／画像形式・サイズ検証／エラーに内部情報を出さない
 - デプロイ: surge.sh（本体）＋ Vercel（API・GitHubプッシュで自動デプロイ）
 
