@@ -631,7 +631,7 @@ async function fillRows(elId, items){
       <div class="grow">
         <div class="pn">${esc(p.partNumber)}</div>
         <div class="meta">${esc(tool.category||'未分類')}${tool.maker?' ・ '+esc(tool.maker):''}${p.shop?' ・ '+esc(p.shop):''}</div>
-        ${tool.usage?`<div class="meta" style="color:#166534">🔧 ${esc(tool.usage)}</div>`:''}
+        ${(tool.memo||tool.usage)?`<div class="meta" style="color:#166534">📝 ${esc(tool.memo||tool.usage)}</div>`:''}
       </div>
       <div>
         <div class="price">${yen(st.latest)}</div>
@@ -684,10 +684,7 @@ async function Register(){
       ${shopChipsHtml('shop','',shopNames)}
 
       <details class="opt">
-        <summary>任意項目（用途・メーカー・カテゴリ・購入日・メモ）</summary>
-        <label class="f">🔧 使用用途（何の加工・どの部品に使うか）</label>
-        <textarea id="usage" rows="2" placeholder="例: SUS304のΦ8穴あけ / ○○社△△部品の面取り"></textarea>
-
+        <summary>任意項目（メーカー・カテゴリ・購入日・メモ）</summary>
         <label class="f">メーカー</label>
         <input id="maker" list="dl-maker" placeholder="例: 三菱 / OSG など">
         <datalist id="dl-maker">${sugMaker.map(s=>`<option value="${esc(s)}">`).join('')}</datalist>
@@ -924,7 +921,7 @@ async function saveRegister(){
   if(!regState.imageBlob){ toast('写真を選んでください'); window.scrollTo({top:0,behavior:'smooth'}); return; }
 
   const shop = val('shop'), maker = val('maker'), category = val('category'),
-        memo = val('memo'), usage = val('usage');
+        memo = val('memo');
   const qty = Math.max(1, parseInt(val('qty'),10)||1);
   const purchaseDate = val('purchaseDate') || new Date().toISOString().slice(0,10);
   if(await isDuplicate(pn, purchaseDate, price)){
@@ -940,7 +937,7 @@ async function saveRegister(){
     maker: maker || (existing&&existing.maker) || '',
     category: category || (existing&&existing.category) || '',
     memo: memo || (existing&&existing.memo) || '',
-    usage: usage || (existing&&existing.usage) || '',
+    usage: (existing&&existing.usage) || '',
     createdAt: existing ? existing.createdAt : createdAt
   });
   await DB.put('prices', {partNumber:pn, price, qty, shop, supplierId: await supplierIdFor(shop), maker, category, memo,
@@ -1009,7 +1006,7 @@ async function ToolDetail(pn){
             ${tool&&tool.category?`<span class="badge">${esc(tool.category)}</span> `:''}
             ${tool&&tool.maker?esc(tool.maker):''}
           </div>
-          ${tool&&tool.usage?`<div style="font-size:13px;margin-top:6px;color:#166534">🔧 ${esc(tool.usage)}</div>`:''}
+          ${tool&&(tool.memo||tool.usage)?`<div style="font-size:13px;margin-top:6px;color:#166534">📝 ${esc(tool.memo||tool.usage)}</div>`:''}
           <div style="font-size:12px;margin-top:4px;color:var(--sub)">最終購入 ${esc(lastRec.purchaseDate)}${lastRec.shop?`・${esc(lastRec.shop)}`:''}</div>
         </div>
         <a class="btn sm gray" style="flex:none" aria-label="品番情報を編集" href="#/tooledit?pn=${encodeURIComponent(pn)}">✏️</a>
@@ -1201,6 +1198,9 @@ async function ToolEdit(pn){
       <h2 style="margin:0 0 8px;font-size:20px">品番情報の編集</h2>
       <div style="color:var(--sub);font-size:13px;margin-bottom:4px">品番 <b>${esc(pn)}</b>（この品番の全登録に反映されます）</div>
 
+      <label class="f">工具名</label>
+      <input id="t_name" placeholder="例: 旋削チップ / 超硬ドリル" value="${esc(tool.name||'')}">
+
       <label class="f">メーカー</label>
       <input id="t_maker" list="dl-maker" value="${esc(tool.maker||'')}">
       <datalist id="dl-maker">${sugMaker.map(s=>`<option value="${esc(s)}">`).join('')}</datalist>
@@ -1208,19 +1208,17 @@ async function ToolEdit(pn){
       <label class="f">カテゴリ</label>
       <select id="t_category"><option value="">未分類</option>${cats.map(c=>`<option ${c===tool.category?'selected':''}>${esc(c)}</option>`).join('')}</select>
 
-      <label class="f">🔧 使用用途（何の加工・どの部品に使うか）</label>
-      <textarea id="t_usage" rows="2" placeholder="例: SUS304のΦ8穴あけ / ○○社△△部品の面取り">${esc(tool.usage||'')}</textarea>
-
-      <label class="f">メモ</label>
-      <textarea id="t_memo" rows="2">${esc(tool.memo||'')}</textarea>
+      <label class="f">備考（用途・メモなど自由に）</label>
+      <textarea id="t_memo" rows="3" placeholder="例: SUS304のΦ8穴あけ用 / ○○社△△部品">${esc(tool.memo||tool.usage||'')}</textarea>
 
       <button class="btn hero" style="margin-top:18px" onclick="saveToolEdit('${esc(pn).replace(/'/g,'')}')">💾 変更を保存</button>
     </div>`;
 }
 async function saveToolEdit(pn){
   const tool = await DB.get('tools', pn); if(!tool) return;
-  const maker = val('t_maker'), category = val('t_category'), memo = val('t_memo'), usage = val('t_usage');
-  await DB.put('tools', {...tool, maker, category, memo, usage});
+  const name = val('t_name'), maker = val('t_maker'), category = val('t_category'), memo = val('t_memo');
+  // 旧「使用用途」は備考に一本化（保存時に統合し、以後は備考のみ）
+  await DB.put('tools', {...tool, name, maker, category, memo, usage:'', updatedAt:new Date().toISOString()});
   await rememberSuggestion('maker', maker);
   formDirty = false;
   toast('保存しました ✅');
@@ -1452,7 +1450,7 @@ async function CategoryDetail(name){
   const el = document.getElementById('catList');
   if(pnList.length===0){ el.innerHTML='<div class="empty">この カテゴリの登録はありません</div>'; return; }
   el.innerHTML = pnList.sort((a,b)=>a.pn.localeCompare(b.pn)).map(x=>{
-    const usage = (toolMap[x.pn]&&toolMap[x.pn].usage)||'';
+    const usage = (toolMap[x.pn]&&(toolMap[x.pn].memo||toolMap[x.pn].usage))||'';
     return `
     <a class="row" style="text-decoration:none;color:inherit" href="#/tool?pn=${encodeURIComponent(x.pn)}">
       <div class="grow"><div class="pn">${esc(x.pn)}</div>
@@ -1483,8 +1481,9 @@ async function doSearch(){
   let res = all.filter(p=>{
     if(cat && catOf(p.partNumber,toolMap)!==cat) return false;
     if(!kw) return true;
-    const usage = (toolMap[p.partNumber]&&toolMap[p.partNumber].usage)||'';
-    return [p.partNumber, makerOf(p.partNumber,toolMap), p.shop, usage].some(f=>(f||'').toLowerCase().includes(kw));
+    const t_ = toolMap[p.partNumber]||{};
+    const usage = t_.memo||t_.usage||'';
+    return [p.partNumber, t_.name, makerOf(p.partNumber,toolMap), p.shop, usage].some(f=>(f||'').toLowerCase().includes(kw));
   });
   // 品番ごとに集約して1件に
   const byPn={}; res.forEach(p=>{(byPn[p.partNumber]=byPn[p.partNumber]||[]).push(p);});
@@ -1560,7 +1559,7 @@ async function ToolsList(q){
   const shopNames = (await getSuppliers()).map(s=>s.name);
   view.innerHTML = `
     <div class="card pad">
-      <input id="tl_kw" placeholder="🔍 工具名・メーカー・型番・用途で検索" value="${esc(q.kw||'')}" oninput="doToolsList()">
+      <input id="tl_kw" placeholder="🔍 工具名・メーカー・型番・備考で検索" value="${esc(q.kw||'')}" oninput="doToolsList()">
       <div style="display:flex;gap:8px;margin-top:10px">
         <select id="tl_cat" onchange="doToolsList()" style="flex:1"><option value="">全カテゴリ</option>${cats.map(c=>`<option>${esc(c)}</option>`).join('')}</select>
         <select id="tl_shop" onchange="doToolsList()" style="flex:1"><option value="">全工具屋</option>${shopNames.map(s=>`<option>${esc(s)}</option>`).join('')}</select>
@@ -1574,8 +1573,63 @@ async function ToolsList(q){
         <option value="name">工具名順</option>
       </select>
     </div>
+    <div id="aiSortArea"></div>
     <div id="tl_results"></div>
     <div style="height:24px"></div>`;
+  showAiSortBanner();
+  doToolsList();
+}
+
+/* ---------- AIカテゴリ自動仕分け（提案→確認→適用） ---------- */
+async function showAiSortBanner(){
+  const el = document.getElementById('aiSortArea'); if(!el) return;
+  const un = (await DB.getAll('tools')).filter(t=>!t.category);
+  el.innerHTML = un.length ? `<div class="pninfo warn" style="margin-top:10px">📂 カテゴリ未分類の工具が <b>${un.length}件</b> あります
+    <button class="btn sm" style="margin-left:6px" onclick="aiClassify()">🤖 AIで自動仕分け</button></div>` : '';
+}
+let _clsBusy=false;
+async function aiClassify(){
+  if(_clsBusy) return; _clsBusy=true;
+  const el = document.getElementById('aiSortArea');
+  el.innerHTML = '<div class="pninfo warn"><span class="spin" style="display:inline-block;vertical-align:middle"></span> AIが仕分け中…（数秒）</div>';
+  try{
+    const tools = (await DB.getAll('tools')).filter(t=>!t.category).slice(0,100);
+    const cats = await getCategories();
+    const resp = await fetch(AI_ENDPOINT.replace('tool-ocr','tool-classify'), {method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({tools: tools.map(t=>({partNumber:t.partNumber, maker:t.maker, name:t.name, usage:t.memo||t.usage, size:t.size})), categories:cats})});
+    const data = await resp.json().catch(()=>({}));
+    if(!resp.ok) throw new Error(data.error||'AI仕分けに失敗しました');
+    const results = (data.results||[]).filter(r=>r.category);
+    if(!results.length){ el.innerHTML='<div class="pninfo warn">仕分けできる工具がありませんでした（手動でカテゴリを設定してください）</div>'; return; }
+    el.innerHTML = `<div class="card pad" style="margin-top:10px">
+      <h3 style="margin:0 0 8px;font-size:15px">🤖 AIの仕分け提案（確認して適用）</h3>
+      ${results.map((r,i)=>`
+        <div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--line)">
+          <input type="checkbox" id="cls_${i}" ${r.confidence!=='low'?'checked':''} style="width:22px;height:22px;flex:none">
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:700;font-size:14px">${esc(r.partNumber)}</div>
+          </div>
+          <span class="confdot ${r.confidence}"></span>
+          <select id="clsCat_${i}" style="width:130px;padding:8px">${(cats).map(c=>`<option ${c===r.category?'selected':''}>${esc(c)}</option>`).join('')}</select>
+        </div>`).join('')}
+      <button class="btn block" style="margin-top:12px" onclick='applyClassify(${JSON.stringify(results.map(r=>r.partNumber))})'>✅ チェックした工具に適用</button>
+      <button class="btn gray block" style="margin-top:8px" onclick="showAiSortBanner()">キャンセル</button>
+      <p style="font-size:11px;color:var(--sub);margin:8px 0 0">🟢=確実 🟡=たぶん 🔴=自信なし（🔴は初めからチェックを外しています）</p>
+    </div>`;
+  }catch(e){ console.error(e); el.innerHTML=`<div class="pninfo warn">⚠ ${esc(e.message||'AI仕分けに失敗しました')}</div>`; }
+  finally{ _clsBusy=false; }
+}
+async function applyClassify(pns){
+  let applied=0;
+  for(let i=0;i<pns.length;i++){
+    const cb=document.getElementById('cls_'+i); if(!cb||!cb.checked) continue;
+    const cat=val('clsCat_'+i); if(!cat) continue;
+    const t=await DB.get('tools', pns[i]); if(!t) continue;
+    await DB.put('tools', {...t, category:cat, updatedAt:new Date().toISOString()});
+    applied++;
+  }
+  toast(applied+'件を仕分けしました ✅');
+  showAiSortBanner();
   doToolsList();
 }
 async function doToolsList(){
@@ -1587,7 +1641,7 @@ async function doToolsList(){
     if(cat && (it.tool.category||'')!==cat) return false;
     if(shop && !it.st.sorted.some(p=>p.shop===shop)) return false;
     if(!kw) return true;
-    return [it.pn, it.tool.name, it.tool.maker, it.tool.usage].some(f=>(f||'').toLowerCase().includes(kw));
+    return [it.pn, it.tool.name, it.tool.maker, it.tool.memo, it.tool.usage].some(f=>(f||'').toLowerCase().includes(kw));
   });
   const sorters = {
     recent:(a,b)=>(b.lastDate||'').localeCompare(a.lastDate||''),
@@ -1796,7 +1850,7 @@ async function saveSupplier(id){
 }
 
 /* ===================== AI-OCR（解析・確認画面・下書き） ===================== */
-const AI_ENDPOINT = 'https://creating-visual-explainers-cyan.vercel.app/api/ocr';
+const AI_ENDPOINT = 'https://creating-visual-explainers-cyan.vercel.app/api/tool-ocr';
 let _aiBusy = false;   // 二重送信防止
 
 async function aiAnalyze(existingDraftId){
@@ -1843,8 +1897,7 @@ async function aiAnalyze(existingDraftId){
 /* OCR確認画面: 上=元画像 / 下=項目別の読み取り結果（信頼度で色分け・全て編集可） */
 const OC_TOOL_FIELDS = [
   ['modelNumber','品番・型番',true],['name','工具名',false],['manufacturer','メーカー',false],
-  ['category','カテゴリ',false],['size','サイズ・寸法',false],['material','材質・被削材',false],
-  ['coating','コーティング',false],['application','用途',false],['notes','備考',false]
+  ['category','カテゴリ',false],['notes','備考',false]
 ];
 const OC_PUR_FIELDS = [
   ['supplier','工具屋',false],['purchaseDate','購入日',false],['unitPrice','単価（円）',true],
@@ -1977,10 +2030,10 @@ async function saveOcr(id){
     name: val('oc_name')||(existing&&existing.name)||'',
     maker: maker||(existing&&existing.maker)||'',
     category: val('oc_category')||(existing&&existing.category)||'',
-    size: val('oc_size')||(existing&&existing.size)||'',
-    material: val('oc_material')||(existing&&existing.material)||'',
-    coating: val('oc_coating')||(existing&&existing.coating)||'',
-    usage: val('oc_application')||(existing&&existing.usage)||'',
+    size: (existing&&existing.size)||'',
+    material: (existing&&existing.material)||'',
+    coating: (existing&&existing.coating)||'',
+    usage: (existing&&existing.usage)||'',
     memo: val('oc_notes')||(existing&&existing.memo)||'',
     createdAt: existing?existing.createdAt:now, updatedAt: now
   });
@@ -2027,8 +2080,8 @@ function parseCsv(text){
 async function exportToolsCsv(){
   const tools = await DB.getAll('tools');
   downloadCsv('kougu_tools_'+new Date().toISOString().slice(0,10)+'.csv',
-    [['品番','工具名','メーカー','カテゴリ','サイズ','材質','コーティング','用途','メモ','登録日']]
-    .concat(tools.map(t=>[t.partNumber,t.name||'',t.maker||'',t.category||'',t.size||'',t.material||'',t.coating||'',t.usage||'',t.memo||'',(t.createdAt||'').slice(0,10)])));
+    [['品番','工具名','メーカー','カテゴリ','備考','登録日']]
+    .concat(tools.map(t=>[t.partNumber,t.name||'',t.maker||'',t.category||'',t.memo||t.usage||'',(t.createdAt||'').slice(0,10)])));
   toast('工具マスターを書き出しました ✅');
 }
 async function exportSuppliersCsv(){
