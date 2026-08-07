@@ -112,6 +112,12 @@
       <h1 id="supName">—</h1>
       <div class="sub">納入明細の入力ページです。納入いただいた材料の明細をご入力のうえ「送信」を押してください。</div>
 
+      <div class="card hidden" id="ordersCard" style="border:2px solid var(--blue)">
+        <div style="font-weight:700;margin-bottom:4px">📋 発注・見積依頼への回答</div>
+        <div class="sub" style="margin-bottom:10px">単価（円/本・税別）をご入力ください。発注の場合は納入予定日もお願いします。</div>
+        <div id="ordersList"></div>
+      </div>
+
       <div class="card">
         <label for="dlvDate">納入日</label>
         <input type="date" id="dlvDate" style="max-width: 220px">
@@ -305,6 +311,128 @@
     return { items: items, errs: errs };
   }
 
+  /* 発注・見積依頼への回答 */
+  function renderOrder(o) {
+    var box = document.createElement('div');
+    box.className = 'row-card';
+    box.style.marginBottom = '12px';
+    var isOpen = o.status === 'sent';
+    var head = document.createElement('div');
+    head.style.cssText = 'font-weight:700;margin-bottom:8px';
+    head.textContent = o.kindLabel + '（' + o.created + '）' +
+      (isOpen ? '' : ' — 回答済み' + (o.deliveryDate ? '・納入予定 ' + o.deliveryDate : ''));
+    if (isOpen) {
+      var badge = document.createElement('span');
+      badge.style.cssText = 'color:var(--red);font-size:12px;margin-left:8px';
+      badge.textContent = '← ご回答をお願いします';
+      head.appendChild(badge);
+    }
+    box.appendChild(head);
+    if (o.note) {
+      var noteEl = document.createElement('div');
+      noteEl.style.cssText = 'font-size:13px;color:var(--muted);margin-bottom:8px';
+      noteEl.textContent = '備考: ' + o.note;
+      box.appendChild(noteEl);
+    }
+
+    var tbl = document.createElement('table');
+    tbl.innerHTML = '<thead><tr><th>材質</th><th>サイズ</th><th class="num">本数</th><th class="num">単価（円/本・税別）</th></tr></thead>';
+    var tb = document.createElement('tbody');
+    o.items.forEach(function (it) {
+      var tr = document.createElement('tr');
+      var priceCell = isOpen
+        ? '<td class="num"><input type="text" class="a-p" inputmode="numeric" placeholder="例: 1500" style="max-width:120px;text-align:right"></td>'
+        : '<td class="num">' + (it.unitPrice != null ? Number(it.unitPrice).toLocaleString('ja-JP') + ' 円' : '—') + '</td>';
+      tr.innerHTML =
+        '<td>' + matLabel(it.materialKey) + '</td>' +
+        '<td style="white-space:nowrap">φ' + it.d + '×' + it.l + '</td>' +
+        '<td class="num">' + it.qty + '</td>' + priceCell;
+      tb.appendChild(tr);
+    });
+    tbl.appendChild(tb);
+    var scroll = document.createElement('div');
+    scroll.className = 'hist-scroll';
+    scroll.appendChild(tbl);
+    box.appendChild(scroll);
+
+    if (isOpen) {
+      var foot = document.createElement('div');
+      foot.style.cssText = 'display:flex;gap:10px;align-items:end;flex-wrap:wrap;margin-top:10px';
+      var dateInput = null;
+      if (o.kind === 'order') {
+        var dwrap = document.createElement('div');
+        dwrap.innerHTML = '<label>納入予定日</label>';
+        dateInput = document.createElement('input');
+        dateInput.type = 'date';
+        dwrap.appendChild(dateInput);
+        foot.appendChild(dwrap);
+      }
+      var sendBtn = document.createElement('button');
+      sendBtn.type = 'button';
+      sendBtn.className = 'btn btn-primary';
+      sendBtn.style.cssText = 'width:auto;padding:12px 24px;font-size:16px;margin:0';
+      sendBtn.textContent = '回答を送信';
+      var msg = document.createElement('span');
+      msg.className = 'msg-err';
+      msg.style.fontSize = '13px';
+      foot.appendChild(sendBtn);
+      foot.appendChild(msg);
+      box.appendChild(foot);
+
+      sendBtn.addEventListener('click', function () {
+        var prices = Array.prototype.map.call(box.querySelectorAll('.a-p'), function (el) {
+          var v = parseFloat(toHalf(el.value));
+          return isFinite(v) && v > 0 ? Math.round(v) : null;
+        });
+        if (!prices.some(function (p) { return p != null; })) {
+          msg.textContent = '単価を1行以上入力してください';
+          return;
+        }
+        if (o.kind === 'order' && dateInput && !dateInput.value) {
+          msg.textContent = '納入予定日を選んでください';
+          return;
+        }
+        if (!confirm('この内容で回答を送信します。よろしいですか？')) return;
+        sendBtn.disabled = true;
+        msg.textContent = '';
+        fetch('/api/nonyu/orders/' + encodeURIComponent(o.id) + '/answer', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            k: KEY,
+            unitPrices: prices,
+            deliveryDate: dateInput ? dateInput.value : '',
+          }),
+        }).then(function (res) {
+          return res.json().then(function (b) {
+            if (!res.ok) throw new Error((b && b.error) || res.statusText);
+          });
+        }).then(function () {
+          loadOrders();
+          loadRecent();
+        }).catch(function (err) {
+          msg.textContent = '送信できませんでした: ' + (err && err.message ? err.message : err);
+          sendBtn.disabled = false;
+        });
+      });
+    }
+    return box;
+  }
+
+  function loadOrders() {
+    fetch('/api/nonyu/orders?k=' + encodeURIComponent(KEY)).then(function (res) {
+      return res.json();
+    }).then(function (body) {
+      var orders = Array.isArray(body.orders) ? body.orders : [];
+      var card = $('ordersCard');
+      if (!orders.length) { card.classList.add('hidden'); return; }
+      card.classList.remove('hidden');
+      var wrap = $('ordersList');
+      wrap.innerHTML = '';
+      orders.forEach(function (o) { wrap.appendChild(renderOrder(o)); });
+    }).catch(function () { /* 回答欄は補助なので黙ってスキップ */ });
+  }
+
   function loadRecent() {
     fetch('/api/nonyu/recent?k=' + encodeURIComponent(KEY)).then(function (res) {
       return res.json();
@@ -391,6 +519,7 @@
       $('main').classList.remove('hidden');
       $('dlvDate').value = todayISO();
       addRow();
+      loadOrders();
       loadRecent();
     }).catch(function (err) {
       $('loading').classList.add('hidden');

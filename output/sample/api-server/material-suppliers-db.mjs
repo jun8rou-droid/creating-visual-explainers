@@ -53,28 +53,43 @@ function badRequest(msg) {
   return e;
 }
 
+function normalizeEmail(email) {
+  const e = String(email || '').trim().slice(0, 200);
+  if (e && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) throw badRequest('メールアドレスの形式を確認してください');
+  return e;
+}
+
 export async function listSuppliers() {
   const res = await query(
-    `SELECT id, name, access_key, disabled, to_char(created_at, 'YYYY-MM-DD') AS created
+    `SELECT id, name, access_key, email, disabled, to_char(created_at, 'YYYY-MM-DD') AS created
      FROM material_suppliers ORDER BY created_at`,
   );
   return res.rows.map((r) => ({
-    id: r.id, name: r.name, accessKey: r.access_key, disabled: r.disabled, created: r.created,
+    id: r.id, name: r.name, accessKey: r.access_key, email: r.email || '',
+    disabled: r.disabled, created: r.created,
   }));
 }
 
-export async function createSupplier(name) {
+export async function createSupplier(name, email) {
   const n = String(name || '').trim().slice(0, 100);
   if (!n) throw badRequest('取引先名を入力してください');
+  const em = normalizeEmail(email);
   const dup = await query('SELECT 1 FROM material_suppliers WHERE name = $1 AND NOT disabled', [n]);
   if (dup.rows.length) throw badRequest('同じ名前の取引先がすでにあります');
   const id = 'ms_' + crypto.randomBytes(6).toString('hex');
   const key = crypto.randomBytes(9).toString('base64url');
   await query(
-    'INSERT INTO material_suppliers (id, name, access_key) VALUES ($1, $2, $3)',
-    [id, n, key],
+    'INSERT INTO material_suppliers (id, name, access_key, email) VALUES ($1, $2, $3, $4)',
+    [id, n, key, em],
   );
-  return { id, name: n, accessKey: key, disabled: false };
+  return { id, name: n, accessKey: key, email: em, disabled: false };
+}
+
+export async function updateSupplierEmail(id, email) {
+  const em = normalizeEmail(email);
+  const res = await query('UPDATE material_suppliers SET email = $2 WHERE id = $1', [String(id || ''), em]);
+  if (!res.rowCount) throw badRequest('取引先が見つかりません');
+  return { ok: true, email: em };
 }
 
 export async function deleteSupplier(id) {
@@ -94,7 +109,7 @@ export async function getSupplierByKey(key) {
 }
 
 /** d は丸棒＝直径φ／六角＝対辺。六角（キーが_HEX）は対辺²×√3/2 の断面で計算 */
-function kgOneBar(d, l, rho, matKey) {
+export function kgOneBar(d, l, rho, matKey) {
   const areaMm2 = /_HEX$/.test(String(matKey || ''))
     ? (Math.sqrt(3) / 2) * d * d
     : Math.PI * (d / 2) * (d / 2);

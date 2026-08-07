@@ -47,7 +47,16 @@ import {
   insertDeliveries,
   listRecentBySupplier,
   listSuppliers,
+  updateSupplierEmail,
 } from './material-suppliers-db.mjs';
+import {
+  answerOrder,
+  createOrder,
+  deleteOrder,
+  listOrders,
+  listOrdersForSupplier,
+} from './orders-db.mjs';
+import { isMailEnabled, sendMail } from './mailer.mjs';
 import { extractPurchaseRowsClaude, isClaudeOcrEnabled } from './purchase-ocr.mjs';
 import { analyzeDrawing, getVisionStatus, isVisionEnabled } from './vision-router.mjs';
 import {
@@ -300,10 +309,128 @@ app.get('/api/material-suppliers', async (req, res) => {
 app.post('/api/material-suppliers', async (req, res) => {
   if (!isDbEnabled()) return res.status(503).json({ error: 'DATABASE_URL が未設定です' });
   try {
-    res.json(await createSupplier(req.body && req.body.name));
+    res.json(await createSupplier(req.body && req.body.name, req.body && req.body.email));
   } catch (err) {
     console.error('[suppliers post]', err);
     res.status(err.status || 500).json({ error: err.message || '取引先の登録に失敗しました' });
+  }
+});
+
+app.patch('/api/material-suppliers/:id', async (req, res) => {
+  if (!isDbEnabled()) return res.status(503).json({ error: 'DATABASE_URL が未設定です' });
+  try {
+    res.json(await updateSupplierEmail(req.params.id, req.body && req.body.email));
+  } catch (err) {
+    console.error('[suppliers patch]', err);
+    res.status(err.status || 500).json({ error: err.message || 'メールアドレスの保存に失敗しました' });
+  }
+});
+
+/* ---- 発注・見積依頼 ---- */
+
+function portalUrlFromReq(req, accessKey) {
+  const proto = String(req.headers['x-forwarded-proto'] || 'https').split(',')[0];
+  const host = String(req.headers['x-forwarded-host'] || req.headers.host || '').split(',')[0];
+  return proto + '://' + host + '/material-nonyu.html?k=' + encodeURIComponent(accessKey);
+}
+
+function orderMailText(order, supplierName, url) {
+  const lines = order.items.map((it, i) =>
+    ' ' + (i + 1) + '. ' + it.label + '  φ' + it.d + '×' + it.l + 'mm  ' + it.qty + '本');
+  const ask = order.kind === 'order' ? '単価と納入予定日' : '単価';
+  return supplierName + ' 様\n\n' +
+    'いつもお世話になっております。（有）日勝ネジです。\n' +
+    '下記の' + order.kindLabel + 'をお送りしました。URLを開いて、' + ask + 'のご入力をお願いいたします。\n\n' +
+    url + '\n\n' +
+    '【明細】\n' + lines.join('\n') + '\n' +
+    (order.note ? '\n【備考】\n' + order.note + '\n' : '') +
+    '\n※このメールはシステムからの自動送信です。ご不明点は日勝ネジまでお願いいたします。';
+}
+
+app.post('/api/material-orders', async (req, res) => {
+  if (!isDbEnabled()) return res.status(503).json({ error: 'DATABASE_URL が未設定です' });
+  try {
+    const body = req.body || {};
+    const { order, supplier } = await createOrder(body.supplierId, body.kind, body.items, body.note);
+    let mail = { ok: false, error: '' };
+    if (!isMailEnabled()) {
+      mail.error = 'メール未設定のため送信していません（URLを手動で伝えてください）';
+    } else if (!supplier.email) {
+      mail.error = '取引先のメールアドレスが未登録のため送信していません';
+    } else {
+      mail = await sendMail({
+        to: supplier.email,
+        subject: '【' + order.kindLabel + '】（有）日勝ネジより 材料の' + order.kindLabel + '（' + order.items.length + '件）',
+        text: orderMailText(order, supplier.name, portalUrlFromReq(req, supplier.access_key)),
+      });
+    }
+    res.json({ order, mailSent: mail.ok, mailError: mail.ok ? '' : mail.error });
+  } catch (err) {
+    console.error('[orders post]', err);
+    res.status(err.status || 500).json({ error: err.message || '依頼の作成に失敗しました' });
+  }
+});
+
+app.get('/api/material-orders', async (req, res) => {
+  if (!isDbEnabled()) return res.status(503).json({ error: 'DATABASE_URL が未設定です' });
+  try {
+    res.json({ orders: await listOrders(), mailEnabled: isMailEnabled() });
+  } catch (err) {
+    console.error('[orders get]', err);
+    res.status(500).json({ error: '依頼一覧の取得に失敗しました' });
+  }
+});
+
+app.delete('/api/material-orders/:id', async (req, res) => {
+  if (!isDbEnabled()) return res.status(503).json({ error: 'DATABASE_URL が未設定です' });
+  try {
+    res.json(await deleteOrder(req.params.id));
+  } catch (err) {
+    console.error('[orders delete]', err);
+    res.status(err.status || 500).json({ error: err.message || '依頼の削除に失敗しました' });
+  }
+});
+
+/** 材料屋さん側: 自社宛の発注・見積依頼一覧 */
+app.get('/api/nonyu/orders', async (req, res) => {
+  if (!isDbEnabled()) return res.status(503).json({ error: 'ただいま準備中です' });
+  try {
+    const sup = await getSupplierByKey(req.query.k);
+    if (!sup) return res.status(403).json({ error: 'この URL は無効です' });
+    res.json({ orders: await listOrdersForSupplier(sup.id) });
+  } catch (err) {
+    console.error('[nonyu orders]', err);
+    res.status(500).json({ error: '依頼の取得に失敗しました' });
+  }
+});
+
+/** 材料屋さん側: 単価（＋発注は納入予定日）の回答 */
+app.post('/api/nonyu/orders/:id/answer', async (req, res) => {
+  if (!isDbEnabled()) return res.status(503).json({ error: 'ただいま準備中です' });
+  try {
+    const body = req.body || {};
+    const sup = await getSupplierByKey(body.k);
+    if (!sup) return res.status(403).json({ error: 'この URL は無効です' });
+    const result = await answerOrder(sup, req.params.id, body);
+    /* 自分（管理者）宛の通知。失敗しても回答は成立させる */
+    if (isMailEnabled()) {
+      const o = result.order;
+      const lines = o.items.map((it, i) =>
+        ' ' + (i + 1) + '. ' + it.label + ' φ' + it.d + '×' + it.l + ' ' + it.qty + '本 → ' +
+        (it.unitPrice != null ? it.unitPrice.toLocaleString('ja-JP') + '円/本' : '（回答なし）'));
+      sendMail({
+        to: process.env.GMAIL_USER,
+        subject: '【回答あり】' + sup.name + ' より ' + o.kindLabel + 'の回答（' + o.items.length + '件）',
+        text: sup.name + ' から' + o.kindLabel + 'の回答が届きました。\n\n' +
+          (o.deliveryDate ? '納入予定日: ' + o.deliveryDate + '（手配中）\n' : '') +
+          '\n【回答明細】\n' + lines.join('\n') + '\n\n' +
+          '単価は蓄積データへ自動登録済みです（' + result.registered + '件）。',
+      }).catch(() => {});
+    }
+    res.json(result);
+  } catch (err) {
+    console.error('[nonyu answer]', err);
+    res.status(err.status || 500).json({ error: err.message || '回答の送信に失敗しました。時間をおいてお試しください' });
   }
 });
 

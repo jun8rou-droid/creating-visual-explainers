@@ -397,6 +397,7 @@
       <button type="button" class="tab-btn" data-panel="p-add">データ追加</button>
       <button type="button" class="tab-btn" data-panel="p-ocr">スキャンOCR</button>
       <button type="button" class="tab-btn" data-panel="p-import">CSV取込</button>
+      <button type="button" class="tab-btn" data-panel="p-order">発注・見積依頼</button>
       <button type="button" class="tab-btn" data-panel="p-list">履歴・バックアップ</button>
     </div>
 
@@ -662,6 +663,55 @@
       </div>
     </div>
 
+    <!-- 発注・見積依頼 -->
+    <div id="p-order" class="panel">
+      <div class="card">
+        <h2>新しい発注・見積依頼</h2>
+        <p class="stat">
+          送信すると取引先へ<strong>メールで自動通知</strong>されます（専用URL付き）。取引先はURLを開いて
+          <strong>単価（発注は＋納入予定日）</strong>を入力するだけ。回答された単価は蓄積データへ自動登録されます。
+        </p>
+        <div class="grid2">
+          <div class="row">
+            <label>取引先</label>
+            <select id="ordSupplier"></select>
+          </div>
+          <div class="row">
+            <label>種別</label>
+            <select id="ordKind">
+              <option value="order">発注（単価＋納入予定日を回答してもらう）</option>
+              <option value="quote">見積依頼（単価だけ回答してもらう）</option>
+            </select>
+          </div>
+        </div>
+        <div style="overflow-x:auto;margin-top:8px">
+          <table class="draft-table">
+            <thead><tr><th>材質</th><th>径/対辺(mm)</th><th>長さ(mm)</th><th>本数</th><th></th></tr></thead>
+            <tbody id="ordBody"></tbody>
+          </table>
+        </div>
+        <button type="button" class="btn btn-secondary" id="btnOrdAddRow">行を追加</button>
+        <div class="row" style="margin-top:10px">
+          <label>備考（任意・メールに載ります）</label>
+          <input type="text" id="ordNote" placeholder="例: 8/20 までに納入希望">
+        </div>
+        <button type="button" class="btn btn-primary" id="btnOrdSend">送信する</button>
+        <p class="stat" id="ordMsg" style="white-space:pre-wrap"></p>
+      </div>
+      <div class="card">
+        <h2>依頼の一覧・状況</h2>
+        <p class="stat" id="ordListStat"></p>
+        <div style="overflow-x:auto">
+          <table>
+            <thead>
+              <tr><th>作成</th><th>種別</th><th>取引先</th><th>明細と回答</th><th>状況</th><th>納入予定</th><th style="width:64px"></th></tr>
+            </thead>
+            <tbody id="ordListBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
     <!-- 一覧 -->
     <div id="p-list" class="panel">
       <div class="card">
@@ -679,13 +729,14 @@
           （仕入先名は取引先名・メモ「材料屋さん入力」で記録）。
         </p>
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
-          <input type="text" id="supNewName" placeholder="取引先名（例: ○○金属）" style="max-width:260px">
+          <input type="text" id="supNewName" placeholder="取引先名（例: ○○金属）" style="max-width:220px">
+          <input type="email" id="supNewEmail" placeholder="通知メール（例: aa@bb.co.jp）" style="max-width:260px">
           <button type="button" class="btn btn-primary" id="btnSupAdd" style="margin:0">登録してURL発行</button>
         </div>
         <div style="overflow-x:auto">
           <table>
-            <thead><tr><th>取引先</th><th>専用URL</th><th style="width:170px">操作</th></tr></thead>
-            <tbody id="supBody"><tr><td colspan="3" class="stat">読み込み中…</td></tr></tbody>
+            <thead><tr><th>取引先</th><th>通知メール</th><th>専用URL</th><th style="width:240px">操作</th></tr></thead>
+            <tbody id="supBody"><tr><td colspan="4" class="stat">読み込み中…</td></tr></tbody>
           </table>
         </div>
         <p class="stat" id="supMsg"></p>
@@ -2524,6 +2575,7 @@
       document.getElementById(btn.dataset.panel).classList.add('active');
       if (btn.dataset.panel === 'p-list') renderList();
       if (btn.dataset.panel === 'p-est') refreshQuoSupplierDatalist();
+      if (btn.dataset.panel === 'p-order' && window.refreshOrderTab) window.refreshOrderTab();
     });
   });
 
@@ -3101,7 +3153,7 @@
     function renderSuppliers(list) {
       if (!list.length) {
         bodyEl.innerHTML =
-          '<tr><td colspan="3" class="stat">まだ登録がありません。取引先名を入れて「登録してURL発行」を押してください。</td></tr>';
+          '<tr><td colspan="4" class="stat">まだ登録がありません。取引先名を入れて「登録してURL発行」を押してください。</td></tr>';
         return;
       }
       bodyEl.innerHTML = '';
@@ -3110,10 +3162,29 @@
         var tr = document.createElement('tr');
         tr.innerHTML =
           '<td style="white-space:nowrap">' + escapeHtml(s.name) + '</td>' +
+          '<td style="font-size:11px;word-break:break-all">' +
+          (s.email ? escapeHtml(s.email) : '<span style="color:var(--amber)">未登録（メール通知不可）</span>') + '</td>' +
           '<td style="font-size:11px;word-break:break-all">' + escapeHtml(url) + '</td>' +
           '<td style="white-space:nowrap">' +
           '<button type="button" class="btn btn-secondary sup-copy" style="padding:4px 8px;font-size:11px;margin:0 6px 0 0">URLコピー</button>' +
+          '<button type="button" class="btn btn-secondary sup-mail" style="padding:4px 8px;font-size:11px;margin:0 6px 0 0">メール設定</button>' +
           '<button type="button" class="btn btn-danger sup-del" style="padding:4px 8px;font-size:11px;margin:0">削除</button></td>';
+        tr.querySelector('.sup-mail').addEventListener('click', function () {
+          var em = window.prompt(s.name + ' の通知メールアドレスを入力してください（空にすると解除）', s.email || '');
+          if (em == null) return;
+          fetch('/api/material-suppliers/' + encodeURIComponent(s.id), {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: em.trim() }),
+          }).then(function (res) {
+            return res.json().then(function (b) {
+              if (!res.ok) throw new Error((b && b.error) || res.statusText);
+            });
+          }).then(function () {
+            setSupMsg(s.name + ' の通知メールを保存しました', false);
+            loadSuppliers();
+          }).catch(function (err) { setSupMsg('保存に失敗: ' + err.message, true); });
+        });
         tr.querySelector('.sup-copy').addEventListener('click', function () {
           var p = navigator.clipboard && navigator.clipboard.writeText
             ? navigator.clipboard.writeText(url)
@@ -3153,18 +3224,19 @@
         .then(function (b) { renderSuppliers(Array.isArray(b.suppliers) ? b.suppliers : []); })
         .catch(function (err) {
           bodyEl.innerHTML =
-            '<tr><td colspan="3" class="stat">取得できませんでした（' + escapeHtml(err.message) + '）</td></tr>';
+            '<tr><td colspan="4" class="stat">取得できませんでした（' + escapeHtml(err.message) + '）</td></tr>';
         });
     }
 
     document.getElementById('btnSupAdd').addEventListener('click', function () {
       var nameEl = document.getElementById('supNewName');
+      var emailEl = document.getElementById('supNewEmail');
       var name = nameEl.value.trim();
       if (!name) { setSupMsg('取引先名を入力してください', true); return; }
       fetch('/api/material-suppliers', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: name }),
+        body: JSON.stringify({ name: name, email: emailEl ? emailEl.value.trim() : '' }),
       })
         .then(function (res) {
           return res.json().then(function (b) {
@@ -3174,6 +3246,7 @@
         })
         .then(function (s) {
           nameEl.value = '';
+          if (emailEl) emailEl.value = '';
           setSupMsg(s.name + ' を登録しました。「URLコピー」で専用URLを渡してください', false);
           loadSuppliers();
         })
@@ -3181,6 +3254,173 @@
     });
 
     loadSuppliers();
+  })();
+
+  /* v36: 発注・見積依頼タブ */
+  (function () {
+    var ordBody = document.getElementById('ordBody');
+    if (!ordBody) return;
+
+    function setOrdMsg(t, isErr) {
+      var el = document.getElementById('ordMsg');
+      el.textContent = t;
+      el.style.color = isErr ? '#f87171' : '#34d399';
+    }
+
+    function ordAddRow() {
+      var tr = document.createElement('tr');
+      tr.innerHTML =
+        '<td><select class="o-mat">' + buildMaterialOptionsHtml('SUS304_MIG') + '</select></td>' +
+        '<td><input type="number" class="o-d" step="1" min="0" placeholder="25"></td>' +
+        '<td><input type="number" class="o-l" step="1" min="0" placeholder="4000"></td>' +
+        '<td><input type="number" class="o-q" step="1" min="1" value="1"></td>' +
+        '<td><button type="button" class="btn-draft-del">削除</button></td>';
+      tr.querySelector('.btn-draft-del').addEventListener('click', function () { tr.remove(); });
+      var prev = ordBody.lastElementChild;
+      if (prev) tr.querySelector('.o-mat').value = prev.querySelector('.o-mat').value;
+      ordBody.appendChild(tr);
+      return tr;
+    }
+
+    function loadOrdSuppliers() {
+      fetch('/api/material-suppliers').then(function (res) { return res.json(); }).then(function (b) {
+        var list = Array.isArray(b.suppliers) ? b.suppliers : [];
+        var sel = document.getElementById('ordSupplier');
+        var cur = sel.value;
+        sel.innerHTML = list.map(function (s) {
+          return '<option value="' + escapeAttr(s.id) + '">' + escapeHtml(s.name) +
+            (s.email ? '' : '（メール未登録）') + '</option>';
+        }).join('') || '<option value="">先に履歴タブで取引先を登録してください</option>';
+        if (cur) sel.value = cur;
+      }).catch(function () {});
+    }
+
+    var ORD_STATUS = function (o) {
+      if (o.status === 'sent') return { label: '依頼中', color: 'var(--amber)' };
+      if (o.kind === 'order') return { label: '手配中（回答あり）', color: 'var(--green)' };
+      return { label: '回答あり', color: 'var(--green)' };
+    };
+
+    function renderOrderList(orders, mailEnabled) {
+      var stat = document.getElementById('ordListStat');
+      stat.textContent = mailEnabled
+        ? ''
+        : '※メール送信が未設定です（GMAIL_USER / GMAIL_APP_PASSWORD）。送信しても通知は飛ばず、URLの手動連絡が必要です。';
+      var tb = document.getElementById('ordListBody');
+      if (!orders.length) {
+        tb.innerHTML = '<tr><td colspan="7" class="stat">まだ依頼はありません。</td></tr>';
+        return;
+      }
+      tb.innerHTML = '';
+      orders.forEach(function (o) {
+        var st = ORD_STATUS(o);
+        var itemsHtml = o.items.map(function (it) {
+          return escapeHtml(it.label) + ' φ' + it.d + '×' + it.l + ' ' + it.qty + '本' +
+            (it.unitPrice != null
+              ? ' → <strong style="color:var(--green)">' + Number(it.unitPrice).toLocaleString('ja-JP') + '円/本</strong>'
+              : '');
+        }).join('<br>');
+        if (o.note) itemsHtml += '<br><span style="color:var(--muted)">備考: ' + escapeHtml(o.note) + '</span>';
+        var tr = document.createElement('tr');
+        tr.innerHTML =
+          '<td style="white-space:nowrap;font-size:11px">' + escapeHtml(o.created) + '</td>' +
+          '<td style="white-space:nowrap">' + escapeHtml(o.kindLabel) + '</td>' +
+          '<td style="white-space:nowrap">' + escapeHtml(o.supplierName || '') + '</td>' +
+          '<td style="font-size:11px;line-height:1.7">' + itemsHtml + '</td>' +
+          '<td style="white-space:nowrap;color:' + st.color + ';font-weight:700">' + st.label + '</td>' +
+          '<td style="white-space:nowrap">' + (o.deliveryDate || '—') + '</td>' +
+          '<td><button type="button" class="btn btn-danger o-del" style="padding:4px 8px;font-size:11px;margin:0">削除</button></td>';
+        tr.querySelector('.o-del').addEventListener('click', function () {
+          if (!confirm('この' + o.kindLabel + 'を削除しますか？（取引先の画面からも消えます）')) return;
+          fetch('/api/material-orders/' + encodeURIComponent(o.id), { method: 'DELETE' })
+            .then(function (res) { return res.json().then(function (b) { if (!res.ok) throw new Error((b && b.error) || res.statusText); }); })
+            .then(refreshOrderTab)
+            .catch(function (err) { setOrdMsg('削除に失敗: ' + err.message, true); });
+        });
+        tb.appendChild(tr);
+      });
+    }
+
+    function loadOrderList() {
+      fetch('/api/material-orders').then(function (res) {
+        return res.json().then(function (b) {
+          if (!res.ok) throw new Error((b && b.error) || res.statusText);
+          return b;
+        });
+      }).then(function (b) {
+        renderOrderList(Array.isArray(b.orders) ? b.orders : [], b.mailEnabled);
+      }).catch(function (err) {
+        document.getElementById('ordListBody').innerHTML =
+          '<tr><td colspan="7" class="stat">取得できませんでした（' + escapeHtml(err.message) + '）</td></tr>';
+      });
+    }
+
+    window.refreshOrderTab = function () {
+      loadOrdSuppliers();
+      loadOrderList();
+      if (!ordBody.children.length) ordAddRow();
+    };
+
+    document.getElementById('btnOrdAddRow').addEventListener('click', function () {
+      ordAddRow().querySelector('.o-d').focus();
+    });
+
+    document.getElementById('btnOrdSend').addEventListener('click', function () {
+      var supplierId = document.getElementById('ordSupplier').value;
+      if (!supplierId) { setOrdMsg('取引先を選んでください', true); return; }
+      var kind = document.getElementById('ordKind').value;
+      var items = [];
+      var errs = [];
+      Array.prototype.forEach.call(ordBody.children, function (tr, i) {
+        var d = parseFloat(tr.querySelector('.o-d').value);
+        var l = parseFloat(tr.querySelector('.o-l').value);
+        var q = parseInt(tr.querySelector('.o-q').value, 10);
+        if (isNaN(d) && isNaN(l)) return; /* 未記入行は無視 */
+        if (isNaN(d) || d <= 0 || isNaN(l) || l <= 0 || isNaN(q) || q <= 0) {
+          errs.push((i + 1) + '行目: 径・長さ・本数を入力してください');
+          return;
+        }
+        items.push({ materialKey: tr.querySelector('.o-mat').value, d: d, l: l, qty: q });
+      });
+      if (errs.length) { setOrdMsg(errs.join('\n'), true); return; }
+      if (!items.length) { setOrdMsg('明細を1行以上入力してください', true); return; }
+      var kindLabel = kind === 'order' ? '発注' : '見積依頼';
+      if (!confirm(kindLabel + 'を送信します。よろしいですか？（' + items.length + '行）')) return;
+      var btn = document.getElementById('btnOrdSend');
+      btn.disabled = true;
+      setOrdMsg('送信しています…', false);
+      fetch('/api/material-orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          supplierId: supplierId,
+          kind: kind,
+          items: items,
+          note: document.getElementById('ordNote').value.trim(),
+        }),
+      }).then(function (res) {
+        return res.json().then(function (b) {
+          if (!res.ok) throw new Error((b && b.error) || res.statusText);
+          return b;
+        });
+      }).then(function (b) {
+        setOrdMsg(
+          b.mailSent
+            ? kindLabel + 'を送信し、メールで通知しました。'
+            : kindLabel + 'は作成しました。ただし ' + (b.mailError || 'メール通知は送れていません') +
+              '。取引先の専用URL（履歴タブでコピー）を直接伝えてください。',
+          !b.mailSent
+        );
+        ordBody.innerHTML = '';
+        ordAddRow();
+        document.getElementById('ordNote').value = '';
+        loadOrderList();
+      }).catch(function (err) {
+        setOrdMsg('送信に失敗: ' + err.message, true);
+      }).finally(function () {
+        btn.disabled = false;
+      });
+    });
   })();
 
   /* v30: タブへ戻ってきたら材料屋さんの追記を取り込む（保存待ち・保存中は触らない） */
