@@ -421,7 +421,8 @@ app.post('/api/nonyu/orders/:id/answer', async (req, res) => {
         ' ' + (i + 1) + '. ' + it.label + ' φ' + it.d + '×' + it.l + ' ' + it.qty + '本 → ' +
         (it.unitPrice != null ? it.unitPrice.toLocaleString('ja-JP') + '円/本' : '（回答なし）'));
       sendMail({
-        to: process.env.GMAIL_USER,
+        /* 回答通知の宛先。ORDER_NOTIFY_EMAIL 未設定なら送信元（会社Gmail）宛て */
+        to: process.env.ORDER_NOTIFY_EMAIL || process.env.GMAIL_USER,
         subject: '【回答あり】' + sup.name + ' より ' + o.kindLabel + 'の回答（' + o.items.length + '件）',
         text: sup.name + ' から' + o.kindLabel + 'の回答が届きました。\n\n' +
           (o.deliveryDate ? '納入予定日: ' + o.deliveryDate + '（手配中）\n' : '') +
