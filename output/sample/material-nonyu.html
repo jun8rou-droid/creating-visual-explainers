@@ -130,7 +130,7 @@
       <div class="card hidden" id="ordersCard">
         <div style="font-weight:700;margin-bottom:4px">📋 発注・見積のご依頼</div>
         <div class="sub" style="margin-bottom:10px">
-          <span class="kind-badge order" style="font-size:11px">発注</span>単価と納入予定日を入れて「手配を登録」
+          <span class="kind-badge order" style="font-size:11px">発注</span>単価と納入予定日を入れて「入力完了」
           ／ <span class="kind-badge quote" style="font-size:11px">見積依頼</span>単価を入れて「見積を送信」
         </div>
         <div id="ordersList"></div>
@@ -399,7 +399,7 @@
       sendBtn.className = 'btn btn-primary';
       sendBtn.style.cssText = 'width:auto;padding:12px 24px;font-size:16px;margin:0' +
         (isOrder ? '' : ';background:#d97706');
-      sendBtn.textContent = isOrder ? '手配を登録' : '見積を送信';
+      sendBtn.textContent = isOrder ? '入力完了' : '見積を送信';
       var msg = document.createElement('span');
       msg.className = 'msg-err';
       msg.style.fontSize = '13px';
@@ -421,7 +421,7 @@
           return;
         }
         if (!confirm(isOrder
-          ? 'この内容で手配を登録します。よろしいですか？'
+          ? 'この内容で入力を完了します。よろしいですか？'
           : 'この内容で見積を送信します。よろしいですか？')) return;
         sendBtn.disabled = true;
         msg.textContent = '';
