@@ -261,11 +261,16 @@
     var d = parseFloat(toHalf(card.querySelector('.f-d').value));
     var l = parseFloat(toHalf(card.querySelector('.f-l').value));
     var q = parseInt(toHalf(card.querySelector('.f-q').value), 10);
+    var t = parseFloat(toHalf(card.querySelector('.f-t').value));
     var el = card.querySelector('.kg');
     if (!isFinite(d) || d <= 0 || !isFinite(l) || l <= 0) { el.textContent = ''; return; }
     var mk = card.querySelector('.f-mat').value;
     var kg = kgOneBar(d, l, matRho(mk), mk) * (isFinite(q) && q > 0 ? q : 1);
-    el.textContent = '参考重量: 約 ' + (Math.round(kg * 100) / 100) + ' kg';
+    var text = '参考重量: 約 ' + (Math.round(kg * 100) / 100) + ' kg';
+    if (isFinite(t) && t > 0 && kg > 0) {
+      text += '（単価換算 約 ' + Math.round(t / kg).toLocaleString('ja-JP') + ' 円/kg）';
+    }
+    el.textContent = text;
   }
 
   function renumber() {
@@ -293,7 +298,7 @@
       '<div><label>径 φ（mm）</label><input class="f-d" type="text" inputmode="decimal" placeholder="例: 25"></div>' +
       '<div><label>長さ（mm）</label><input class="f-l" type="text" inputmode="decimal" placeholder="例: 4000"></div>' +
       '<div><label>本数</label><input class="f-q" type="text" inputmode="numeric" value="1"></div>' +
-      '<div><label>金額（円・税別合計）</label><input class="f-t" type="text" inputmode="numeric" placeholder="例: 15000"></div>' +
+      '<div><label>この行の合計金額（単価×本数・税別）</label><input class="f-t" type="text" inputmode="numeric" placeholder="例: 15000"></div>' +
       '</div><div class="kg"></div>';
     $('rows').appendChild(card);
 
@@ -301,7 +306,7 @@
       card.remove();
       renumber();
     });
-    ['.f-mat', '.f-d', '.f-l', '.f-q'].forEach(function (sel) {
+    ['.f-mat', '.f-d', '.f-l', '.f-q', '.f-t'].forEach(function (sel) {
       card.querySelector(sel).addEventListener('input', function () { updateRowKg(card); });
       card.querySelector(sel).addEventListener('change', function () { updateRowKg(card); });
     });
@@ -374,7 +379,7 @@
     head.appendChild(document.createTextNode('（' + o.created + '）' + (isOpen ? '' : doneText)));
     if (isOpen) {
       var ask = document.createElement('span');
-      ask.style.cssText = 'color:var(--red);font-size:12px;margin-left:8px;font-weight:600';
+      ask.style.cssText = 'display:block;color:var(--red);font-size:14px;margin:4px 0 0;font-weight:600';
       ask.textContent = isOrder
         ? '単価と納入予定日のご入力をお願いします'
         : '単価のご記入をお願いします';

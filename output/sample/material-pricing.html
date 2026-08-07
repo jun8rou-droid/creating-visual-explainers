@@ -89,7 +89,7 @@
     }
     label {
       display: block;
-      font-size: 11px;
+      font-size: 12px;
       font-weight: 700;
       color: var(--muted);
       margin-bottom: 5px;
@@ -219,7 +219,14 @@
       text-align: left;
       border-bottom: 1px solid var(--border);
     }
-    th { color: var(--muted); font-weight: 700; font-size: 10px; text-transform: uppercase; }
+    th { color: var(--muted); font-weight: 700; font-size: 12px; }
+    /* スマホでは依頼一覧をカード表示に（横スクロール撲滅） */
+    @media (max-width: 640px) {
+      .ord-list-table thead { display: none; }
+      .ord-list-table tr { display: block; border: 1px solid var(--border); border-radius: 10px; padding: 8px 10px; margin-bottom: 10px; }
+      .ord-list-table td { display: block; border: none; padding: 3px 0; white-space: normal !important; }
+      .ord-list-table td::before { content: attr(data-l); color: var(--muted); font-size: 10px; margin-right: 8px; }
+    }
     .draft-table input, .draft-table select {
       min-width: 72px;
       padding: 6px 8px;
@@ -383,11 +390,14 @@
     <div class="beta-banner">
       <strong>ベータ版です。</strong>OCR・推測取込・目安単価は誤りやすいので、実務の見積・請求は必ずご自身で確認してください。仕様は更新されることがあります。
     </div>
-    <p class="lead">
-      請求書の明細を<strong>CSVで取り込む</strong>か<strong>手入力</strong>して蓄積します。同じ径・長さでも本数・仕入先で単価が違う前提で、
-      類似サイズの過去データから<strong>今の目安（円/kg）</strong>を出し、許容内データを<strong>仕入先別</strong>にまとめた<strong>予想金額</strong>も表示します。候補一覧と<strong>手動での単価変更</strong>に対応します。
-      データは<strong>共有DB</strong>に保存され、どのPCからでも同じ記録が見えます（DB未接続時はこの端末に一時保存）。<strong>請求書の写真</strong>は「取込（写真AI・CSV）」タブの<strong>写真からAI取り込み</strong>にドロップすると明細を自動で表に起こせます（登録前にプレビュー確認が前提です）。
-    </p>
+    <details style="margin-bottom:14px;">
+      <summary style="cursor:pointer;font-size:13px;color:var(--muted);font-weight:700;">このツールの使い方を見る ▼</summary>
+      <p class="lead" style="margin-top:8px;">
+        請求書の明細を<strong>CSVで取り込む</strong>か<strong>手入力</strong>して蓄積します。同じ径・長さでも本数・仕入先で単価が違う前提で、
+        類似サイズの過去データから<strong>今の目安（円/kg）</strong>を出し、許容内データを<strong>仕入先別</strong>にまとめた<strong>予想金額</strong>も表示します。候補一覧と<strong>手動での単価変更</strong>に対応します。
+        データは<strong>共有DB</strong>に保存され、どのPCからでも同じ記録が見えます（DB未接続時はこの端末に一時保存）。<strong>請求書の写真</strong>は「取込（写真AI・CSV）」タブの<strong>写真からAI取り込み</strong>にドロップすると明細を自動で表に起こせます（登録前にプレビュー確認が前提です）。
+      </p>
+    </details>
     <p class="lead" style="margin-top:-6px;">
       <a href="index.html" style="color:var(--cyan);font-weight:800;text-decoration:none;border-bottom:1px solid rgba(56,189,248,0.35);">← シンプル材料費計算（丸棒・角棒・板・歩留まり）</a>
     </p>
@@ -427,11 +437,13 @@
           <div class="row">
             <label>類似判定（径の許容 mm）</label>
             <input type="number" id="tolD" value="0" min="0" step="0.5" title="0＝径は一致のみ。数値を上げると±そのmm以内の過去データも候補に含めます">
+            <p class="stat" style="margin-top:4px;font-size:11px">0＝同じ径だけ。5なら±5mmの過去データも参考にします</p>
           </div>
         </div>
         <div class="row">
           <label>類似判定（長さの許容 mm）</label>
           <input type="number" id="tolL" value="10" min="0" step="1" title="±このmm以内を「近い長さ」。長さLが1000mm超で自動100→短く戻すと自動で10に戻ります（手動の値は長尺未満のあいだは維持）">
+          <p class="stat" style="margin-top:4px;font-size:11px">±このmm以内を「近い長さ」として参考にします（長さ1000mm超は自動で±100に）</p>
         </div>
       </div>
 
@@ -675,7 +687,10 @@
         <div class="grid2">
           <div class="row">
             <label>取引先</label>
-            <select id="ordSupplier"></select>
+            <div style="display:flex;gap:8px">
+              <select id="ordSupplier" style="flex:1"></select>
+              <button type="button" class="btn btn-secondary" id="btnOrdNewSup" style="margin:0;white-space:nowrap;padding:10px 12px">＋登録</button>
+            </div>
           </div>
           <div class="row">
             <label>種別</label>
@@ -684,6 +699,16 @@
               <option value="quote">見積依頼（単価だけ回答してもらう）</option>
             </select>
           </div>
+        </div>
+        <div id="ordNewSupForm" style="display:none;border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:12px">
+          <div style="font-weight:700;margin-bottom:8px">新しい取引先を登録</div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+            <input type="text" id="ordNewSupName" placeholder="取引先名（例: ○○金属）" style="max-width:220px">
+            <input type="email" id="ordNewSupEmail" placeholder="通知メール（例: aa@bb.co.jp）" style="max-width:260px">
+            <button type="button" class="btn btn-primary" id="btnOrdNewSupSave" style="margin:0">登録</button>
+            <button type="button" class="btn btn-secondary" id="btnOrdNewSupCancel" style="margin:0">やめる</button>
+          </div>
+          <p class="stat" id="ordNewSupMsg"></p>
         </div>
         <div style="overflow-x:auto;margin-top:8px">
           <table class="draft-table">
@@ -711,7 +736,7 @@
         <h2>依頼の一覧・状況</h2>
         <p class="stat" id="ordListStat"></p>
         <div style="overflow-x:auto">
-          <table>
+          <table class="ord-list-table">
             <thead>
               <tr><th>作成</th><th>種別</th><th>取引先</th><th>明細と回答</th><th>状況</th><th>納入予定</th><th style="width:64px"></th></tr>
             </thead>
@@ -1159,7 +1184,7 @@
   function scheduleApiSave() {
     pendingLocalChanges = true;
     if (apiSaveTimer) clearTimeout(apiSaveTimer);
-    setSyncStatus('DBへ保存中…', false);
+    setSyncStatus('保存中…', false);
     apiSaveTimer = setTimeout(pushRecordsToApi, 800);
   }
 
@@ -1181,7 +1206,7 @@
       }).catch(function (err) {
         pushInFlight = false;
         console.warn('[purchases api save precheck]', err);
-        setSyncStatus('DB保存失敗 — この端末には保存済み', true);
+        setSyncStatus('保存失敗 — この端末には残っています（通信をご確認ください）', true);
       });
       return;
     }
@@ -1199,11 +1224,11 @@
         if (!res.ok) throw new Error(body && body.error ? body.error : res.statusText);
         if (body.version != null) knownVersion = body.version;
         if (!apiSaveTimer) pendingLocalChanges = false;
-        setSyncStatus('DB保存済み（' + body.count + '件）', false);
+        setSyncStatus('保存済み（' + body.count + '件）', false);
       });
     }).catch(function (err) {
       console.warn('[purchases api save]', err);
-      setSyncStatus('DB保存失敗 — この端末には保存済み', true);
+      setSyncStatus('保存失敗 — この端末には残っています（通信をご確認ください）', true);
     }).finally(function () {
       pushInFlight = false;
     });
@@ -1261,13 +1286,13 @@
       }
       recordsCache = apiRecords;
       try { localStorage.setItem(STORAGE, JSON.stringify(apiRecords)); } catch (e) {}
-      setSyncStatus('DB読込済み（' + apiRecords.length + '件）', false);
+      setSyncStatus('保存データ ' + apiRecords.length + ' 件', false);
       refreshQuoSupplierDatalist();
       runEstimate();
       renderList();
     }).catch(function (err) {
       console.warn('[purchases api load]', err);
-      setSyncStatus('DB未接続 — この端末の保存分を表示中', true);
+      setSyncStatus('サーバー未接続 — この端末の保存分を表示中', true);
     });
   }
 
@@ -3408,14 +3433,14 @@
         if (o.note) itemsHtml += '<br><span style="color:var(--muted)">備考: ' + escapeHtml(o.note) + '</span>';
         var tr = document.createElement('tr');
         tr.innerHTML =
-          '<td style="white-space:nowrap;font-size:11px">' + escapeHtml(o.created) + '</td>' +
-          '<td style="white-space:nowrap;font-weight:700;color:' +
+          '<td data-l="作成" style="white-space:nowrap;font-size:11px">' + escapeHtml(o.created) + '</td>' +
+          '<td data-l="種別" style="white-space:nowrap;font-weight:700;color:' +
           (o.kind === 'order' ? 'var(--cyan)' : 'var(--amber)') + '">' + escapeHtml(o.kindLabel) + '</td>' +
-          '<td style="white-space:nowrap">' + escapeHtml(o.supplierName || '') + '</td>' +
-          '<td style="font-size:11px;line-height:1.7">' + itemsHtml + '</td>' +
-          '<td style="white-space:nowrap;color:' + st.color + ';font-weight:700">' + st.label + '</td>' +
-          '<td style="white-space:nowrap">' + (o.deliveryDate || '—') + '</td>' +
-          '<td><button type="button" class="btn btn-danger o-del" style="padding:4px 8px;font-size:11px;margin:0">削除</button></td>';
+          '<td data-l="取引先" style="white-space:nowrap">' + escapeHtml(o.supplierName || '') + '</td>' +
+          '<td data-l="明細" style="font-size:11px;line-height:1.7">' + itemsHtml + '</td>' +
+          '<td data-l="状況" style="white-space:nowrap;color:' + st.color + ';font-weight:700">' + st.label + '</td>' +
+          '<td data-l="納入予定" style="white-space:nowrap">' + (o.deliveryDate || '—') + '</td>' +
+          '<td data-l="" ><button type="button" class="btn btn-danger o-del" style="padding:4px 8px;font-size:11px;margin:0">削除</button></td>';
         tr.querySelector('.o-del').addEventListener('click', function () {
           if (!confirm('この' + o.kindLabel + 'を削除しますか？（取引先の画面からも消えます）')) return;
           fetch('/api/material-orders/' + encodeURIComponent(o.id), { method: 'DELETE' })
@@ -3456,6 +3481,50 @@
       if (e.key !== 'Enter') return;
       e.preventDefault();
       document.getElementById('btnOrdSend').focus();
+    });
+
+    /* v41: 取引先をこのタブから直接登録（履歴タブへ行かなくてよい） */
+    function setNewSupMsg(t, isErr) {
+      var el = document.getElementById('ordNewSupMsg');
+      el.textContent = t;
+      el.style.color = isErr ? '#f87171' : '#34d399';
+    }
+    document.getElementById('btnOrdNewSup').addEventListener('click', function () {
+      var f = document.getElementById('ordNewSupForm');
+      f.style.display = f.style.display === 'none' ? 'block' : 'none';
+      if (f.style.display === 'block') document.getElementById('ordNewSupName').focus();
+    });
+    document.getElementById('btnOrdNewSupCancel').addEventListener('click', function () {
+      document.getElementById('ordNewSupForm').style.display = 'none';
+    });
+    document.getElementById('btnOrdNewSupSave').addEventListener('click', function () {
+      var name = document.getElementById('ordNewSupName').value.trim();
+      var email = document.getElementById('ordNewSupEmail').value.trim();
+      if (!name) { setNewSupMsg('取引先名を入力してください', true); return; }
+      fetch('/api/material-suppliers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: name, email: email }),
+      }).then(function (res) {
+        return res.json().then(function (b) {
+          if (!res.ok) throw new Error((b && b.error) || res.statusText);
+          return b;
+        });
+      }).then(function (s) {
+        setNewSupMsg(s.name + ' を登録しました', false);
+        document.getElementById('ordNewSupName').value = '';
+        document.getElementById('ordNewSupEmail').value = '';
+        document.getElementById('ordNewSupForm').style.display = 'none';
+        fetch('/api/material-suppliers').then(function (res) { return res.json(); }).then(function (b) {
+          ordSuppliersCache = Array.isArray(b.suppliers) ? b.suppliers : [];
+          var sel = document.getElementById('ordSupplier');
+          sel.innerHTML = ordSuppliersCache.map(function (x) {
+            return '<option value="' + escapeAttr(x.id) + '">' + escapeHtml(x.name) +
+              (x.email ? '' : '（メール未登録）') + '</option>';
+          }).join('');
+          sel.value = s.id;
+        });
+      }).catch(function (err) { setNewSupMsg('登録に失敗: ' + err.message, true); });
     });
 
     document.getElementById('btnOrdSend').addEventListener('click', function () {
