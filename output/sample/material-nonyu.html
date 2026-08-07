@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>納入明細の入力</title>
+  <title>（有）日勝ネジ 材料ポータル</title>
   <style>
     :root {
       --bg: #f4f6f9;
@@ -99,6 +99,25 @@
     }
     .kind-badge.order { background: var(--blue); }
     .kind-badge.quote { background: #d97706; }
+    /* 依頼明細：表ではなく1行カード（スマホでも単価欄が切れない） */
+    .ans-item {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px 16px;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 2px;
+      border-bottom: 1px solid var(--border);
+    }
+    .ans-desc { font-size: 15px; font-weight: 600; }
+    .ans-price { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+    .ans-price input { width: 140px; text-align: right; font-size: 17px; }
+    .ans-price-done { font-weight: 700; color: var(--green); }
+    @media (max-width: 759px) {
+      .ans-item { display: block; }
+      .ans-price { display: block; margin-top: 6px; white-space: normal; }
+      .ans-price input { width: 100%; margin-top: 4px; }
+    }
     /* PC: 1行を横一列に並べてキーボード入力を速く（スマホは縦並びのまま） */
     @media (min-width: 760px) {
       .wrap { max-width: 1080px; }
@@ -124,8 +143,9 @@
     </div>
 
     <div id="main" class="hidden">
+      <div style="font-size:13px;font-weight:700;color:var(--blue);letter-spacing:.5px;margin-top:4px">有限会社日勝ネジ工業　材料発注・納入ポータル</div>
       <h1 id="supName">—</h1>
-      <div class="sub">納入明細の入力ページです。納入いただいた材料の明細をご入力のうえ「送信」を押してください。</div>
+      <div class="sub">発注・見積のご依頼への回答と、納入明細のご入力ができるページです。</div>
 
       <div class="card hidden" id="ordersCard">
         <div style="font-weight:700;margin-bottom:4px">📋 発注・見積のご依頼</div>
@@ -136,6 +156,9 @@
         <div id="ordersList"></div>
       </div>
 
+      <div style="font-weight:700;font-size:17px;margin:26px 0 8px">📦 納入明細の入力
+        <span style="font-weight:400;font-size:12px;color:var(--muted)">　納品いただいた内容のご報告です（上のご依頼への回答とは別の機能）</span>
+      </div>
       <div class="card">
         <label for="dlvDate">納入日</label>
         <input type="date" id="dlvDate" style="max-width: 220px">
@@ -150,7 +173,7 @@
       </div>
 
       <div class="card">
-        <button type="button" class="btn btn-primary" id="btnSend">送信する</button>
+        <button type="button" class="btn btn-primary" id="btnSend">納入明細を送信する</button>
         <div id="sendMsg" style="margin-top:10px; min-height:22px"></div>
       </div>
 
@@ -173,6 +196,9 @@
           </table>
         </div>
       </div>
+      <p style="text-align:center;font-size:12px;color:var(--muted);margin:24px 0 0">
+        有限会社日勝ネジ工業　材料発注・納入ポータル<br>ご不明な点は（有）日勝ネジまでご連絡ください。
+      </p>
     </div>
   </div>
 
@@ -362,25 +388,29 @@
       box.appendChild(noteEl);
     }
 
-    var tbl = document.createElement('table');
-    tbl.innerHTML = '<thead><tr><th>材質</th><th>サイズ</th><th class="num">本数</th><th class="num">単価（円/本・税別）</th></tr></thead>';
-    var tb = document.createElement('tbody');
+    var itemsWrap = document.createElement('div');
     o.items.forEach(function (it) {
-      var tr = document.createElement('tr');
-      var priceCell = isOpen
-        ? '<td class="num"><input type="text" class="a-p" inputmode="numeric" placeholder="例: 1500" style="max-width:120px;text-align:right"></td>'
-        : '<td class="num">' + (it.unitPrice != null ? Number(it.unitPrice).toLocaleString('ja-JP') + ' 円' : '—') + '</td>';
-      tr.innerHTML =
-        '<td>' + matLabel(it.materialKey) + '</td>' +
-        '<td style="white-space:nowrap">φ' + it.d + '×' + it.l + '</td>' +
-        '<td class="num">' + it.qty + '</td>' + priceCell;
-      tb.appendChild(tr);
+      var pref = /_HEX$/.test(String(it.materialKey || '')) ? '対辺' : 'φ';
+      var row = document.createElement('div');
+      row.className = 'ans-item';
+      var desc = document.createElement('div');
+      desc.className = 'ans-desc';
+      desc.textContent = matLabel(it.materialKey) + '　' + pref + it.d + '×' + it.l + '　' + it.qty + '本';
+      row.appendChild(desc);
+      if (isOpen) {
+        var lbl = document.createElement('label');
+        lbl.className = 'ans-price';
+        lbl.innerHTML = '単価（円/本・税別）<input type="text" class="a-p" inputmode="numeric" placeholder="例: 1500">';
+        row.appendChild(lbl);
+      } else {
+        var done = document.createElement('div');
+        done.className = 'ans-price-done';
+        done.textContent = '単価 ' + (it.unitPrice != null ? Number(it.unitPrice).toLocaleString('ja-JP') + ' 円' : '—');
+        row.appendChild(done);
+      }
+      itemsWrap.appendChild(row);
     });
-    tbl.appendChild(tb);
-    var scroll = document.createElement('div');
-    scroll.className = 'hist-scroll';
-    scroll.appendChild(tbl);
-    box.appendChild(scroll);
+    box.appendChild(itemsWrap);
 
     if (isOpen) {
       var foot = document.createElement('div');
@@ -407,6 +437,18 @@
       foot.appendChild(msg);
       box.appendChild(foot);
 
+      /* Enter で次の単価欄へ → 納入予定日 → ボタン */
+      var priceInputs = box.querySelectorAll('.a-p');
+      Array.prototype.forEach.call(priceInputs, function (el, i) {
+        el.addEventListener('keydown', function (e) {
+          if (e.key !== 'Enter') return;
+          e.preventDefault();
+          if (i < priceInputs.length - 1) priceInputs[i + 1].focus();
+          else if (dateInput) dateInput.focus();
+          else sendBtn.focus();
+        });
+      });
+
       sendBtn.addEventListener('click', function () {
         var prices = Array.prototype.map.call(box.querySelectorAll('.a-p'), function (el) {
           var v = parseFloat(toHalf(el.value));
@@ -420,9 +462,16 @@
           msg.textContent = '納入予定日を選んでください';
           return;
         }
-        if (!confirm(isOrder
-          ? 'この内容で入力を完了します。よろしいですか？'
-          : 'この内容で見積を送信します。よろしいですか？')) return;
+        var missing = [];
+        o.items.forEach(function (it, i) {
+          if (prices[i] == null) missing.push((i + 1) + '行目（' + matLabel(it.materialKey) + '）');
+        });
+        var warn = missing.length && missing.length < o.items.length
+          ? '\n\n※' + missing.join('・') + ' は単価未入力のまま送信されます。'
+          : '';
+        if (!confirm((isOrder
+          ? 'この内容で入力を完了します。'
+          : 'この内容で見積を送信します。') + warn + '\nよろしいですか？')) return;
         sendBtn.disabled = true;
         msg.textContent = '';
         fetch('/api/nonyu/orders/' + encodeURIComponent(o.id) + '/answer', {
@@ -497,7 +546,8 @@
     if (!c.items.length) { setSendMsg('明細を1行以上入力してください', false); return; }
 
     var lines = c.items.map(function (it, i) {
-      return (i + 1) + '. ' + matLabel(it.materialKey) + ' φ' + it.d + '×' + it.l + ' ' + it.qty + '本 ' +
+      var pref = /_HEX$/.test(String(it.materialKey || '')) ? '対辺' : 'φ';
+      return (i + 1) + '. ' + matLabel(it.materialKey) + ' ' + pref + it.d + '×' + it.l + ' ' + it.qty + '本 ' +
         it.totalYen.toLocaleString('ja-JP') + '円';
     });
     if (!confirm('この内容で送信します。よろしいですか？\n\n納入日: ' + date + '\n' + lines.join('\n'))) return;

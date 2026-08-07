@@ -336,7 +336,8 @@ function portalUrlFromReq(req, accessKey) {
 
 function orderMailText(order, supplierName, url) {
   const lines = order.items.map((it, i) =>
-    ' ' + (i + 1) + '. ' + it.label + '  φ' + it.d + '×' + it.l + 'mm  ' + it.qty + '本');
+    ' ' + (i + 1) + '. ' + it.label + '  ' + (/_HEX$/.test(String(it.materialKey || '')) ? '対辺' : 'φ') +
+    it.d + '×' + it.l + 'mm  ' + it.qty + '本');
   const intro = order.kind === 'order'
     ? '下記のとおり発注いたします。お手配のほどお願いいたします。\nURLを開いて、単価と納入予定日のご入力をお願いいたします。'
     : '下記のお見積をお願いいたします。\nURLを開いて、単価のご入力をお願いいたします。';
@@ -418,7 +419,8 @@ app.post('/api/nonyu/orders/:id/answer', async (req, res) => {
     if (isMailEnabled()) {
       const o = result.order;
       const lines = o.items.map((it, i) =>
-        ' ' + (i + 1) + '. ' + it.label + ' φ' + it.d + '×' + it.l + ' ' + it.qty + '本 → ' +
+        ' ' + (i + 1) + '. ' + it.label + ' ' + (/_HEX$/.test(String(it.materialKey || '')) ? '対辺' : 'φ') +
+        it.d + '×' + it.l + ' ' + it.qty + '本 → ' +
         (it.unitPrice != null ? it.unitPrice.toLocaleString('ja-JP') + '円/本' : '（回答なし）'));
       sendMail({
         /* 回答通知の宛先。ORDER_NOTIFY_EMAIL 未設定なら送信元（会社Gmail）宛て */

@@ -386,7 +386,7 @@
     <p class="lead">
       請求書の明細を<strong>CSVで取り込む</strong>か<strong>手入力</strong>して蓄積します。同じ径・長さでも本数・仕入先で単価が違う前提で、
       類似サイズの過去データから<strong>今の目安（円/kg）</strong>を出し、許容内データを<strong>仕入先別</strong>にまとめた<strong>予想金額</strong>も表示します。候補一覧と<strong>手動での単価変更</strong>に対応します。
-      データは<strong>共有DB</strong>に保存され、どのPCからでも同じ記録が見えます（DB未接続時はこの端末に一時保存）。<strong>請求書の写真</strong>は「CSV取込」タブの<strong>写真からAI取り込み</strong>にドロップすると明細を自動で表に起こせます（登録前にプレビュー確認が前提です）。
+      データは<strong>共有DB</strong>に保存され、どのPCからでも同じ記録が見えます（DB未接続時はこの端末に一時保存）。<strong>請求書の写真</strong>は「取込（写真AI・CSV）」タブの<strong>写真からAI取り込み</strong>にドロップすると明細を自動で表に起こせます（登録前にプレビュー確認が前提です）。
     </p>
     <p class="lead" style="margin-top:-6px;">
       <a href="index.html" style="color:var(--cyan);font-weight:800;text-decoration:none;border-bottom:1px solid rgba(56,189,248,0.35);">← シンプル材料費計算（丸棒・角棒・板・歩留まり）</a>
@@ -394,10 +394,10 @@
 
     <div class="tabs">
       <button type="button" class="tab-btn active" data-panel="p-order">発注・見積依頼</button>
-      <button type="button" class="tab-btn" data-panel="p-est">見積もり</button>
+      <button type="button" class="tab-btn" data-panel="p-est">単価の目安</button>
       <button type="button" class="tab-btn" data-panel="p-add">データ追加</button>
-      <button type="button" class="tab-btn" data-panel="p-ocr">スキャンOCR</button>
-      <button type="button" class="tab-btn" data-panel="p-import">CSV取込</button>
+      <button type="button" class="tab-btn" data-panel="p-import">取込（写真AI・CSV）</button>
+      <button type="button" class="tab-btn" data-panel="p-ocr">スキャンOCR（旧）</button>
       <button type="button" class="tab-btn" data-panel="p-list">履歴・バックアップ</button>
     </div>
 
@@ -412,17 +412,17 @@
           </div>
           <div class="row">
             <label for="estD">径 D（mm）<span style="font-weight:600;color:var(--muted);font-size:10px;">（▼候補／そのまま入力可）</span></label>
-            <input type="number" id="estD" list="matDiameterMmList" step="1" min="0" placeholder="例: 25">
+            <input type="text" id="estD" inputmode="decimal" list="matDiameterMmList" placeholder="例: 25">
           </div>
           <div class="row">
             <label>長さ L（mm）</label>
-            <input type="number" id="estL" step="1" min="0" placeholder="100">
+            <input type="text" id="estL" inputmode="decimal" placeholder="100">
           </div>
         </div>
         <div class="grid2">
           <div class="row">
             <label>本数</label>
-            <input type="number" id="estQty" min="1" value="1" step="1">
+            <input type="text" id="estQty" inputmode="numeric" value="1">
           </div>
           <div class="row">
             <label>類似判定（径の許容 mm）</label>
@@ -523,6 +523,7 @@
 
       <div class="card">
         <h2>見積り依頼書</h2>
+        <p class="stat" style="margin-top:0">メールで依頼する場合は「発注・見積依頼」タブをご利用ください。こちらは<strong>印刷・FAX・コピペ用</strong>の依頼書を作る機能です。</p>
         <p class="stat" style="margin-top:0">
           仕入先へ送る<strong>見積り依頼</strong>用です。依頼書には<strong>材質・寸法・本数</strong>のみを記載します（金額・単価・重量は<strong>記載しません</strong>）。印刷・PDF・メール用です。<br>
           <strong>送付先</strong>は蓄積した仕入先名を▼から選べます。会社名だけでも可で、文面では自動的に「御中」付きに整えます（画面上のラベルは入力のための案内であり、依頼書本文には出しません）。
@@ -573,13 +574,13 @@
           <select id="addMaterial"></select>
         </div>
         <div class="grid3">
-          <div class="row"><label for="addD">径 D（mm）</label><input type="number" id="addD" list="matDiameterMmList" step="1" min="0" placeholder="▼候補可"></div>
-          <div class="row"><label>長さ L（mm）</label><input type="number" id="addL" step="1" min="0"></div>
-          <div class="row"><label>本数</label><input type="number" id="addQty" min="1" value="1" step="1"></div>
+          <div class="row"><label for="addD">径 D（mm）</label><input type="text" id="addD" inputmode="decimal" list="matDiameterMmList" placeholder="▼候補可"></div>
+          <div class="row"><label>長さ L（mm）</label><input type="text" id="addL" inputmode="decimal"></div>
+          <div class="row"><label>本数</label><input type="text" id="addQty" inputmode="numeric" value="1"></div>
         </div>
         <div class="row">
           <label>この明細の合計金額（円）</label>
-          <input type="number" id="addTotal" min="0" step="1" placeholder="請求書の該当行の金額">
+          <input type="text" id="addTotal" inputmode="numeric" placeholder="請求書の該当行の金額">
         </div>
         <div class="row">
           <label>メモ（任意）</label>
@@ -2587,6 +2588,38 @@
     });
   });
 
+  /* v40: 全角数字・カンマの自動半角化と Enter 移動を
+     「単価の目安」「データ追加」タブにも適用（発注タブと同じ操作感に統一） */
+  function attachHalfWidthFix(id) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('input', function () {
+      var v = String(el.value || '')
+        .replace(/[０-９．]/g, function (ch) {
+          return ch === '．' ? '.' : String.fromCharCode(ch.charCodeAt(0) - 0xFEE0);
+        })
+        .replace(/[，、,]/g, '');
+      if (v !== el.value) el.value = v;
+    });
+  }
+  ['estD', 'estL', 'estQty', 'addD', 'addL', 'addQty', 'addTotal'].forEach(attachHalfWidthFix);
+
+  function chainEnter(ids, lastId) {
+    ids.forEach(function (id, i) {
+      var el = document.getElementById(id);
+      if (!el) return;
+      el.addEventListener('keydown', function (e) {
+        if (e.key !== 'Enter') return;
+        e.preventDefault();
+        var nextId = i < ids.length - 1 ? ids[i + 1] : lastId;
+        var next = nextId ? document.getElementById(nextId) : null;
+        if (next) next.focus();
+      });
+    });
+  }
+  chainEnter(['estD', 'estL', 'estQty'], 'manualYenKg');
+  chainEnter(['addDate', 'addSupplier', 'addMaterial', 'addD', 'addL', 'addQty', 'addTotal', 'addMemo'], 'btnAdd');
+
   ['estMaterial', 'estD', 'estL', 'estQty', 'tolD', 'tolL'].forEach(function (id) {
     document.getElementById(id).addEventListener('input', function () {
       if (id !== 'manualYenKg') document.getElementById('manualYenKg').dataset.touched = '';
@@ -3356,7 +3389,7 @@
       var stat = document.getElementById('ordListStat');
       stat.textContent = mailEnabled
         ? ''
-        : '※メール送信が未設定です（GMAIL_USER / GMAIL_APP_PASSWORD）。送信しても通知は飛ばず、URLの手動連絡が必要です。';
+        : '※メール送信の設定が未完了のため、通知メールは届きません。送信後、取引先の専用URL（履歴タブでコピー）を直接お伝えください。';
       var tb = document.getElementById('ordListBody');
       if (!orders.length) {
         tb.innerHTML = '<tr><td colspan="7" class="stat">まだ依頼はありません。</td></tr>';
@@ -3366,7 +3399,8 @@
       orders.forEach(function (o) {
         var st = ORD_STATUS(o);
         var itemsHtml = o.items.map(function (it) {
-          return escapeHtml(it.label) + ' φ' + it.d + '×' + it.l + ' ' + it.qty + '本' +
+          var pref = /_HEX$/.test(String(it.materialKey || '')) ? '対辺' : 'φ';
+          return escapeHtml(it.label) + ' ' + pref + it.d + '×' + it.l + ' ' + it.qty + '本' +
             (it.unitPrice != null
               ? ' → <strong style="color:var(--green)">' + Number(it.unitPrice).toLocaleString('ja-JP') + '円/本</strong>'
               : '');
@@ -3469,8 +3503,9 @@
       var rows = p.items.map(function (it, i) {
         var m = matInfo(it.materialKey);
         var kg = kgOneBar(it.d, it.l, m.rho, it.materialKey) * it.qty;
+        var pref = /_HEX$/.test(String(it.materialKey || '')) ? '対辺' : 'φ';
         return '<tr><td>' + (i + 1) + '</td><td>' + escapeHtml(m.label) + '</td>' +
-          '<td style="white-space:nowrap">φ' + it.d + '×' + it.l + '</td>' +
+          '<td style="white-space:nowrap">' + pref + it.d + '×' + it.l + '</td>' +
           '<td style="text-align:right">' + it.qty + ' 本</td>' +
           '<td style="text-align:right">約 ' + (Math.round(kg * 100) / 100) + ' kg</td></tr>';
       }).join('');
