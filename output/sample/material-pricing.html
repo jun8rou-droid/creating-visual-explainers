@@ -3267,18 +3267,58 @@
       el.style.color = isErr ? '#f87171' : '#34d399';
     }
 
+    /* 全角数字・桁区切りカンマ・空白を半角に寄せる（テンキー以外の入力ミス対策） */
+    function ordToHalf(s) {
+      return String(s || '')
+        .replace(/[０-９．]/g, function (ch) {
+          return ch === '．' ? '.' : String.fromCharCode(ch.charCodeAt(0) - 0xFEE0);
+        })
+        .replace(/[，、,\s]/g, '');
+    }
+
+    function ordNum(el) {
+      var v = ordToHalf(el.value).trim();
+      if (v !== el.value) el.value = v;
+      var n = parseFloat(v);
+      return isFinite(n) ? n : NaN;
+    }
+
     function ordAddRow() {
       var tr = document.createElement('tr');
       tr.innerHTML =
         '<td><select class="o-mat">' + buildMaterialOptionsHtml('SUS304_MIG') + '</select></td>' +
-        '<td><input type="number" class="o-d" step="1" min="0" placeholder="25"></td>' +
-        '<td><input type="number" class="o-l" step="1" min="0" placeholder="4000"></td>' +
-        '<td><input type="number" class="o-q" step="1" min="1" value="1"></td>' +
+        '<td><input type="text" class="o-d" inputmode="decimal" list="matDiameterMmList" placeholder="25"></td>' +
+        '<td><input type="text" class="o-l" inputmode="decimal" placeholder="4000"></td>' +
+        '<td><input type="text" class="o-q" inputmode="numeric" value="1"></td>' +
         '<td><button type="button" class="btn-draft-del">削除</button></td>';
       tr.querySelector('.btn-draft-del').addEventListener('click', function () { tr.remove(); });
       var prev = ordBody.lastElementChild;
       if (prev) tr.querySelector('.o-mat').value = prev.querySelector('.o-mat').value;
       ordBody.appendChild(tr);
+      /* Enter で 径→長さ→本数、最終行の本数では行を自動追加（材質引き継ぎ）。
+         径・長さが空のまま Enter なら備考欄へ */
+      tr.querySelectorAll('input, select').forEach(function (el) {
+        el.addEventListener('keydown', function (e) {
+          if (e.key !== 'Enter') return;
+          e.preventDefault();
+          var isQty = el.classList.contains('o-q');
+          var isLastRow = ordBody.lastElementChild === tr;
+          if (isQty && isLastRow) {
+            var d = ordNum(tr.querySelector('.o-d'));
+            var l = ordNum(tr.querySelector('.o-l'));
+            if (isNaN(d) && isNaN(l)) {
+              document.getElementById('ordNote').focus();
+              return;
+            }
+            ordAddRow().querySelector('.o-d').focus();
+            return;
+          }
+          var all = Array.prototype.slice.call(ordBody.querySelectorAll('input, select'));
+          var i = all.indexOf(el);
+          if (i >= 0 && i < all.length - 1) all[i + 1].focus();
+          else document.getElementById('ordNote').focus();
+        });
+      });
       return tr;
     }
 
@@ -3366,6 +3406,13 @@
       ordAddRow().querySelector('.o-d').focus();
     });
 
+    /* 備考で Enter → 送信ボタンへ */
+    document.getElementById('ordNote').addEventListener('keydown', function (e) {
+      if (e.key !== 'Enter') return;
+      e.preventDefault();
+      document.getElementById('btnOrdSend').focus();
+    });
+
     document.getElementById('btnOrdSend').addEventListener('click', function () {
       var supplierId = document.getElementById('ordSupplier').value;
       if (!supplierId) { setOrdMsg('取引先を選んでください', true); return; }
@@ -3373,9 +3420,9 @@
       var items = [];
       var errs = [];
       Array.prototype.forEach.call(ordBody.children, function (tr, i) {
-        var d = parseFloat(tr.querySelector('.o-d').value);
-        var l = parseFloat(tr.querySelector('.o-l').value);
-        var q = parseInt(tr.querySelector('.o-q').value, 10);
+        var d = ordNum(tr.querySelector('.o-d'));
+        var l = ordNum(tr.querySelector('.o-l'));
+        var q = Math.round(ordNum(tr.querySelector('.o-q')));
         if (isNaN(d) && isNaN(l)) return; /* 未記入行は無視 */
         if (isNaN(d) || d <= 0 || isNaN(l) || l <= 0 || isNaN(q) || q <= 0) {
           errs.push((i + 1) + '行目: 径・長さ・本数を入力してください');
