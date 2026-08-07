@@ -335,6 +335,15 @@
     .dropzone.drag { border-color: var(--cyan); background: rgba(56,189,248,0.1); color: var(--text); }
     .dropzone strong { color: var(--cyan); display: block; margin-bottom: 8px; font-size: 15px; }
     #ocrProgress { font-size: 13px; color: var(--cyan); margin-top: 12px; min-height: 1.4em; }
+    /* AI読み取りの自信度（項目単位）。編集すると解除される */
+    .draft-table input.conf-mid, .draft-table select.conf-mid {
+      background: rgba(251, 191, 36, 0.16);
+      border-color: rgba(251, 191, 36, 0.65);
+    }
+    .draft-table input.conf-low, .draft-table select.conf-low {
+      background: rgba(248, 113, 113, 0.18);
+      border-color: rgba(248, 113, 113, 0.75);
+    }
   </style>
 </head>
 <body>
@@ -652,6 +661,25 @@
         <label class="file-label" style="margin-top:12px;"><input type="file" id="jsonImport" accept=".json">JSONを復元（上書き追加）</label>
       </div>
       <div class="card">
+        <h2>材料屋さん入力ページ（取引先ごとの専用URL）</h2>
+        <p class="stat">
+          取引先を登録すると<strong>専用URL</strong>が発行されます。URLを材料屋さんに渡すと、
+          材料屋さん自身がスマホやPCから納入明細を入力でき、<strong>送信と同時にこの蓄積データへ追加</strong>されます
+          （仕入先名は取引先名・メモ「材料屋さん入力」で記録）。
+        </p>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
+          <input type="text" id="supNewName" placeholder="取引先名（例: ○○金属）" style="max-width:260px">
+          <button type="button" class="btn btn-primary" id="btnSupAdd" style="margin:0">登録してURL発行</button>
+        </div>
+        <div style="overflow-x:auto">
+          <table>
+            <thead><tr><th>取引先</th><th>専用URL</th><th style="width:170px">操作</th></tr></thead>
+            <tbody id="supBody"><tr><td colspan="3" class="stat">読み込み中…</td></tr></tbody>
+          </table>
+        </div>
+        <p class="stat" id="supMsg"></p>
+      </div>
+      <div class="card">
         <h2>全件一覧（削除可）</h2>
         <div class="row" style="margin-bottom:12px">
           <label for="listSearch">検索</label>
@@ -882,6 +910,19 @@
   /* v29: 保存先は共有 DB（/api/material-purchases）。localStorage はオフライン用キャッシュ。
      既存コードが同期呼び出し前提なので、メモリ上のキャッシュを正とし API へは遅延同期する */
   var recordsCache = null;
+  /* v30: 材料屋さん入力ページ（material-nonyu.html）が DB へ直接追記するため、
+     この画面の全置換 PUT には最後に読んだ版番号を添える。版がずれたら 409 で返り、
+     追記分をマージして保存し直す（削除済み ID は復活させない） */
+  var knownVersion = null;
+  var sessionDeletedIds = Object.create(null);
+  var lastApiLoadMs = 0;
+  var pushInFlight = false;
+
+  function markRecordsDeleted(ids) {
+    (ids || []).forEach(function (id) {
+      if (id != null && id !== '') sessionDeletedIds[String(id)] = true;
+    });
+  }
 
   function loadRecords() {
     if (recordsCache) return recordsCache;
@@ -917,19 +958,55 @@
 
   function pushRecordsToApi() {
     apiSaveTimer = null;
+    pushInFlight = true;
     fetch('/api/material-purchases', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ records: loadRecords() }),
+      body: JSON.stringify({ records: loadRecords(), version: knownVersion }),
     }).then(function (res) {
       return res.json().then(function (body) {
+        if (res.status === 409) {
+          mergeConflictAndRetry(body);
+          return;
+        }
         if (!res.ok) throw new Error(body && body.error ? body.error : res.statusText);
+        if (body.version != null) knownVersion = body.version;
         setSyncStatus('DB保存済み（' + body.count + '件）', false);
       });
     }).catch(function (err) {
       console.warn('[purchases api save]', err);
       setSyncStatus('DB保存失敗 — この端末には保存済み', true);
+    }).finally(function () {
+      pushInFlight = false;
     });
+  }
+
+  /** 保存が 409（材料屋さんの追記等とぶつかった）→ 追記分をこの画面に取り込み、保存し直す */
+  function mergeConflictAndRetry(body) {
+    var server = Array.isArray(body && body.records) ? body.records : [];
+    var local = loadRecords();
+    var haveIds = Object.create(null);
+    local.forEach(function (r) {
+      if (r && r.id != null) haveIds[String(r.id)] = true;
+    });
+    var added = 0;
+    server.forEach(function (r) {
+      if (!r || r.source !== 'nonyu') return;
+      var id = String(r.id || '');
+      if (!id || haveIds[id] || sessionDeletedIds[id]) return;
+      local.push(r);
+      added++;
+    });
+    if (body && body.version != null) knownVersion = body.version;
+    setSyncStatus(
+      added
+        ? '材料屋さんの入力 ' + added + ' 件を取り込みました。保存し直しています…'
+        : '最新の状態に合わせて保存し直しています…',
+      false
+    );
+    saveRecords(local);
+    renderList();
+    runEstimate();
   }
 
   function loadRecordsFromApi() {
@@ -941,6 +1018,8 @@
     }).then(function (body) {
       var apiRecords = Array.isArray(body.records) ? body.records : [];
       var local = loadRecords();
+      lastApiLoadMs = Date.now();
+      if (body.version != null) knownVersion = body.version;
       /* version=0（一度も保存されていない）のときだけ端末→DBの初回移行を行う。
          「全件削除してDBが空」の状態と区別しないと、古いキャッシュを持つ別端末が
          削除済みデータを復活させてしまう */
@@ -1298,12 +1377,40 @@
       }
     });
     ['.d-date', '.d-sup', '.d-mat', '.d-d', '.d-l', '.d-q', '.d-tot'].forEach(function (sel) {
-      tr.querySelector(sel).addEventListener('input', function () {
+      var el = tr.querySelector(sel);
+      el.addEventListener('input', function () {
+        el.classList.remove('conf-mid', 'conf-low');
         updateDraftYkg(tr);
       });
-      tr.querySelector(sel).addEventListener('change', function () {
+      el.addEventListener('change', function () {
+        el.classList.remove('conf-mid', 'conf-low');
         updateDraftYkg(tr);
       });
+    });
+  }
+
+  /* AI読み取りの自信度を該当セルに色付け（黄=mid・赤=low、編集で解除） */
+  var DRAFT_CONF_SELECTORS = {
+    date: '.d-date',
+    supplier: '.d-sup',
+    material: '.d-mat',
+    d: '.d-d',
+    l: '.d-l',
+    qty: '.d-q',
+    totalYen: '.d-tot'
+  };
+
+  function applyDraftConfidence(tr, conf) {
+    if (!conf) return;
+    Object.keys(DRAFT_CONF_SELECTORS).forEach(function (k) {
+      var lv = conf[k];
+      if (lv !== 'mid' && lv !== 'low') return;
+      var el = tr.querySelector(DRAFT_CONF_SELECTORS[k]);
+      if (!el) return;
+      el.classList.add(lv === 'low' ? 'conf-low' : 'conf-mid');
+      el.title = lv === 'low'
+        ? 'AIが読み取りに自信なし — 必ず確認してください'
+        : 'AIがやや自信なし — 確認をおすすめします';
     });
   }
 
@@ -1343,6 +1450,7 @@
       '<td><button type="button" class="btn-draft-del">削除</button></td>';
     document.getElementById('draftBody').appendChild(tr);
     bindDraftRow(tr);
+    applyDraftConfidence(tr, row.confidence);
     updateDraftYkg(tr);
   }
 
@@ -2472,6 +2580,7 @@
       tr.querySelector('.list-row-del').addEventListener('click', function () {
         if (!confirm('この1件を削除しますか？')) return;
         var cur = loadRecords().filter(function (x) { return x.id !== r.id; });
+        markRecordsDeleted([r.id]);
         saveRecords(cur);
         listSelSet(rid, false);
         renderList();
@@ -2515,6 +2624,7 @@
     var cur = loadRecords().filter(function (x) {
       return !idSet[String(x.id)];
     });
+    markRecordsDeleted(ids);
     saveRecords(cur);
     ids.forEach(function (id) {
       delete listSelIds[id];
@@ -2648,6 +2758,43 @@
           return b;
         });
       }).then(function (body) {
+        /* v30: Claude 読み取り（行＋項目別自信度の JSON）。旧 Gemini TSV にも対応 */
+        if (Array.isArray(body.rows)) {
+          if (!body.rows.length) {
+            setStat('明細を読み取れませんでした。明るい場所で表全体が写るよう撮り直してください', true);
+            return;
+          }
+          var unmatched = 0;
+          var drafts = body.rows.map(function (r) {
+            var conf = r.confidence || {};
+            var key = materialKeyFromText(r.material);
+            if (!key) {
+              unmatched++;
+              key = 'SS400_KURO';
+              conf = Object.assign({}, conf, { material: 'low' });
+            }
+            return {
+              date: r.date || todayISO(),
+              supplier: r.supplier || '',
+              materialKey: key,
+              d: r.d,
+              l: r.l,
+              qty: r.qty != null ? r.qty : 1,
+              totalYen: r.totalYen,
+              confidence: conf
+            };
+          });
+          renderDraftTable(drafts);
+          var costTxt = body.meta && body.meta.costYen != null
+            ? '（AI費用 約' + body.meta.costYen + '円）'
+            : '';
+          setStat(
+            '読み取り ' + drafts.length + ' 行 → 下のプレビューで黄色・赤色の欄を確認してください' +
+            (unmatched ? ' ※マスタに無い材質が ' + unmatched + ' 行（仮でSS400黒皮・赤表示）' : '') +
+            ' ' + costTxt
+          );
+          return;
+        }
         var lines = (body.table || '').split(/\r?\n/).filter(function (l) { return l.trim(); });
         if (lines.length <= 1) {
           setStat('明細を読み取れませんでした。明るい場所で表全体が写るよう撮り直してください', true);
@@ -2677,6 +2824,116 @@
       handleFile(e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]);
     });
   })();
+
+  /* v30: 取引先（材料屋さん入力ページ）の管理 */
+  (function () {
+    var bodyEl = document.getElementById('supBody');
+    if (!bodyEl) return;
+
+    function portalUrl(key) {
+      return location.origin + '/material-nonyu.html?k=' + encodeURIComponent(key);
+    }
+
+    function setSupMsg(t, isErr) {
+      var el = document.getElementById('supMsg');
+      el.textContent = t;
+      el.style.color = isErr ? '#f87171' : '#34d399';
+    }
+
+    function renderSuppliers(list) {
+      if (!list.length) {
+        bodyEl.innerHTML =
+          '<tr><td colspan="3" class="stat">まだ登録がありません。取引先名を入れて「登録してURL発行」を押してください。</td></tr>';
+        return;
+      }
+      bodyEl.innerHTML = '';
+      list.forEach(function (s) {
+        var url = portalUrl(s.accessKey);
+        var tr = document.createElement('tr');
+        tr.innerHTML =
+          '<td style="white-space:nowrap">' + escapeHtml(s.name) + '</td>' +
+          '<td style="font-size:11px;word-break:break-all">' + escapeHtml(url) + '</td>' +
+          '<td style="white-space:nowrap">' +
+          '<button type="button" class="btn btn-secondary sup-copy" style="padding:4px 8px;font-size:11px;margin:0 6px 0 0">URLコピー</button>' +
+          '<button type="button" class="btn btn-danger sup-del" style="padding:4px 8px;font-size:11px;margin:0">削除</button></td>';
+        tr.querySelector('.sup-copy').addEventListener('click', function () {
+          var p = navigator.clipboard && navigator.clipboard.writeText
+            ? navigator.clipboard.writeText(url)
+            : Promise.reject(new Error('clipboard'));
+          p.then(function () {
+            setSupMsg(s.name + ' の URL をコピーしました。LINE やメールで渡してください', false);
+          }).catch(function () {
+            window.prompt('自動コピーできませんでした。このURLを手動でコピーしてください', url);
+          });
+        });
+        tr.querySelector('.sup-del').addEventListener('click', function () {
+          if (!confirm(s.name + ' の入力ページを削除しますか？\n（URL が使えなくなります。蓄積済みの記録は残ります）')) return;
+          fetch('/api/material-suppliers/' + encodeURIComponent(s.id), { method: 'DELETE' })
+            .then(function (res) {
+              return res.json().then(function (b) {
+                if (!res.ok) throw new Error((b && b.error) || res.statusText);
+              });
+            })
+            .then(function () {
+              setSupMsg(s.name + ' を削除しました', false);
+              loadSuppliers();
+            })
+            .catch(function (err) { setSupMsg('削除に失敗: ' + err.message, true); });
+        });
+        bodyEl.appendChild(tr);
+      });
+    }
+
+    function loadSuppliers() {
+      fetch('/api/material-suppliers')
+        .then(function (res) {
+          return res.json().then(function (b) {
+            if (!res.ok) throw new Error((b && b.error) || res.statusText);
+            return b;
+          });
+        })
+        .then(function (b) { renderSuppliers(Array.isArray(b.suppliers) ? b.suppliers : []); })
+        .catch(function (err) {
+          bodyEl.innerHTML =
+            '<tr><td colspan="3" class="stat">取得できませんでした（' + escapeHtml(err.message) + '）</td></tr>';
+        });
+    }
+
+    document.getElementById('btnSupAdd').addEventListener('click', function () {
+      var nameEl = document.getElementById('supNewName');
+      var name = nameEl.value.trim();
+      if (!name) { setSupMsg('取引先名を入力してください', true); return; }
+      fetch('/api/material-suppliers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: name }),
+      })
+        .then(function (res) {
+          return res.json().then(function (b) {
+            if (!res.ok) throw new Error((b && b.error) || res.statusText);
+            return b;
+          });
+        })
+        .then(function (s) {
+          nameEl.value = '';
+          setSupMsg(s.name + ' を登録しました。「URLコピー」で専用URLを渡してください', false);
+          loadSuppliers();
+        })
+        .catch(function (err) { setSupMsg('登録に失敗: ' + err.message, true); });
+    });
+
+    loadSuppliers();
+  })();
+
+  /* v30: タブへ戻ってきたら材料屋さんの追記を取り込む（保存待ち・保存中は触らない） */
+  function refreshFromApiIfIdle() {
+    if (document.visibilityState !== 'visible') return;
+    if (apiSaveTimer || pushInFlight) return;
+    if (Date.now() - lastApiLoadMs < 30000) return;
+    loadRecordsFromApi();
+  }
+  document.addEventListener('visibilitychange', refreshFromApiIfIdle);
+  window.addEventListener('focus', refreshFromApiIfIdle);
 
   runEstimate();
   loadRecordsFromApi();

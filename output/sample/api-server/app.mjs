@@ -33,6 +33,16 @@ import {
 } from './quotes-db.mjs';
 import { getMasterBundle, saveMasterBundle } from './masters-db.mjs';
 import { listPurchases, purchaseSummaryFor, replacePurchases } from './purchases-db.mjs';
+import {
+  PORTAL_MATERIALS,
+  createSupplier,
+  deleteSupplier,
+  getSupplierByKey,
+  insertDeliveries,
+  listRecentBySupplier,
+  listSuppliers,
+} from './material-suppliers-db.mjs';
+import { extractPurchaseRowsClaude, isClaudeOcrEnabled } from './purchase-ocr.mjs';
 import { analyzeDrawing, getVisionStatus, isVisionEnabled } from './vision-router.mjs';
 import {
   extractNeageOrderInfo,
@@ -199,19 +209,45 @@ app.put('/api/material-purchases', async (req, res) => {
     return res.status(503).json({ error: 'DATABASE_URL が未設定です' });
   }
   try {
-    res.json(await replacePurchases(req.body && req.body.records));
+    const body = req.body || {};
+    const expected = body.version != null && Number.isFinite(Number(body.version))
+      ? Number(body.version)
+      : null;
+    res.json(await replacePurchases(body.records, expected));
   } catch (err) {
+    if (err && err.status === 409) {
+      /* 材料屋さん入力とぶつかった。最新の記録を返してクライアント側でマージさせる */
+      try {
+        const latest = await listPurchases();
+        return res.status(409).json({ error: err.message, records: latest.records, version: latest.version });
+      } catch (err2) {
+        console.error('[purchases put conflict reload]', err2);
+      }
+    }
     console.error('[purchases put]', err);
     res.status(500).json({ error: err.message || '仕入れ記録の保存に失敗しました' });
   }
 });
 
 app.post('/api/material-purchases/extract', upload.single('file'), async (req, res) => {
-  if (!VISION_ENABLED) {
-    return res.status(503).json({ error: 'AI 読み取りが無効です（GOOGLE_API_KEY 未設定）' });
+  if (!isClaudeOcrEnabled() && !VISION_ENABLED) {
+    return res.status(503).json({ error: 'AI 読み取りが無効です（APIキー未設定）' });
   }
   if (!req.file || !req.file.buffer || !req.file.buffer.length) {
     return res.status(400).json({ error: 'ファイルが届いていません' });
+  }
+  /* 高精度版: Claude が使えるときは行＋項目別自信度の JSON を返す */
+  if (isClaudeOcrEnabled()) {
+    try {
+      const out = await extractPurchaseRowsClaude(req.file);
+      return res.json(out);
+    } catch (err) {
+      console.error('[purchases extract claude]', err);
+      if (!VISION_ENABLED || (err && (err.status === 400 || err.status === 413 || err.status === 429))) {
+        return res.status(err.status || 500).json({ error: err.message || 'AI 読み取りに失敗しました' });
+      }
+      /* Claude 側の一時障害は Gemini TSV にフォールバック */
+    }
   }
   try {
     const table = await extractPurchaseTable(req.file);
@@ -219,6 +255,81 @@ app.post('/api/material-purchases/extract', upload.single('file'), async (req, r
   } catch (err) {
     console.error('[purchases extract]', err);
     res.status(500).json({ error: err.message || 'AI 読み取りに失敗しました' });
+  }
+});
+
+/* ---- 材料屋さん入力ページ（material-nonyu.html）と取引先管理 ---- */
+
+app.get('/api/material-suppliers', async (req, res) => {
+  if (!isDbEnabled()) return res.status(503).json({ error: 'DATABASE_URL が未設定です' });
+  try {
+    res.json({ suppliers: await listSuppliers() });
+  } catch (err) {
+    console.error('[suppliers get]', err);
+    res.status(500).json({ error: '取引先の取得に失敗しました' });
+  }
+});
+
+app.post('/api/material-suppliers', async (req, res) => {
+  if (!isDbEnabled()) return res.status(503).json({ error: 'DATABASE_URL が未設定です' });
+  try {
+    res.json(await createSupplier(req.body && req.body.name));
+  } catch (err) {
+    console.error('[suppliers post]', err);
+    res.status(err.status || 500).json({ error: err.message || '取引先の登録に失敗しました' });
+  }
+});
+
+app.delete('/api/material-suppliers/:id', async (req, res) => {
+  if (!isDbEnabled()) return res.status(503).json({ error: 'DATABASE_URL が未設定です' });
+  try {
+    res.json(await deleteSupplier(req.params.id));
+  } catch (err) {
+    console.error('[suppliers delete]', err);
+    res.status(err.status || 500).json({ error: err.message || '取引先の削除に失敗しました' });
+  }
+});
+
+/** 材料屋さん側: キー確認（会社名と材質リストを返す） */
+app.get('/api/nonyu/me', async (req, res) => {
+  if (!isDbEnabled()) return res.status(503).json({ error: 'ただいま準備中です。しばらくしてからお試しください' });
+  try {
+    const sup = await getSupplierByKey(req.query.k);
+    if (!sup) return res.status(403).json({ error: 'この URL は無効です。お手数ですが発行元にご確認ください' });
+    res.json({
+      name: sup.name,
+      materials: PORTAL_MATERIALS.map((m) => ({ key: m.key, label: m.label, rho: m.rho })),
+    });
+  } catch (err) {
+    console.error('[nonyu me]', err);
+    res.status(500).json({ error: '確認に失敗しました。時間をおいてお試しください' });
+  }
+});
+
+/** 材料屋さん側: 納入明細の送信（そのまま蓄積に追記） */
+app.post('/api/nonyu/deliveries', async (req, res) => {
+  if (!isDbEnabled()) return res.status(503).json({ error: 'ただいま準備中です。しばらくしてからお試しください' });
+  try {
+    const body = req.body || {};
+    const sup = await getSupplierByKey(body.k);
+    if (!sup) return res.status(403).json({ error: 'この URL は無効です。お手数ですが発行元にご確認ください' });
+    res.json(await insertDeliveries(sup, body.date, body.items));
+  } catch (err) {
+    console.error('[nonyu deliveries]', err);
+    res.status(err.status || 500).json({ error: err.message || '送信に失敗しました。時間をおいてお試しください' });
+  }
+});
+
+/** 材料屋さん側: 自分が送った直近の明細 */
+app.get('/api/nonyu/recent', async (req, res) => {
+  if (!isDbEnabled()) return res.status(503).json({ error: 'ただいま準備中です' });
+  try {
+    const sup = await getSupplierByKey(req.query.k);
+    if (!sup) return res.status(403).json({ error: 'この URL は無効です' });
+    res.json({ records: await listRecentBySupplier(sup.id, req.query.limit) });
+  } catch (err) {
+    console.error('[nonyu recent]', err);
+    res.status(500).json({ error: '履歴の取得に失敗しました' });
   }
 });
 

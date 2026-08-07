@@ -26,14 +26,9 @@ export async function listPurchases() {
   };
 }
 
-/**
- * 全置換保存
- * @param {object[]} records 画面レコード [{id, date, supplier, matKey, d, l, qty, totalYen, yenKg, ...}]
- */
-export async function replacePurchases(records) {
+function normalizeRecords(records) {
   if (!Array.isArray(records)) throw new Error('records は配列で送ってください');
   if (records.length > 20000) throw new Error('記録が多すぎます');
-
   const rows = [];
   for (const r of records) {
     if (!r || typeof r !== 'object') continue;
@@ -54,28 +49,63 @@ export async function replacePurchases(records) {
       extra: r,
     });
   }
+  return rows;
+}
 
+async function insertRow(client, r) {
+  const ins = await client.query(
+    `INSERT INTO material_purchases
+       (id, purchase_date, supplier, material_key, dia, len, qty, total_yen, yen_kg, extra)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb)
+     ON CONFLICT (id) DO NOTHING`,
+    [r.id, r.date, r.supplier, r.matKey, r.d, r.l, r.qty, r.totalYen, r.yenKg,
+      JSON.stringify(r.extra)],
+  );
+  return ins.rowCount || 0;
+}
+
+/** counters 行をロックして現在版を返す（行が無ければ 0 を作る） */
+async function lockVersion(client) {
+  const cur = await client.query(
+    'SELECT value FROM counters WHERE key = $1 FOR UPDATE',
+    [PURCHASES_VERSION_KEY],
+  );
+  if (cur.rows.length) return Number(cur.rows[0].value);
+  await client.query(
+    'INSERT INTO counters (key, value) VALUES ($1, 0) ON CONFLICT (key) DO NOTHING',
+    [PURCHASES_VERSION_KEY],
+  );
+  return 0;
+}
+
+/**
+ * 全置換保存（管理画面用）
+ * @param {object[]} records 画面レコード [{id, date, supplier, matKey, d, l, qty, totalYen, yenKg, ...}]
+ * @param {number|null} expectedVersion 画面が最後に読んだ版。DB の版と食い違う場合は
+ *   err.status=409 で拒否する（材料屋さん入力ページの追記を全置換で消さないため）。
+ *   null は旧クライアント互換で照合なし。
+ */
+export async function replacePurchases(records, expectedVersion) {
+  const rows = normalizeRecords(records);
   const client = await getPool().connect();
   let inserted = 0;
+  let newVersion = 0;
   try {
     await client.query('BEGIN');
-    await client.query('DELETE FROM material_purchases');
-    for (const r of rows) {
-      const ins = await client.query(
-        `INSERT INTO material_purchases
-           (id, purchase_date, supplier, material_key, dia, len, qty, total_yen, yen_kg, extra)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb)
-         ON CONFLICT (id) DO NOTHING`,
-        [r.id, r.date, r.supplier, r.matKey, r.d, r.l, r.qty, r.totalYen, r.yenKg,
-          JSON.stringify(r.extra)],
-      );
-      inserted += ins.rowCount || 0;
+    const current = await lockVersion(client);
+    if (expectedVersion != null && Number(expectedVersion) !== current) {
+      const err = new Error('他の場所からの保存とぶつかりました。最新の記録を取り込み直します');
+      err.status = 409;
+      err.currentVersion = current;
+      throw err;
     }
-    await client.query(
-      `INSERT INTO counters (key, value) VALUES ($1, 1)
-       ON CONFLICT (key) DO UPDATE SET value = counters.value + 1`,
+    await client.query('DELETE FROM material_purchases');
+    for (const r of rows) inserted += await insertRow(client, r);
+    const upd = await client.query(
+      'UPDATE counters SET value = value + 1 WHERE key = $1 RETURNING value',
       [PURCHASES_VERSION_KEY],
     );
+    newVersion = Number(upd.rows[0].value);
     await client.query('COMMIT');
   } catch (err) {
     await client.query('ROLLBACK');
@@ -83,7 +113,35 @@ export async function replacePurchases(records) {
   } finally {
     client.release();
   }
-  return { ok: true, count: inserted };
+  return { ok: true, count: inserted, version: newVersion };
+}
+
+/**
+ * 追記保存（材料屋さん入力ページ用）。既存の記録は消さない
+ */
+export async function insertPurchases(records) {
+  const rows = normalizeRecords(records);
+  if (!rows.length) throw new Error('登録できる明細がありません');
+  const client = await getPool().connect();
+  let inserted = 0;
+  let newVersion = 0;
+  try {
+    await client.query('BEGIN');
+    await lockVersion(client);
+    for (const r of rows) inserted += await insertRow(client, r);
+    const upd = await client.query(
+      'UPDATE counters SET value = value + 1 WHERE key = $1 RETURNING value',
+      [PURCHASES_VERSION_KEY],
+    );
+    newVersion = Number(upd.rows[0].value);
+    await client.query('COMMIT');
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+  return { ok: true, count: inserted, version: newVersion };
 }
 
 /**

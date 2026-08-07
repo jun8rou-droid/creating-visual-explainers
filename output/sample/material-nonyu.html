@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>納入明細の入力</title>
+  <style>
+    :root {
+      --bg: #f4f6f9;
+      --card: #ffffff;
+      --border: #d7dde6;
+      --text: #1c2430;
+      --muted: #64748b;
+      --blue: #2563eb;
+      --blue-dark: #1d4ed8;
+      --green: #15803d;
+      --red: #b91c1c;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Hiragino Sans", "Yu Gothic UI", "Meiryo", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 16px;
+      line-height: 1.6;
+    }
+    .wrap { max-width: 760px; margin: 0 auto; padding: 16px 12px 60px; }
+    h1 { font-size: 20px; margin: 8px 0 2px; }
+    .sub { color: var(--muted); font-size: 13px; margin-bottom: 14px; }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 16px;
+      box-shadow: 0 1px 3px rgba(15, 23, 42, .06);
+    }
+    label { font-size: 13px; color: var(--muted); display: block; margin-bottom: 4px; }
+    input, select {
+      width: 100%;
+      font-size: 17px;
+      padding: 10px 10px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--text);
+    }
+    input:focus, select:focus { outline: 2px solid var(--blue); outline-offset: 0; border-color: var(--blue); }
+    .rows { display: flex; flex-direction: column; gap: 12px; }
+    .row-card {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px;
+      background: #fafbfd;
+    }
+    .row-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .row-no { font-weight: 700; font-size: 14px; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .grid .full { grid-column: 1 / -1; }
+    .kg { font-size: 12px; color: var(--muted); margin-top: 6px; min-height: 16px; }
+    .btn {
+      display: inline-block;
+      border: none;
+      border-radius: 10px;
+      padding: 12px 18px;
+      font-size: 16px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    .btn-primary { background: var(--blue); color: #fff; width: 100%; padding: 16px; font-size: 18px; }
+    .btn-primary:active { background: var(--blue-dark); }
+    .btn-primary:disabled { background: #94a3b8; cursor: default; }
+    .btn-sub { background: #e2e8f0; color: var(--text); font-size: 14px; padding: 10px 14px; }
+    .btn-del { background: none; border: none; color: var(--red); font-size: 13px; cursor: pointer; padding: 4px; }
+    .msg-ok { color: var(--green); font-weight: 700; }
+    .msg-err { color: var(--red); font-weight: 600; white-space: pre-wrap; }
+    .done-card { border: 2px solid var(--green); }
+    .done-title { color: var(--green); font-size: 18px; font-weight: 700; margin-bottom: 6px; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { padding: 6px 4px; border-bottom: 1px solid var(--border); text-align: left; white-space: nowrap; }
+    th { color: var(--muted); font-weight: 600; }
+    td.num, th.num { text-align: right; }
+    .hist-scroll { overflow-x: auto; }
+    .hidden { display: none !important; }
+    .center { text-align: center; padding: 40px 10px; color: var(--muted); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div id="loading" class="center">確認しています…</div>
+
+    <div id="invalid" class="hidden">
+      <div class="card">
+        <div class="msg-err" id="invalidMsg">この URL は無効です。お手数ですが発行元にご確認ください。</div>
+      </div>
+    </div>
+
+    <div id="main" class="hidden">
+      <h1 id="supName">—</h1>
+      <div class="sub">納入明細の入力ページです。納入いただいた材料の明細をご入力のうえ「送信」を押してください。</div>
+
+      <div class="card">
+        <label for="dlvDate">納入日</label>
+        <input type="date" id="dlvDate" style="max-width: 220px">
+      </div>
+
+      <div class="card">
+        <div style="font-weight:700; margin-bottom:10px">明細</div>
+        <div class="rows" id="rows"></div>
+        <div style="margin-top:12px">
+          <button type="button" class="btn btn-sub" id="btnAddRow">＋ 行を追加</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <button type="button" class="btn btn-primary" id="btnSend">送信する</button>
+        <div id="sendMsg" style="margin-top:10px; min-height:22px"></div>
+      </div>
+
+      <div class="card done-card hidden" id="doneCard">
+        <div class="done-title">✅ 送信しました。ありがとうございました。</div>
+        <div id="doneSummary" style="font-size:14px"></div>
+        <div style="margin-top:10px">
+          <button type="button" class="btn btn-sub" id="btnAgain">続けて入力する</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div style="font-weight:700; margin-bottom:8px">最近送信した明細</div>
+        <div class="hist-scroll">
+          <table>
+            <thead>
+              <tr><th>納入日</th><th>材質</th><th class="num">径</th><th class="num">長さ</th><th class="num">本数</th><th class="num">金額(円)</th></tr>
+            </thead>
+            <tbody id="histBody"><tr><td colspan="6" style="color:var(--muted)">—</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+(function () {
+  var KEY = new URLSearchParams(location.search).get('k') || '';
+  var MATERIALS = [];
+  var sending = false;
+
+  function $(id) { return document.getElementById(id); }
+
+  function todayISO() {
+    var d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+
+  /* 全角数字・記号を半角へ（テンキー以外の入力ミス対策） */
+  function toHalf(s) {
+    return String(s || '')
+      .replace(/[０-９．]/g, function (ch) {
+        return ch === '．' ? '.' : String.fromCharCode(ch.charCodeAt(0) - 0xFEE0);
+      })
+      .replace(/[，、]/g, '');
+  }
+
+  function numVal(el) {
+    var v = toHalf(el.value).trim();
+    if (v !== el.value) el.value = v;
+    var n = parseFloat(v);
+    return isFinite(n) ? n : NaN;
+  }
+
+  function matLabel(key) {
+    var m = MATERIALS.find(function (x) { return x.key === key; });
+    return m ? m.label : key;
+  }
+
+  function matRho(key) {
+    var m = MATERIALS.find(function (x) { return x.key === key; });
+    return m ? m.rho : 7.85;
+  }
+
+  function kgOneBar(d, l, rho) {
+    return (Math.PI * (d / 2) * (d / 2) * l / 1000) * rho / 1000;
+  }
+
+  function materialOptions() {
+    return MATERIALS.map(function (m) {
+      return '<option value="' + m.key + '">' + m.label + '</option>';
+    }).join('');
+  }
+
+  var rowSeq = 0;
+
+  function updateRowKg(card) {
+    var d = parseFloat(toHalf(card.querySelector('.f-d').value));
+    var l = parseFloat(toHalf(card.querySelector('.f-l').value));
+    var q = parseInt(toHalf(card.querySelector('.f-q').value), 10);
+    var el = card.querySelector('.kg');
+    if (!isFinite(d) || d <= 0 || !isFinite(l) || l <= 0) { el.textContent = ''; return; }
+    var kg = kgOneBar(d, l, matRho(card.querySelector('.f-mat').value)) * (isFinite(q) && q > 0 ? q : 1);
+    el.textContent = '参考重量: 約 ' + (Math.round(kg * 100) / 100) + ' kg';
+  }
+
+  function renumber() {
+    var cards = document.querySelectorAll('#rows .row-card');
+    cards.forEach(function (c, i) {
+      c.querySelector('.row-no').textContent = (i + 1) + ' 行目';
+      c.querySelector('.btn-del').style.visibility = cards.length > 1 ? 'visible' : 'hidden';
+    });
+  }
+
+  function addRow() {
+    rowSeq++;
+    var card = document.createElement('div');
+    card.className = 'row-card';
+    card.innerHTML =
+      '<div class="row-head"><span class="row-no"></span>' +
+      '<button type="button" class="btn-del">この行を削除</button></div>' +
+      '<div class="grid">' +
+      '<div class="full"><label>材質</label><select class="f-mat">' + materialOptions() + '</select></div>' +
+      '<div><label>径 φ（mm）</label><input class="f-d" type="text" inputmode="decimal" placeholder="例: 25"></div>' +
+      '<div><label>長さ（mm）</label><input class="f-l" type="text" inputmode="decimal" placeholder="例: 4000"></div>' +
+      '<div><label>本数</label><input class="f-q" type="text" inputmode="numeric" value="1"></div>' +
+      '<div><label>金額（円・税別合計）</label><input class="f-t" type="text" inputmode="numeric" placeholder="例: 15000"></div>' +
+      '</div><div class="kg"></div>';
+    $('rows').appendChild(card);
+
+    card.querySelector('.btn-del').addEventListener('click', function () {
+      card.remove();
+      renumber();
+    });
+    ['.f-mat', '.f-d', '.f-l', '.f-q'].forEach(function (sel) {
+      card.querySelector(sel).addEventListener('input', function () { updateRowKg(card); });
+      card.querySelector(sel).addEventListener('change', function () { updateRowKg(card); });
+    });
+    /* Enter で次の欄へ（最終欄なら行追加はせず送信ボタンへ） */
+    card.querySelectorAll('input, select').forEach(function (el) {
+      el.addEventListener('keydown', function (e) {
+        if (e.key !== 'Enter') return;
+        e.preventDefault();
+        var all = Array.prototype.slice.call(document.querySelectorAll('#rows input, #rows select'));
+        var i = all.indexOf(el);
+        if (i >= 0 && i < all.length - 1) all[i + 1].focus();
+        else $('btnSend').focus();
+      });
+    });
+    renumber();
+    return card;
+  }
+
+  function collectItems() {
+    var items = [];
+    var errs = [];
+    document.querySelectorAll('#rows .row-card').forEach(function (card, i) {
+      var mat = card.querySelector('.f-mat').value;
+      var d = numVal(card.querySelector('.f-d'));
+      var l = numVal(card.querySelector('.f-l'));
+      var q = numVal(card.querySelector('.f-q'));
+      var t = numVal(card.querySelector('.f-t'));
+      var empty = isNaN(d) && isNaN(l) && isNaN(t);
+      if (empty) return; /* 未記入の行は無視 */
+      var row = i + 1;
+      if (isNaN(d) || d <= 0) errs.push(row + '行目: 径を入力してください');
+      if (isNaN(l) || l <= 0) errs.push(row + '行目: 長さを入力してください');
+      if (isNaN(q) || q <= 0) errs.push(row + '行目: 本数を入力してください');
+      if (isNaN(t) || t <= 0) errs.push(row + '行目: 金額を入力してください');
+      if (errs.length) return;
+      items.push({ materialKey: mat, d: d, l: l, qty: Math.round(q), totalYen: Math.round(t) });
+    });
+    return { items: items, errs: errs };
+  }
+
+  function loadRecent() {
+    fetch('/api/nonyu/recent?k=' + encodeURIComponent(KEY)).then(function (res) {
+      return res.json();
+    }).then(function (body) {
+      var recs = Array.isArray(body.records) ? body.records : [];
+      var tb = $('histBody');
+      if (!recs.length) {
+        tb.innerHTML = '<tr><td colspan="6" style="color:var(--muted)">まだ送信履歴はありません</td></tr>';
+        return;
+      }
+      tb.innerHTML = recs.map(function (r) {
+        return '<tr><td>' + (r.date || '') + '</td><td>' + matLabel(r.materialKey) +
+          '</td><td class="num">' + r.d + '</td><td class="num">' + r.l +
+          '</td><td class="num">' + r.qty + '</td><td class="num">' +
+          Number(r.totalYen).toLocaleString('ja-JP') + '</td></tr>';
+      }).join('');
+    }).catch(function () { /* 履歴は補助情報なので黙ってスキップ */ });
+  }
+
+  function setSendMsg(text, ok) {
+    var el = $('sendMsg');
+    el.textContent = text;
+    el.className = ok ? 'msg-ok' : 'msg-err';
+  }
+
+  function send() {
+    if (sending) return;
+    var date = $('dlvDate').value;
+    if (!date) { setSendMsg('納入日を選んでください', false); return; }
+    var c = collectItems();
+    if (c.errs.length) { setSendMsg(c.errs.join('\n'), false); return; }
+    if (!c.items.length) { setSendMsg('明細を1行以上入力してください', false); return; }
+
+    var lines = c.items.map(function (it, i) {
+      return (i + 1) + '. ' + matLabel(it.materialKey) + ' φ' + it.d + '×' + it.l + ' ' + it.qty + '本 ' +
+        it.totalYen.toLocaleString('ja-JP') + '円';
+    });
+    if (!confirm('この内容で送信します。よろしいですか？\n\n納入日: ' + date + '\n' + lines.join('\n'))) return;
+
+    sending = true;
+    $('btnSend').disabled = true;
+    setSendMsg('送信しています…', true);
+    fetch('/api/nonyu/deliveries', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ k: KEY, date: date, items: c.items }),
+    }).then(function (res) {
+      return res.json().then(function (b) {
+        if (!res.ok) throw new Error((b && b.error) || res.statusText);
+        return b;
+      });
+    }).then(function (body) {
+      setSendMsg('', true);
+      $('doneSummary').innerHTML = '納入日 ' + date + ' ・ ' + body.count + ' 行を送信しました。<br>' +
+        lines.map(function (l) { return l; }).join('<br>');
+      $('doneCard').classList.remove('hidden');
+      $('doneCard').scrollIntoView({ behavior: 'smooth', block: 'center' });
+      $('rows').innerHTML = '';
+      addRow();
+      loadRecent();
+    }).catch(function (err) {
+      setSendMsg('送信できませんでした: ' + (err && err.message ? err.message : err), false);
+    }).finally(function () {
+      sending = false;
+      $('btnSend').disabled = false;
+    });
+  }
+
+  function init() {
+    if (!KEY) {
+      $('loading').classList.add('hidden');
+      $('invalid').classList.remove('hidden');
+      return;
+    }
+    fetch('/api/nonyu/me?k=' + encodeURIComponent(KEY)).then(function (res) {
+      return res.json().then(function (b) {
+        if (!res.ok) throw new Error((b && b.error) || res.statusText);
+        return b;
+      });
+    }).then(function (body) {
+      MATERIALS = body.materials || [];
+      $('supName').textContent = body.name + ' 様';
+      $('loading').classList.add('hidden');
+      $('main').classList.remove('hidden');
+      $('dlvDate').value = todayISO();
+      addRow();
+      loadRecent();
+    }).catch(function (err) {
+      $('loading').classList.add('hidden');
+      $('invalidMsg').textContent = (err && err.message) || 'この URL は無効です。';
+      $('invalid').classList.remove('hidden');
+    });
+  }
+
+  $('btnAddRow') && $('btnAddRow').addEventListener('click', function () {
+    var card = addRow();
+    card.querySelector('.f-d').focus();
+  });
+  $('btnSend').addEventListener('click', send);
+  $('btnAgain').addEventListener('click', function () {
+    $('doneCard').classList.add('hidden');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+
+  init();
+})();
+  </script>
+</body>
+</html>
