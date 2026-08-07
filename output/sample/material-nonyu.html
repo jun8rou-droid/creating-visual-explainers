@@ -84,6 +84,18 @@
     .hist-scroll { overflow-x: auto; }
     .hidden { display: none !important; }
     .center { text-align: center; padding: 40px 10px; color: var(--muted); }
+    /* PC: 1行を横一列に並べてキーボード入力を速く（スマホは縦並びのまま） */
+    @media (min-width: 760px) {
+      .wrap { max-width: 1080px; }
+      .grid { grid-template-columns: 1.7fr 0.8fr 0.9fr 0.7fr 1.1fr; align-items: end; }
+      .grid .full { grid-column: auto; }
+      input, select { font-size: 15px; padding: 8px 9px; }
+      label { font-size: 12px; margin-bottom: 2px; }
+      .row-card { padding: 10px 14px; }
+      .row-head { margin-bottom: 4px; }
+      .kg { margin-top: 4px; }
+      .btn-primary { max-width: 320px; margin: 0 auto; display: block; }
+    }
   </style>
 </head>
 <body>
@@ -214,7 +226,12 @@
     });
   }
 
-  function addRow() {
+  function lastRowCard() {
+    var cards = document.querySelectorAll('#rows .row-card');
+    return cards.length ? cards[cards.length - 1] : null;
+  }
+
+  function addRow(copyMatKey) {
     rowSeq++;
     var card = document.createElement('div');
     card.className = 'row-card';
@@ -238,17 +255,30 @@
       card.querySelector(sel).addEventListener('input', function () { updateRowKg(card); });
       card.querySelector(sel).addEventListener('change', function () { updateRowKg(card); });
     });
-    /* Enter で次の欄へ（最終欄なら行追加はせず送信ボタンへ） */
+    /* Enter で次の欄へ。最終行の金額欄では新しい行を自動追加（材質は引き継ぎ）して径欄へ。
+       空のままもう一度 Enter すると送信ボタンへ移る */
     card.querySelectorAll('input, select').forEach(function (el) {
       el.addEventListener('keydown', function (e) {
         if (e.key !== 'Enter') return;
         e.preventDefault();
+        var isAmount = el.classList.contains('f-t');
+        var isLastRow = lastRowCard() === card;
+        if (isAmount && isLastRow) {
+          if (toHalf(el.value).trim() === '') {
+            $('btnSend').focus();
+            return;
+          }
+          var next = addRow(card.querySelector('.f-mat').value);
+          next.querySelector('.f-d').focus();
+          return;
+        }
         var all = Array.prototype.slice.call(document.querySelectorAll('#rows input, #rows select'));
         var i = all.indexOf(el);
         if (i >= 0 && i < all.length - 1) all[i + 1].focus();
         else $('btnSend').focus();
       });
     });
+    if (copyMatKey) card.querySelector('.f-mat').value = copyMatKey;
     renumber();
     return card;
   }
@@ -370,7 +400,8 @@
   }
 
   $('btnAddRow') && $('btnAddRow').addEventListener('click', function () {
-    var card = addRow();
+    var prev = lastRowCard();
+    var card = addRow(prev ? prev.querySelector('.f-mat').value : null);
     card.querySelector('.f-d').focus();
   });
   $('btnSend').addEventListener('click', send);
