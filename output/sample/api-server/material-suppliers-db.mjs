@@ -93,8 +93,12 @@ export async function getSupplierByKey(key) {
   return res.rows[0] || null;
 }
 
-function kgOneBar(d, l, rho) {
-  return (Math.PI * (d / 2) * (d / 2) * l / 1000) * rho / 1000;
+/** d は丸棒＝直径φ／六角＝対辺。六角（キーが_HEX）は対辺²×√3/2 の断面で計算 */
+function kgOneBar(d, l, rho, matKey) {
+  const areaMm2 = /_HEX$/.test(String(matKey || ''))
+    ? (Math.sqrt(3) / 2) * d * d
+    : Math.PI * (d / 2) * (d / 2);
+  return (areaMm2 * l / 1000) * rho / 1000;
 }
 
 /**
@@ -124,7 +128,7 @@ export async function insertDeliveries(supplier, date, items) {
     if (!Number.isFinite(l) || l <= 0 || l > 30000) throw badRequest(row + '行目: 長さ（mm）を確認してください');
     if (!Number.isFinite(qty) || qty <= 0 || qty > 9999) throw badRequest(row + '行目: 本数を確認してください');
     if (!Number.isFinite(totalYen) || totalYen <= 0 || totalYen > 100000000) throw badRequest(row + '行目: 金額（円）を確認してください');
-    const kg = kgOneBar(d, l, mat.rho) * qty;
+    const kg = kgOneBar(d, l, mat.rho, mat.key) * qty;
     if (!(kg > 0)) throw badRequest(row + '行目: 重量を計算できませんでした');
     records.push({
       id: 'sp_' + crypto.randomBytes(8).toString('hex'),

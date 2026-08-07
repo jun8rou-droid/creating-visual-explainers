@@ -179,8 +179,12 @@
     return m ? m.rho : 7.85;
   }
 
-  function kgOneBar(d, l, rho) {
-    return (Math.PI * (d / 2) * (d / 2) * l / 1000) * rho / 1000;
+  /* d は丸棒＝直径φ／六角＝対辺。六角（キーが_HEX）は対辺²×√3/2 の断面で計算 */
+  function kgOneBar(d, l, rho, matKey) {
+    var areaMm2 = /_HEX$/.test(String(matKey || ''))
+      ? (Math.sqrt(3) / 2) * d * d
+      : Math.PI * (d / 2) * (d / 2);
+    return (areaMm2 * l / 1000) * rho / 1000;
   }
 
   function materialOptions() {
@@ -197,7 +201,8 @@
     var q = parseInt(toHalf(card.querySelector('.f-q').value), 10);
     var el = card.querySelector('.kg');
     if (!isFinite(d) || d <= 0 || !isFinite(l) || l <= 0) { el.textContent = ''; return; }
-    var kg = kgOneBar(d, l, matRho(card.querySelector('.f-mat').value)) * (isFinite(q) && q > 0 ? q : 1);
+    var mk = card.querySelector('.f-mat').value;
+    var kg = kgOneBar(d, l, matRho(mk), mk) * (isFinite(q) && q > 0 ? q : 1);
     el.textContent = '参考重量: 約 ' + (Math.round(kg * 100) / 100) + ' kg';
   }
 

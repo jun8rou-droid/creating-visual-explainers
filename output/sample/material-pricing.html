@@ -930,9 +930,18 @@
     return null;
   }
 
-  function kgOneBar(d, l, rho) {
-    var volMm3 = Math.PI * (d / 2) * (d / 2) * l;
-    var volCm3 = volMm3 / 1000;
+  function isHexKey(matKey) {
+    var m = MATERIALS.find(function (x) { return x.key === matKey; });
+    if (m) return m.g === 'hex';
+    return /_HEX$/.test(String(matKey || ''));
+  }
+
+  /** 1本の重量kg。d は丸棒＝直径φ／六角＝対辺。matKey を渡すと六角断面（対辺²×√3/2）で計算する */
+  function kgOneBar(d, l, rho, matKey) {
+    var areaMm2 = matKey != null && isHexKey(matKey)
+      ? (Math.sqrt(3) / 2) * d * d
+      : Math.PI * (d / 2) * (d / 2);
+    var volCm3 = (areaMm2 * l) / 1000;
     return (volCm3 * rho) / 1000;
   }
 
@@ -1365,7 +1374,7 @@
     if (isNaN(d) || d <= 0 || isNaN(l) || l <= 0) return null;
     if (isNaN(qty) || qty < 1) qty = 1;
     var rho = rhoOfKey(matKey);
-    var kg = kgOneBar(d, l, rho) * qty;
+    var kg = kgOneBar(d, l, rho, matKey) * qty;
     if (kg <= 0) return null;
 
     var totalYen = NaN;
@@ -1518,7 +1527,7 @@
       el.title = 'この材質の蓄積データが無いため基準キロ単価を出せません';
       return;
     }
-    var kgBar = kgOneBar(d, l, rhoOfKey(mat));
+    var kgBar = kgOneBar(d, l, rhoOfKey(mat), mat);
     var cutPerBar = Math.round(tot / q - kgBar * base.value);
     if (cutPerBar <= 0) {
       el.textContent = '≒0円';
@@ -1546,7 +1555,7 @@
       el.textContent = '—';
       return;
     }
-    var kg = kgOneBar(d, l, rhoOfKey(mat)) * q;
+    var kg = kgOneBar(d, l, rhoOfKey(mat), mat) * q;
     if (isNaN(tot) || tot < 0) {
       el.textContent = kg.toFixed(3) + ' kg';
       return;
@@ -1687,7 +1696,7 @@
         qty = 1;
         if (d < 2 || d > 500 || l < 5 || l > 30000 || total < 200) return;
       }
-      var kg = kgOneBar(d, l, rho) * qty;
+      var kg = kgOneBar(d, l, rho, matKey) * qty;
       if (kg <= 0 || total / kg > 500000) return;
       drafts.push({
         date: (dateStr || todayISO()).slice(0, 10),
@@ -1855,7 +1864,7 @@
 
     var rho = rhoOfKey(matKey);
     var kgOne =
-      !isNaN(d0) && d0 > 0 && !isNaN(l0) && l0 > 0 ? kgOneBar(d0, l0, rho) : NaN;
+      !isNaN(d0) && d0 > 0 && !isNaN(l0) && l0 > 0 ? kgOneBar(d0, l0, rho, matKey) : NaN;
     var kg = !isNaN(kgOne) ? kgOne * qty : NaN;
 
     var records = loadRecords();
@@ -2434,7 +2443,7 @@
         return;
       }
       var rho = rhoOfKey(mat);
-      var kg = kgOneBar(d, l, rho) * qty;
+      var kg = kgOneBar(d, l, rho, mat) * qty;
       if (kg <= 0) return;
       recs.push({
         id: uid(),
@@ -2602,7 +2611,7 @@
       document.getElementById('addPreview').textContent = '';
       return;
     }
-    var kg = kgOneBar(d, l, rho) * qty;
+    var kg = kgOneBar(d, l, rho, matKey) * qty;
     var yk = isNaN(total) || total < 0 ? NaN : total / kg;
     document.getElementById('addPreview').textContent =
       '計算プレビュー: 合計 ' + kg.toFixed(3) + ' kg → 円/kg ' +
@@ -2624,7 +2633,7 @@
       return;
     }
     var rho = rhoOfKey(matKey);
-    var kg = kgOneBar(d, l, rho) * qty;
+    var kg = kgOneBar(d, l, rho, matKey) * qty;
     if (kg <= 0) {
       alert('径・長さ・本数を確認してください');
       return;
