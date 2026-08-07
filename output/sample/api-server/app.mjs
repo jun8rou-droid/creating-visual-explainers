@@ -337,10 +337,12 @@ function portalUrlFromReq(req, accessKey) {
 function orderMailText(order, supplierName, url) {
   const lines = order.items.map((it, i) =>
     ' ' + (i + 1) + '. ' + it.label + '  φ' + it.d + '×' + it.l + 'mm  ' + it.qty + '本');
-  const ask = order.kind === 'order' ? '単価と納入予定日' : '単価';
+  const intro = order.kind === 'order'
+    ? '下記のとおり発注いたします。お手配のほどお願いいたします。\nURLを開いて、単価と納入予定日のご入力をお願いいたします。'
+    : '下記のお見積をお願いいたします。\nURLを開いて、単価のご入力をお願いいたします。';
   return supplierName + ' 様\n\n' +
     'いつもお世話になっております。（有）日勝ネジです。\n' +
-    '下記の' + order.kindLabel + 'をお送りしました。URLを開いて、' + ask + 'のご入力をお願いいたします。\n\n' +
+    intro + '\n\n' +
     url + '\n\n' +
     '【明細】\n' + lines.join('\n') + '\n' +
     (order.note ? '\n【備考】\n' + order.note + '\n' : '') +

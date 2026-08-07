@@ -84,6 +84,21 @@
     .hist-scroll { overflow-x: auto; }
     .hidden { display: none !important; }
     .center { text-align: center; padding: 40px 10px; color: var(--muted); }
+    /* 発注＝青／見積依頼＝オレンジ で見分けやすく */
+    .ord-order { border-left: 6px solid var(--blue); }
+    .ord-quote { border-left: 6px solid #d97706; }
+    .kind-badge {
+      display: inline-block;
+      color: #fff;
+      font-size: 13px;
+      font-weight: 700;
+      padding: 3px 10px;
+      border-radius: 6px;
+      margin-right: 8px;
+      vertical-align: middle;
+    }
+    .kind-badge.order { background: var(--blue); }
+    .kind-badge.quote { background: #d97706; }
     /* PC: 1行を横一列に並べてキーボード入力を速く（スマホは縦並びのまま） */
     @media (min-width: 760px) {
       .wrap { max-width: 1080px; }
@@ -112,9 +127,12 @@
       <h1 id="supName">—</h1>
       <div class="sub">納入明細の入力ページです。納入いただいた材料の明細をご入力のうえ「送信」を押してください。</div>
 
-      <div class="card hidden" id="ordersCard" style="border:2px solid var(--blue)">
-        <div style="font-weight:700;margin-bottom:4px">📋 発注・見積依頼への回答</div>
-        <div class="sub" style="margin-bottom:10px">単価（円/本・税別）をご入力ください。発注の場合は納入予定日もお願いします。</div>
+      <div class="card hidden" id="ordersCard">
+        <div style="font-weight:700;margin-bottom:4px">📋 発注・見積のご依頼</div>
+        <div class="sub" style="margin-bottom:10px">
+          <span class="kind-badge order" style="font-size:11px">発注</span>単価と納入予定日を入れて「手配を登録」
+          ／ <span class="kind-badge quote" style="font-size:11px">見積依頼</span>単価を入れて「見積を送信」
+        </div>
         <div id="ordersList"></div>
       </div>
 
@@ -313,19 +331,28 @@
 
   /* 発注・見積依頼への回答 */
   function renderOrder(o) {
+    var isOrder = o.kind === 'order';
     var box = document.createElement('div');
-    box.className = 'row-card';
+    box.className = 'row-card ' + (isOrder ? 'ord-order' : 'ord-quote');
     box.style.marginBottom = '12px';
     var isOpen = o.status === 'sent';
     var head = document.createElement('div');
     head.style.cssText = 'font-weight:700;margin-bottom:8px';
-    head.textContent = o.kindLabel + '（' + o.created + '）' +
-      (isOpen ? '' : ' — 回答済み' + (o.deliveryDate ? '・納入予定 ' + o.deliveryDate : ''));
+    var badge = document.createElement('span');
+    badge.className = 'kind-badge ' + (isOrder ? 'order' : 'quote');
+    badge.textContent = o.kindLabel;
+    head.appendChild(badge);
+    var doneText = isOrder
+      ? ' — 手配済み' + (o.deliveryDate ? '・納入予定 ' + o.deliveryDate : '')
+      : ' — 見積済み';
+    head.appendChild(document.createTextNode('（' + o.created + '）' + (isOpen ? '' : doneText)));
     if (isOpen) {
-      var badge = document.createElement('span');
-      badge.style.cssText = 'color:var(--red);font-size:12px;margin-left:8px';
-      badge.textContent = '← ご回答をお願いします';
-      head.appendChild(badge);
+      var ask = document.createElement('span');
+      ask.style.cssText = 'color:var(--red);font-size:12px;margin-left:8px;font-weight:600';
+      ask.textContent = isOrder
+        ? '単価と納入予定日のご入力をお願いします'
+        : '単価のご記入をお願いします';
+      head.appendChild(ask);
     }
     box.appendChild(head);
     if (o.note) {
@@ -370,8 +397,9 @@
       var sendBtn = document.createElement('button');
       sendBtn.type = 'button';
       sendBtn.className = 'btn btn-primary';
-      sendBtn.style.cssText = 'width:auto;padding:12px 24px;font-size:16px;margin:0';
-      sendBtn.textContent = '回答を送信';
+      sendBtn.style.cssText = 'width:auto;padding:12px 24px;font-size:16px;margin:0' +
+        (isOrder ? '' : ';background:#d97706');
+      sendBtn.textContent = isOrder ? '手配を登録' : '見積を送信';
       var msg = document.createElement('span');
       msg.className = 'msg-err';
       msg.style.fontSize = '13px';
@@ -392,7 +420,9 @@
           msg.textContent = '納入予定日を選んでください';
           return;
         }
-        if (!confirm('この内容で回答を送信します。よろしいですか？')) return;
+        if (!confirm(isOrder
+          ? 'この内容で手配を登録します。よろしいですか？'
+          : 'この内容で見積を送信します。よろしいですか？')) return;
         sendBtn.disabled = true;
         msg.textContent = '';
         fetch('/api/nonyu/orders/' + encodeURIComponent(o.id) + '/answer', {

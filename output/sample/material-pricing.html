@@ -3324,7 +3324,8 @@
         var tr = document.createElement('tr');
         tr.innerHTML =
           '<td style="white-space:nowrap;font-size:11px">' + escapeHtml(o.created) + '</td>' +
-          '<td style="white-space:nowrap">' + escapeHtml(o.kindLabel) + '</td>' +
+          '<td style="white-space:nowrap;font-weight:700;color:' +
+          (o.kind === 'order' ? 'var(--cyan)' : 'var(--amber)') + '">' + escapeHtml(o.kindLabel) + '</td>' +
           '<td style="white-space:nowrap">' + escapeHtml(o.supplierName || '') + '</td>' +
           '<td style="font-size:11px;line-height:1.7">' + itemsHtml + '</td>' +
           '<td style="white-space:nowrap;color:' + st.color + ';font-weight:700">' + st.label + '</td>' +
