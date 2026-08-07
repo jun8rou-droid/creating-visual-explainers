@@ -147,10 +147,11 @@ export async function insertDeliveries(supplier, date, items) {
 
 /** 取引先本人向け: 自分が送信した直近の明細 */
 export async function listRecentBySupplier(supplierId, limit) {
+  /* created_at は管理画面の全置換保存でリセットされるため、送信時刻（submittedAt）を優先する */
   const res = await query(
     `SELECT extra FROM material_purchases
      WHERE extra->>'supplierId' = $1
-     ORDER BY created_at DESC LIMIT $2`,
+     ORDER BY COALESCE(extra->>'submittedAt', '') DESC, created_at DESC LIMIT $2`,
     [String(supplierId || ''), Math.min(Math.max(Number(limit) || 10, 1), 30)],
   );
   return res.rows.map((r) => r.extra).filter((x) => x && typeof x === 'object');

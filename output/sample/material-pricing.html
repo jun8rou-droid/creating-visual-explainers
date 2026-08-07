@@ -973,6 +973,8 @@
         return body;
       });
     }).then(function (body) {
+      /* 保存待ちの変更（settingsSaveTimer）があるときは、読込で上書きしない */
+      if (settingsSaveTimer) return;
       pricingSettings = normalizePricingSettings(body.settings);
       try { localStorage.setItem(SETTINGS_STORAGE, JSON.stringify(pricingSettings)); } catch (e) {}
       runEstimate();
@@ -1081,7 +1083,12 @@
   }
 
   var apiSaveTimer = null;
+  /* v33: DBに反映できていない変更がこの端末にあるか。
+     true の間はフォーカス時の再読込でキャッシュを上書きしない（保存失敗後の消失防止） */
+  var pendingLocalChanges = false;
+
   function scheduleApiSave() {
+    pendingLocalChanges = true;
     if (apiSaveTimer) clearTimeout(apiSaveTimer);
     setSyncStatus('DBへ保存中…', false);
     apiSaveTimer = setTimeout(pushRecordsToApi, 800);
@@ -1089,6 +1096,26 @@
 
   function pushRecordsToApi() {
     apiSaveTimer = null;
+    /* v33: 一度もDBを読めていない（knownVersion 不明）のに全置換すると、
+       古いキャッシュで材料屋さんの追記や他端末の入力を消してしまう。
+       先に現在の版と記録を取得してマージしてから保存し直す */
+    if (knownVersion == null) {
+      pushInFlight = true;
+      fetch('/api/material-purchases').then(function (res) {
+        return res.json().then(function (body) {
+          if (!res.ok) throw new Error(body && body.error ? body.error : res.statusText);
+          return body;
+        });
+      }).then(function (body) {
+        pushInFlight = false;
+        mergeConflictAndRetry(body);
+      }).catch(function (err) {
+        pushInFlight = false;
+        console.warn('[purchases api save precheck]', err);
+        setSyncStatus('DB保存失敗 — この端末には保存済み', true);
+      });
+      return;
+    }
     pushInFlight = true;
     fetch('/api/material-purchases', {
       method: 'PUT',
@@ -1102,6 +1129,7 @@
         }
         if (!res.ok) throw new Error(body && body.error ? body.error : res.statusText);
         if (body.version != null) knownVersion = body.version;
+        if (!apiSaveTimer) pendingLocalChanges = false;
         setSyncStatus('DB保存済み（' + body.count + '件）', false);
       });
     }).catch(function (err) {
@@ -1112,7 +1140,8 @@
     });
   }
 
-  /** 保存が 409（材料屋さんの追記等とぶつかった）→ 追記分をこの画面に取り込み、保存し直す */
+  /** 保存が 409（材料屋さんの追記や他端末の保存とぶつかった）→ サーバー側にしか無い行を
+      この画面に取り込み、保存し直す。この画面で削除した行（sessionDeletedIds）は復活させない */
   function mergeConflictAndRetry(body) {
     var server = Array.isArray(body && body.records) ? body.records : [];
     var local = loadRecords();
@@ -1121,17 +1150,19 @@
       if (r && r.id != null) haveIds[String(r.id)] = true;
     });
     var added = 0;
+    var addedNonyu = 0;
     server.forEach(function (r) {
-      if (!r || r.source !== 'nonyu') return;
+      if (!r) return;
       var id = String(r.id || '');
       if (!id || haveIds[id] || sessionDeletedIds[id]) return;
       local.push(r);
       added++;
+      if (r.source === 'nonyu') addedNonyu++;
     });
     if (body && body.version != null) knownVersion = body.version;
     setSyncStatus(
       added
-        ? '材料屋さんの入力 ' + added + ' 件を取り込みました。保存し直しています…'
+        ? (addedNonyu ? '材料屋さんの入力など ' : '他の端末の入力 ') + added + ' 件を取り込みました。保存し直しています…'
         : '最新の状態に合わせて保存し直しています…',
       false
     );
@@ -3146,7 +3177,7 @@
   /* v30: タブへ戻ってきたら材料屋さんの追記を取り込む（保存待ち・保存中は触らない） */
   function refreshFromApiIfIdle() {
     if (document.visibilityState !== 'visible') return;
-    if (apiSaveTimer || pushInFlight) return;
+    if (apiSaveTimer || pushInFlight || pendingLocalChanges) return;
     if (Date.now() - lastApiLoadMs < 30000) return;
     loadRecordsFromApi();
   }
@@ -3165,6 +3196,28 @@
       });
     }
 
+    /* 保存前に必ずサーバーの最新設定を取り直してからマージする。
+       （読込前・読込失敗のまま保存すると extras・cutYenKg ごと消してしまうため） */
+    function applyBaseOverride(matKey, valueOrNull) {
+      fetch('/api/material-pricing-settings').then(function (res) {
+        return res.json().then(function (b) {
+          if (!res.ok) throw new Error((b && b.error) || res.statusText);
+          return b;
+        });
+      }).then(function (b) {
+        pricingSettings = normalizePricingSettings(b.settings);
+        if (valueOrNull == null) delete pricingSettings.baseYenKg[matKey];
+        else pricingSettings.baseYenKg[matKey] = valueOrNull;
+        savePricingSettingsToApi();
+        runEstimate();
+        refreshDraftCuts();
+      }).catch(function (err) {
+        /* 取得できないまま保存すると径エキストラ等の設定を消してしまうため中止する */
+        console.warn('[pricing settings refetch]', err);
+        alert('設定の読み込みに失敗したため保存を中止しました。通信を確認してもう一度お試しください。');
+      });
+    }
+
     saveBtn.addEventListener('click', function () {
       var matKey = document.getElementById('estMaterial').value;
       var v = parseFloat(document.getElementById('baseYenKgOverride').value);
@@ -3172,18 +3225,12 @@
         alert('基準キロ単価（円/kg）を正の数で入力してください。自動に戻すときは「自動に戻す」を押してください。');
         return;
       }
-      pricingSettings.baseYenKg[matKey] = Math.round(v);
-      savePricingSettingsToApi();
-      runEstimate();
-      refreshDraftCuts();
+      applyBaseOverride(matKey, Math.round(v));
     });
 
     clearBtn.addEventListener('click', function () {
       var matKey = document.getElementById('estMaterial').value;
-      delete pricingSettings.baseYenKg[matKey];
-      savePricingSettingsToApi();
-      runEstimate();
-      refreshDraftCuts();
+      applyBaseOverride(matKey, null);
     });
   })();
 

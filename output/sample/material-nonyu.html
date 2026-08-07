@@ -153,13 +153,13 @@
     return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
   }
 
-  /* 全角数字・記号を半角へ（テンキー以外の入力ミス対策） */
+  /* 全角数字・記号を半角へ、桁区切りカンマ・空白は除去（「15,000」→15 で登録される事故防止） */
   function toHalf(s) {
     return String(s || '')
       .replace(/[０-９．]/g, function (ch) {
         return ch === '．' ? '.' : String.fromCharCode(ch.charCodeAt(0) - 0xFEE0);
       })
-      .replace(/[，、]/g, '');
+      .replace(/[，、,\s]/g, '');
   }
 
   function numVal(el) {
