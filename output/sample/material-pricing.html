@@ -777,9 +777,16 @@
     { key: 'SUS304_SAN_HEX', label: 'SUS304酸洗六角', rho: 7.93, g: 'hex' },
     { key: 'SUS304_MIG_HEX', label: 'SUS304磨き六角', rho: 7.93, g: 'hex' },
     { key: 'SUS403', label: 'SUS403', rho: 7.75, g: 'sus' },
+    { key: 'SUS303_PL', label: 'SUS303ピーリング', rho: 7.93, g: 'sus' },
+    { key: 'SUS303_MIG', label: 'SUS303磨', rho: 7.93, g: 'sus' },
     { key: 'SUS316', label: 'SUS316', rho: 7.98, g: 'sus' },
     { key: 'SUS316L', label: 'SUS316L', rho: 7.98, g: 'sus' },
     { key: 'SUS321', label: 'SUS321', rho: 7.93, g: 'sus' },
+    { key: 'SUS304N2', label: 'SUS304N2', rho: 7.93, g: 'sus' },
+    { key: 'SUS309S', label: 'SUS309S', rho: 7.98, g: 'sus' },
+    { key: 'SUS310S', label: 'SUS310S', rho: 7.98, g: 'sus' },
+    { key: 'SUS347', label: 'SUS347', rho: 8.03, g: 'sus' },
+    { key: 'SUS630', label: 'SUS630（17-4PH）', rho: 7.78, g: 'sus' },
     { key: 'XM19', label: 'XM-19（Nitronic50）', rho: 7.88, g: 'special' },
     { key: 'ALLOY718', label: 'Alloy718（Inconel718）', rho: 8.19, g: 'special' },
     { key: 'SUS420J2HT', label: 'SUS420J2HT', rho: 7.75, g: 'special' },
@@ -855,6 +862,16 @@
         if (/磨き|磨|ミガキ|ﾐｶﾞｷ|migaki/i.test(s)) return 'SUS304_MIG_HEX';
       }
     }
+    /* v32: 追加鋼種は 304 系の汎用判定（ステン・ミガキ等）より先に見る */
+    if (/304n2|sus304n2/.test(t)) return 'SUS304N2';
+    if (/sus303/.test(t) || /(^|[^\d])303([^\d]|$)/.test(t)) {
+      if (/磨|ミガキ|ﾐｶﾞｷ|migaki/i.test(s)) return 'SUS303_MIG';
+      return 'SUS303_PL';
+    }
+    if (/sus310|310s/.test(t)) return 'SUS310S';
+    if (/sus309|309s/.test(t)) return 'SUS309S';
+    if (/sus347|(^|[^\d])347([^\d]|$)/.test(t)) return 'SUS347';
+    if (/sus630|17-?4\s*ph|(^|[^\d])630([^\d]|$)/.test(t)) return 'SUS630';
     if (/sus304.*酸|sos304.*酸|304.*酸|酸洗|酸洗い/i.test(s)) return 'SUS304_SAN';
     if (/sus304.*ピーリ|sos304.*ピーリ|304.*ピーリ|ピーリング|ピーリ|pickl/i.test(s)) return 'SUS304_PL';
     /* 304磨 ＝ 304ミガキ（全角・半角カナ・ローマ字）を同一 SUS304磨 扱い */
@@ -995,12 +1012,47 @@
     return { value: vals[idx], count: vals.length };
   }
 
-  /** 基準キロ単価（手動上書き優先） @returns {null|{value:number, source:'manual'|'auto', count?:number}} */
-  function baseYenKgFor(matKey) {
+  /* v32: 単価表の径エキストラ（φ・六角対辺の帯で kg単価に上乗せ）。
+     settings.extras = { peeling|migaki|sanarai|hex: [[最小,最大,上乗せ円], ...] }
+     蓄積データからの自動基準はエキストラ込みの実績値なので、上乗せは手動基準のときだけ適用する */
+  function stainlessExtraYenKg(matKey, d) {
+    if (!/^SUS/.test(String(matKey))) return 0;
+    var ex = pricingSettings.extras;
+    if (!ex || d == null || isNaN(d) || d <= 0) return 0;
+    var table;
+    if (/_HEX$/.test(matKey)) table = ex.hex;
+    else if (/_MIG$/.test(matKey)) table = ex.migaki;
+    else if (matKey === 'SUS304_SAN') table = ex.sanarai;
+    else table = ex.peeling; /* DT・ピーリング系と各鋼種の丸棒 */
+    if (!Array.isArray(table)) return 0;
+    for (var i = 0; i < table.length; i++) {
+      var b = table[i];
+      if (Array.isArray(b) && b.length >= 3 && d >= Number(b[0]) && d <= Number(b[1])) {
+        return Number(b[2]) || 0;
+      }
+    }
+    return 0;
+  }
+
+  /**
+   * 基準キロ単価（手動上書き優先・手動時は径エキストラ込み）
+   * @returns {null|{value:number, source:'manual'|'auto', extra:number, count?:number}}
+   */
+  function baseYenKgFor(matKey, d) {
     var ov = pricingSettings.baseYenKg ? Number(pricingSettings.baseYenKg[matKey]) : NaN;
-    if (isFinite(ov) && ov > 0) return { value: ov, source: 'manual' };
+    if (isFinite(ov) && ov > 0) {
+      var extra = stainlessExtraYenKg(matKey, d);
+      return { value: ov + extra, source: 'manual', extra: extra };
+    }
     var auto = autoBaseYenKg(matKey);
-    return auto ? { value: auto.value, source: 'auto', count: auto.count } : null;
+    return auto ? { value: auto.value, source: 'auto', extra: 0, count: auto.count } : null;
+  }
+
+  /** 単価表の切断kg単価（登録があれば・径エキストラ込み） @returns {number|null} */
+  function cutYenKgFor(matKey, d) {
+    var v = pricingSettings.cutYenKg ? Number(pricingSettings.cutYenKg[matKey]) : NaN;
+    if (!isFinite(v) || v <= 0) return null;
+    return v + stainlessExtraYenKg(matKey, d);
   }
 
   function loadRecords() {
@@ -1429,7 +1481,7 @@
       el.title = '';
       return;
     }
-    var base = baseYenKgFor(mat);
+    var base = baseYenKgFor(mat, d);
     if (!base) {
       el.textContent = '—';
       el.title = 'この材質の蓄積データが無いため基準キロ単価を出せません';
@@ -1445,8 +1497,9 @@
     el.textContent = '約' + cutPerBar.toLocaleString('ja-JP') + '円';
     el.title =
       '材料分 ' + Math.round(kgBar * base.value).toLocaleString('ja-JP') + '円/本' +
-      '（基準 ' + Math.round(base.value).toLocaleString('ja-JP') + '円/kg・' +
-      (base.source === 'manual' ? '手動上書き' : '蓄積の安い側から自動') + '）を引いた残り';
+      '（基準 ' + Math.round(base.value).toLocaleString('ja-JP') + '円/kg' +
+      (base.extra ? '＝ベース＋径エキストラ' + base.extra + '円' : '') + '・' +
+      (base.source === 'manual' ? '単価表' : '蓄積の安い側から自動') + '）を引いた残り';
   }
 
   function updateDraftYkg(tr) {
@@ -1825,7 +1878,7 @@
     var cutValEl = document.getElementById('cutSplitVal');
     if (cutValEl) {
       var cutMetaEl = document.getElementById('cutSplitMeta');
-      var base = baseYenKgFor(matKey);
+      var base = baseYenKgFor(matKey, d0);
       if (base && !isNaN(kgOne) && kgOne > 0 && !isNaN(med)) {
         var matPerBar = kgOne * base.value;
         var estPerBar = kgOne * med;
@@ -1833,13 +1886,34 @@
         cutValEl.textContent =
           '材料分 約' + Math.round(matPerBar).toLocaleString('ja-JP') + ' 円 ＋ 切断料 約' +
           Math.round(cutPerBar).toLocaleString('ja-JP') + ' 円';
-        cutMetaEl.textContent =
+        var baseDesc =
           '基準キロ単価 ' + Math.round(base.value).toLocaleString('ja-JP') + ' 円/kg（' +
           (base.source === 'manual'
-            ? '手動上書き'
+            ? '単価表' + (base.extra ? '＋径エキストラ' + base.extra + '円' : '')
             : '自動: この材質の円/kgの安い側25%点・全' + base.count + '件') +
           '）。1本目安 ' + Math.round(estPerBar).toLocaleString('ja-JP') +
           ' 円との差を切断料と推測しています。';
+        var cutKg = cutYenKgFor(matKey, d0);
+        if (cutKg != null) {
+          baseDesc +=
+            ' 参考: 単価表の切断単価 ' + Math.round(cutKg).toLocaleString('ja-JP') +
+            ' 円/kg なら1本 約' + Math.round(kgOne * cutKg).toLocaleString('ja-JP') + ' 円。';
+        }
+        cutMetaEl.textContent = baseDesc;
+      } else if (base && !isNaN(kgOne) && kgOne > 0) {
+        /* 過去データ（med）が無くても、単価表基準の材料分と参考切断単価は出せる */
+        cutValEl.textContent =
+          '材料分 約' + Math.round(kgOne * base.value).toLocaleString('ja-JP') + ' 円（基準 ' +
+          Math.round(base.value).toLocaleString('ja-JP') + ' 円/kg' +
+          (base.extra ? '・径エキストラ' + base.extra + '円込み' : '') + '）';
+        var noDataDesc = '過去データが無いため切断料の実績推測はできません。';
+        var cutKg2 = cutYenKgFor(matKey, d0);
+        if (cutKg2 != null) {
+          noDataDesc +=
+            ' 参考: 単価表の切断単価 ' + Math.round(cutKg2).toLocaleString('ja-JP') +
+            ' 円/kg なら1本 約' + Math.round(kgOne * cutKg2).toLocaleString('ja-JP') + ' 円。';
+        }
+        cutMetaEl.textContent = noDataDesc;
       } else {
         cutValEl.textContent = '—';
         cutMetaEl.textContent = base
