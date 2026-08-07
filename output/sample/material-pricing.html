@@ -393,16 +393,16 @@
     </p>
 
     <div class="tabs">
-      <button type="button" class="tab-btn active" data-panel="p-est">見積もり</button>
+      <button type="button" class="tab-btn active" data-panel="p-order">発注・見積依頼</button>
+      <button type="button" class="tab-btn" data-panel="p-est">見積もり</button>
       <button type="button" class="tab-btn" data-panel="p-add">データ追加</button>
       <button type="button" class="tab-btn" data-panel="p-ocr">スキャンOCR</button>
       <button type="button" class="tab-btn" data-panel="p-import">CSV取込</button>
-      <button type="button" class="tab-btn" data-panel="p-order">発注・見積依頼</button>
       <button type="button" class="tab-btn" data-panel="p-list">履歴・バックアップ</button>
     </div>
 
     <!-- 見積もり -->
-    <div id="p-est" class="panel active">
+    <div id="p-est" class="panel">
       <div class="card">
         <h2>条件入力</h2>
         <div class="grid3">
@@ -664,7 +664,7 @@
     </div>
 
     <!-- 発注・見積依頼 -->
-    <div id="p-order" class="panel">
+    <div id="p-order" class="panel active">
       <div class="card">
         <h2>新しい発注・見積依頼</h2>
         <p class="stat">
@@ -3487,6 +3487,7 @@
   runEstimate();
   loadRecordsFromApi();
   loadSettingsFromApi();
+  if (window.refreshOrderTab) window.refreshOrderTab(); /* 発注タブが初期表示 */
 })();
   </script>
 </body>
