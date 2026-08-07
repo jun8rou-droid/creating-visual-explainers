@@ -695,8 +695,16 @@
           <label>備考（任意・メールに載ります）</label>
           <input type="text" id="ordNote" placeholder="例: 8/20 までに納入希望">
         </div>
-        <button type="button" class="btn btn-primary" id="btnOrdSend">送信する</button>
+        <button type="button" class="btn btn-primary" id="btnOrdSend">送信内容を確認</button>
         <p class="stat" id="ordMsg" style="white-space:pre-wrap"></p>
+      </div>
+      <div class="card" id="ordConfirmCard" style="display:none;border:2px solid var(--cyan)">
+        <h2>送信前の確認</h2>
+        <div id="ordConfirmBody"></div>
+        <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap">
+          <button type="button" class="btn btn-primary" id="btnOrdConfirmSend" style="margin:0">この内容で送信する</button>
+          <button type="button" class="btn btn-secondary" id="btnOrdConfirmBack" style="margin:0">修正する</button>
+        </div>
       </div>
       <div class="card">
         <h2>依頼の一覧・状況</h2>
@@ -3322,9 +3330,12 @@
       return tr;
     }
 
+    var ordSuppliersCache = [];
+
     function loadOrdSuppliers() {
       fetch('/api/material-suppliers').then(function (res) { return res.json(); }).then(function (b) {
         var list = Array.isArray(b.suppliers) ? b.suppliers : [];
+        ordSuppliersCache = list;
         var sel = document.getElementById('ordSupplier');
         var cur = sel.value;
         sel.innerHTML = list.map(function (s) {
@@ -3432,20 +3443,74 @@
       });
       if (errs.length) { setOrdMsg(errs.join('\n'), true); return; }
       if (!items.length) { setOrdMsg('明細を1行以上入力してください', true); return; }
-      var kindLabel = kind === 'order' ? '発注' : '見積依頼';
-      if (!confirm(kindLabel + 'を送信します。よろしいですか？（' + items.length + '行）')) return;
-      var btn = document.getElementById('btnOrdSend');
+      setOrdMsg('', false);
+      ordPending = {
+        supplierId: supplierId,
+        kind: kind,
+        items: items,
+        note: document.getElementById('ordNote').value.trim(),
+      };
+      renderOrdConfirm();
+    });
+
+    /* ---- 送信前の確認画面 ---- */
+    var ordPending = null;
+
+    function matInfo(key) {
+      return MATERIALS.find(function (m) { return m.key === key; }) || { label: key, rho: 7.85 };
+    }
+
+    function renderOrdConfirm() {
+      var p = ordPending;
+      if (!p) return;
+      var sup = ordSuppliersCache.find(function (s) { return s.id === p.supplierId; });
+      var kindLabel = p.kind === 'order' ? '発注' : '見積依頼';
+      var kindColor = p.kind === 'order' ? 'var(--cyan)' : 'var(--amber)';
+      var rows = p.items.map(function (it, i) {
+        var m = matInfo(it.materialKey);
+        var kg = kgOneBar(it.d, it.l, m.rho, it.materialKey) * it.qty;
+        return '<tr><td>' + (i + 1) + '</td><td>' + escapeHtml(m.label) + '</td>' +
+          '<td style="white-space:nowrap">φ' + it.d + '×' + it.l + '</td>' +
+          '<td style="text-align:right">' + it.qty + ' 本</td>' +
+          '<td style="text-align:right">約 ' + (Math.round(kg * 100) / 100) + ' kg</td></tr>';
+      }).join('');
+      var mailLine = sup && sup.email
+        ? '<span style="color:var(--green)">📧 ' + escapeHtml(sup.email) + ' へメール通知されます</span>'
+        : '<span style="color:var(--amber)">⚠ メールアドレス未登録のため通知は送られません（専用URLを手動で伝えてください）</span>';
+      document.getElementById('ordConfirmBody').innerHTML =
+        '<p style="margin:0 0 10px 0"><strong style="color:' + kindColor + '">' + kindLabel + '</strong>' +
+        ' ／ 取引先: <strong>' + escapeHtml(sup ? sup.name : '') + '</strong><br>' + mailLine + '</p>' +
+        '<div style="overflow-x:auto"><table>' +
+        '<thead><tr><th>#</th><th>材質</th><th>サイズ</th><th style="text-align:right">本数</th><th style="text-align:right">参考重量</th></tr></thead>' +
+        '<tbody>' + rows + '</tbody></table></div>' +
+        (p.note ? '<p class="stat" style="margin-top:8px">備考: ' + escapeHtml(p.note) + '</p>' : '') +
+        '<p class="stat" style="margin-top:8px">' +
+        (p.kind === 'order'
+          ? '取引先には「単価と納入予定日」の入力をお願いするメールが届きます。'
+          : '取引先には「単価」の入力をお願いするメールが届きます。') + '</p>';
+      var card = document.getElementById('ordConfirmCard');
+      card.style.display = 'block';
+      card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    function hideOrdConfirm() {
+      document.getElementById('ordConfirmCard').style.display = 'none';
+      ordPending = null;
+    }
+
+    document.getElementById('btnOrdConfirmBack').addEventListener('click', hideOrdConfirm);
+
+    document.getElementById('btnOrdConfirmSend').addEventListener('click', function () {
+      var p = ordPending;
+      if (!p) return;
+      var kindLabel = p.kind === 'order' ? '発注' : '見積依頼';
+      var btn = document.getElementById('btnOrdConfirmSend');
       btn.disabled = true;
       setOrdMsg('送信しています…', false);
       fetch('/api/material-orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          supplierId: supplierId,
-          kind: kind,
-          items: items,
-          note: document.getElementById('ordNote').value.trim(),
-        }),
+        body: JSON.stringify(p),
       }).then(function (res) {
         return res.json().then(function (b) {
           if (!res.ok) throw new Error((b && b.error) || res.statusText);
@@ -3459,6 +3524,7 @@
               '。取引先の専用URL（履歴タブでコピー）を直接伝えてください。',
           !b.mailSent
         );
+        hideOrdConfirm();
         ordBody.innerHTML = '';
         ordAddRow();
         document.getElementById('ordNote').value = '';
