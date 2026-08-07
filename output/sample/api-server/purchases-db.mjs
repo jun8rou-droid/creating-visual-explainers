@@ -144,6 +144,30 @@ export async function insertPurchases(records) {
   return { ok: true, count: inserted, version: newVersion };
 }
 
+const PRICING_SETTINGS_KEY = 'material-pricing';
+
+/** 材料単価ツールの共有設定（基準キロ単価の上書き等）を取得 */
+export async function getPricingSettings() {
+  const res = await query('SELECT value FROM material_settings WHERE key = $1', [PRICING_SETTINGS_KEY]);
+  const v = res.rows[0] ? res.rows[0].value : null;
+  return v && typeof v === 'object' ? v : {};
+}
+
+/** 材料単価ツールの共有設定を保存（全置換・小さい JSON 前提） */
+export async function savePricingSettings(settings) {
+  if (!settings || typeof settings !== 'object' || Array.isArray(settings)) {
+    throw new Error('settings はオブジェクトで送ってください');
+  }
+  const json = JSON.stringify(settings);
+  if (json.length > 100000) throw new Error('設定が大きすぎます');
+  await query(
+    `INSERT INTO material_settings (key, value, updated_at) VALUES ($1, $2::jsonb, now())
+     ON CONFLICT (key) DO UPDATE SET value = $2::jsonb, updated_at = now()`,
+    [PRICING_SETTINGS_KEY, json],
+  );
+  return { ok: true };
+}
+
 /**
  * 見積ツール用: 材質 ID（S45C, SUS304 等）の実勢単価サマリ。
  * material_key の先頭部（アンダースコア前）が材質 ID に一致する記録を対象にする。

@@ -450,6 +450,17 @@
           <div class="suggest-lbl">合計金額（入力の本数ぶん・目安）</div>
           <div class="suggest-total-val" id="suggestYenTotal">—</div>
         </div>
+        <div class="suggest-total-block">
+          <div class="suggest-lbl">内訳の推測（1本あたり・材料分と切断料）</div>
+          <div class="suggest-total-val" id="cutSplitVal" style="font-size:16px;">—</div>
+          <div class="meta" id="cutSplitMeta"></div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px;">
+            <label for="baseYenKgOverride" style="font-size:11px;color:var(--muted);">基準キロ単価の上書き（この材質・円/kg）</label>
+            <input type="number" id="baseYenKgOverride" step="1" min="0" placeholder="自動" style="max-width:110px;">
+            <button type="button" class="btn btn-secondary" id="btnBaseSave" style="margin:0;padding:6px 10px;font-size:11px;">保存</button>
+            <button type="button" class="btn btn-secondary" id="btnBaseClear" style="margin:0;padding:6px 10px;font-size:11px;">自動に戻す</button>
+          </div>
+        </div>
         <div class="meta" id="suggestMeta"></div>
       </div>
 
@@ -733,6 +744,7 @@
               <th>本</th>
               <th>合計¥</th>
               <th class="draft-col-ykg" title="10000円超＝赤、5000円以上＝橙、蓄積データ中央値比で著しく高い＝黄">目安¥/kg</th>
+              <th class="draft-col-cut" title="この行の金額から、基準キロ単価（蓄積の安い側または手動上書き）ぶんの材料代を引いた残りを1本あたりの切断料と推測">推定切断料/本</th>
               <th></th>
             </tr>
           </thead>
@@ -922,6 +934,73 @@
     (ids || []).forEach(function (id) {
       if (id != null && id !== '') sessionDeletedIds[String(id)] = true;
     });
+  }
+
+  /* v31: 切断料の推測。
+     一本単価の請求は切断料が混ざるため、材質ごとの「基準キロ単価」
+     （蓄積データの安い側25%点＝定尺買いに近い値、または手動上書き）を材料分とみなし、
+     実際の金額との差を切断料と推測する。上書きは共有DBに保存して全端末で共通 */
+  var SETTINGS_STORAGE = 'matPricingSettings_v1';
+  var pricingSettings = { baseYenKg: {} };
+
+  function normalizePricingSettings(s) {
+    s = s && typeof s === 'object' ? s : {};
+    if (!s.baseYenKg || typeof s.baseYenKg !== 'object') s.baseYenKg = {};
+    return s;
+  }
+
+  function loadSettingsFromApi() {
+    fetch('/api/material-pricing-settings').then(function (res) {
+      return res.json().then(function (body) {
+        if (!res.ok) throw new Error(body && body.error ? body.error : res.statusText);
+        return body;
+      });
+    }).then(function (body) {
+      pricingSettings = normalizePricingSettings(body.settings);
+      try { localStorage.setItem(SETTINGS_STORAGE, JSON.stringify(pricingSettings)); } catch (e) {}
+      runEstimate();
+    }).catch(function (err) {
+      console.warn('[pricing settings load]', err);
+      try {
+        pricingSettings = normalizePricingSettings(JSON.parse(localStorage.getItem(SETTINGS_STORAGE)));
+      } catch (e) {}
+      runEstimate();
+    });
+  }
+
+  var settingsSaveTimer = null;
+  function savePricingSettingsToApi() {
+    try { localStorage.setItem(SETTINGS_STORAGE, JSON.stringify(pricingSettings)); } catch (e) {}
+    if (settingsSaveTimer) clearTimeout(settingsSaveTimer);
+    settingsSaveTimer = setTimeout(function () {
+      settingsSaveTimer = null;
+      fetch('/api/material-pricing-settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ settings: pricingSettings }),
+      }).catch(function (err) { console.warn('[pricing settings save]', err); });
+    }, 500);
+  }
+
+  /** 自動の基準キロ単価: 同材質の円/kg を安い順に並べた下位25%点 */
+  function autoBaseYenKg(matKey) {
+    var vals = loadRecords()
+      .filter(function (r) {
+        return r && r.materialKey === matKey && isFinite(Number(r.yenPerKg)) && Number(r.yenPerKg) > 0;
+      })
+      .map(function (r) { return Number(r.yenPerKg); })
+      .sort(function (a, b) { return a - b; });
+    if (!vals.length) return null;
+    var idx = Math.floor((vals.length - 1) * 0.25);
+    return { value: vals[idx], count: vals.length };
+  }
+
+  /** 基準キロ単価（手動上書き優先） @returns {null|{value:number, source:'manual'|'auto', count?:number}} */
+  function baseYenKgFor(matKey) {
+    var ov = pricingSettings.baseYenKg ? Number(pricingSettings.baseYenKg[matKey]) : NaN;
+    if (isFinite(ov) && ov > 0) return { value: ov, source: 'manual' };
+    var auto = autoBaseYenKg(matKey);
+    return auto ? { value: auto.value, source: 'auto', count: auto.count } : null;
   }
 
   function loadRecords() {
@@ -1341,12 +1420,42 @@
     card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
 
+  /** 取込プレビュー行の「推定切断料/本」を更新 */
+  function updateDraftCut(tr, d, l, q, mat, tot) {
+    var el = tr.querySelector('.d-cut');
+    if (!el) return;
+    if (isNaN(d) || d <= 0 || isNaN(l) || l <= 0 || isNaN(tot) || tot <= 0) {
+      el.textContent = '—';
+      el.title = '';
+      return;
+    }
+    var base = baseYenKgFor(mat);
+    if (!base) {
+      el.textContent = '—';
+      el.title = 'この材質の蓄積データが無いため基準キロ単価を出せません';
+      return;
+    }
+    var kgBar = kgOneBar(d, l, rhoOfKey(mat));
+    var cutPerBar = Math.round(tot / q - kgBar * base.value);
+    if (cutPerBar <= 0) {
+      el.textContent = '≒0円';
+      el.title = '基準キロ単価とほぼ同じ（切断料は載っていないと推測）';
+      return;
+    }
+    el.textContent = '約' + cutPerBar.toLocaleString('ja-JP') + '円';
+    el.title =
+      '材料分 ' + Math.round(kgBar * base.value).toLocaleString('ja-JP') + '円/本' +
+      '（基準 ' + Math.round(base.value).toLocaleString('ja-JP') + '円/kg・' +
+      (base.source === 'manual' ? '手動上書き' : '蓄積の安い側から自動') + '）を引いた残り';
+  }
+
   function updateDraftYkg(tr) {
     var d = parseFloat(tr.querySelector('.d-d').value);
     var l = parseFloat(tr.querySelector('.d-l').value);
     var q = parseInt(tr.querySelector('.d-q').value, 10) || 1;
     var mat = tr.querySelector('.d-mat').value;
     var tot = parseFloat(tr.querySelector('.d-tot').value);
+    updateDraftCut(tr, d, l, q, mat, tot);
     var el = tr.querySelector('.d-ykg');
     el.classList.remove('d-ykg--past-high', 'd-ykg--kg-warn', 'd-ykg--kg-high');
     if (isNaN(d) || d <= 0 || isNaN(l) || l <= 0) {
@@ -1447,6 +1556,7 @@
       tot +
       '"></td>' +
       '<td class="d-ykg">—</td>' +
+      '<td class="d-cut">—</td>' +
       '<td><button type="button" class="btn-draft-del">削除</button></td>';
     document.getElementById('draftBody').appendChild(tr);
     bindDraftRow(tr);
@@ -1709,6 +1819,40 @@
       suggestEachEl.textContent = '—';
       suggestTotalEl.textContent = '—';
       metaEl.textContent = '径・長さを入力すると目安が出ます。';
+    }
+
+    /* v31: 材料分＋推定切断料の内訳（基準キロ単価は安い側25%点 or 手動上書き） */
+    var cutValEl = document.getElementById('cutSplitVal');
+    if (cutValEl) {
+      var cutMetaEl = document.getElementById('cutSplitMeta');
+      var base = baseYenKgFor(matKey);
+      if (base && !isNaN(kgOne) && kgOne > 0 && !isNaN(med)) {
+        var matPerBar = kgOne * base.value;
+        var estPerBar = kgOne * med;
+        var cutPerBar = Math.max(0, estPerBar - matPerBar);
+        cutValEl.textContent =
+          '材料分 約' + Math.round(matPerBar).toLocaleString('ja-JP') + ' 円 ＋ 切断料 約' +
+          Math.round(cutPerBar).toLocaleString('ja-JP') + ' 円';
+        cutMetaEl.textContent =
+          '基準キロ単価 ' + Math.round(base.value).toLocaleString('ja-JP') + ' 円/kg（' +
+          (base.source === 'manual'
+            ? '手動上書き'
+            : '自動: この材質の円/kgの安い側25%点・全' + base.count + '件') +
+          '）。1本目安 ' + Math.round(estPerBar).toLocaleString('ja-JP') +
+          ' 円との差を切断料と推測しています。';
+      } else {
+        cutValEl.textContent = '—';
+        cutMetaEl.textContent = base
+          ? '径・長さを入力すると、材料分と切断料の内訳を推測します。'
+          : 'この材質の蓄積データが増える（または基準キロ単価を上書き設定する）と内訳を推測できます。';
+      }
+      var ovEl = document.getElementById('baseYenKgOverride');
+      if (ovEl && document.activeElement !== ovEl) {
+        var manualBase = pricingSettings.baseYenKg ? pricingSettings.baseYenKg[matKey] : null;
+        ovEl.value = manualBase != null && isFinite(Number(manualBase)) ? Math.round(Number(manualBase)) : '';
+        var autoB = autoBaseYenKg(matKey);
+        ovEl.placeholder = autoB ? '自動 ' + Math.round(autoB.value) : '自動なし';
+      }
     }
 
     var estBody = document.getElementById('supplierEstBody');
@@ -2935,8 +3079,43 @@
   document.addEventListener('visibilitychange', refreshFromApiIfIdle);
   window.addEventListener('focus', refreshFromApiIfIdle);
 
+  /* v31: 基準キロ単価の上書き（保存・自動に戻す） */
+  (function () {
+    var saveBtn = document.getElementById('btnBaseSave');
+    var clearBtn = document.getElementById('btnBaseClear');
+    if (!saveBtn || !clearBtn) return;
+
+    function refreshDraftCuts() {
+      document.querySelectorAll('#draftBody tr').forEach(function (tr) {
+        updateDraftYkg(tr);
+      });
+    }
+
+    saveBtn.addEventListener('click', function () {
+      var matKey = document.getElementById('estMaterial').value;
+      var v = parseFloat(document.getElementById('baseYenKgOverride').value);
+      if (isNaN(v) || v <= 0) {
+        alert('基準キロ単価（円/kg）を正の数で入力してください。自動に戻すときは「自動に戻す」を押してください。');
+        return;
+      }
+      pricingSettings.baseYenKg[matKey] = Math.round(v);
+      savePricingSettingsToApi();
+      runEstimate();
+      refreshDraftCuts();
+    });
+
+    clearBtn.addEventListener('click', function () {
+      var matKey = document.getElementById('estMaterial').value;
+      delete pricingSettings.baseYenKg[matKey];
+      savePricingSettingsToApi();
+      runEstimate();
+      refreshDraftCuts();
+    });
+  })();
+
   runEstimate();
   loadRecordsFromApi();
+  loadSettingsFromApi();
 })();
   </script>
 </body>

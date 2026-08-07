@@ -32,7 +32,13 @@ import {
   saveDraftQuote,
 } from './quotes-db.mjs';
 import { getMasterBundle, saveMasterBundle } from './masters-db.mjs';
-import { listPurchases, purchaseSummaryFor, replacePurchases } from './purchases-db.mjs';
+import {
+  getPricingSettings,
+  listPurchases,
+  purchaseSummaryFor,
+  replacePurchases,
+  savePricingSettings,
+} from './purchases-db.mjs';
 import {
   PORTAL_MATERIALS,
   createSupplier,
@@ -255,6 +261,27 @@ app.post('/api/material-purchases/extract', upload.single('file'), async (req, r
   } catch (err) {
     console.error('[purchases extract]', err);
     res.status(500).json({ error: err.message || 'AI 読み取りに失敗しました' });
+  }
+});
+
+/* 材料単価ツールの共有設定（基準キロ単価の上書き等） */
+app.get('/api/material-pricing-settings', async (req, res) => {
+  if (!isDbEnabled()) return res.status(503).json({ error: 'DATABASE_URL が未設定です' });
+  try {
+    res.json({ settings: await getPricingSettings() });
+  } catch (err) {
+    console.error('[pricing settings get]', err);
+    res.status(500).json({ error: '設定の取得に失敗しました' });
+  }
+});
+
+app.put('/api/material-pricing-settings', async (req, res) => {
+  if (!isDbEnabled()) return res.status(503).json({ error: 'DATABASE_URL が未設定です' });
+  try {
+    res.json(await savePricingSettings(req.body && req.body.settings));
+  } catch (err) {
+    console.error('[pricing settings put]', err);
+    res.status(err.status || 500).json({ error: err.message || '設定の保存に失敗しました' });
   }
 });
 
