@@ -142,6 +142,22 @@ function suggestionFromDbRow(row, response, quoteId) {
   };
 }
 
+// NC旋盤ウィザード: 図面写真→形状下書き（AIは下書きのみ・座標はウィザードの幾何エンジンが最終権威）
+app.post('/api/nc-drawing-read', async (req, res) => {
+  try {
+    const { isNcDrawingEnabled, readLatheDrawing } = await import('./nc-drawing-read.mjs');
+    if (!isNcDrawingEnabled()) {
+      return res.status(503).json({ error: 'AI 読み取りが無効です（ANTHROPIC_API_KEY 未設定）' });
+    }
+    const body = req.body || {};
+    if (!body.image) return res.status(400).json({ error: '画像がありません' });
+    const result = await readLatheDrawing({ imageBase64: body.image, mediaType: body.mediaType });
+    res.json({ ok: true, draft: result.draft, model: result.model });
+  } catch (err) {
+    res.status(500).json({ error: (err && err.message) || 'サーバーエラーが発生しました' });
+  }
+});
+
 // 工具費くらべ（tool-price-app）用 AI-OCR。既存APIとは独立
 app.post('/api/tool-ocr', async (req, res) => {
   try {

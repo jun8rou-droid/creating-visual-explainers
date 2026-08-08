@@ -473,6 +473,16 @@
         <div class="dpad-hint">矢印=直線 ／ ↺↻=円弧 ／ R・C=角を挿入 ／ 終了=工具条件へ</div>
       </div>
 
+      <div id="ai-read-box" style="margin-top:14px; border:1.5px dashed #c9b896; border-radius:10px; padding:10px 12px; background:#fbf8f1;">
+        <div style="font-size:13px; font-weight:bold; color:var(--ink-soft);">📷 図面から読み取り（AI・試験版）</div>
+        <div style="font-size:11.5px; color:var(--ink-soft); margin:4px 0 8px; line-height:1.5;">図面や手書きスケッチの写真から、形状の下書きを作ります。AIの結果はあくまで下書きです。必ず上の絵と寸法を確認してから使ってください。</div>
+        <input type="file" id="ai-read-file" accept="image/*" style="display:none;">
+        <button type="button" class="ok-btn" id="btn-ai-read" style="width:100%;">写真を選ぶ／撮る</button>
+        <div class="err" id="err-ai-read"></div>
+        <div id="ai-read-status" style="display:none; margin-top:8px; font-size:12px; color:var(--ink-soft);"></div>
+        <div id="ai-read-panel" style="display:none; margin-top:10px;"></div>
+      </div>
+
       <div id="seg-form">
         <div class="form-head" id="segform-head"></div>
         <div class="prev-info" id="segform-previnfo"></div>
@@ -539,6 +549,10 @@
             <button type="button" data-v="concave">時計回り（G02）</button>
           </div>
         </div>
+        <label id="segform-pend-wrap" style="display:none; margin-top:10px; align-items:center; gap:7px; font-size:12px; color:var(--ink-soft); cursor:pointer;">
+          <input type="checkbox" id="seg-pend" style="width:16px; height:16px; accent-color:var(--accent);">
+          交点おまかせ — 終点は空欄のままにして、<b>次の要素</b>の寸法から接点を自動計算（MAPPSの空白入力）
+        </label>
         <div class="form-btns">
           <button type="button" class="cancel-btn" id="btn-seg-cancel">キャンセル</button>
           <button type="button" class="ok-btn" id="btn-seg-ok">追加する</button>
@@ -586,6 +600,10 @@
               <label>深さ<span class="hint">mm</span></label>
               <input type="number" id="ex-hole-depth" inputmode="decimal" placeholder="20" step="0.1">
             </div>
+            <div class="field">
+              <label>ペック切込み<span class="hint">1回で掘る深さ・空欄=自動</span></label>
+              <input type="number" id="ex-hole-peck" inputmode="decimal" placeholder="自動" step="0.5">
+            </div>
           </div>
           <div style="margin-top:8px;">
             <div class="toggle2" id="ex-hole-center">
@@ -614,6 +632,10 @@
               <label>長さ</label>
               <input type="number" id="ex-thread-len" inputmode="decimal" placeholder="15" step="0.1">
             </div>
+            <div class="field">
+              <label>切込み回数<span class="hint">空欄=自動</span></label>
+              <input type="number" id="ex-thread-passes" inputmode="numeric" placeholder="自動" step="1" min="2">
+            </div>
           </div>
         </div>
       </div>
@@ -641,6 +663,10 @@
             <div class="field">
               <label>バイト刃幅</label>
               <input type="number" id="gr-toolwidth" inputmode="decimal" value="3" step="0.5">
+            </div>
+            <div class="field">
+              <label>深溝ペック<span class="hint">1回の切込み深さ（半径）・空欄=一発</span></label>
+              <input type="number" id="gr-peck" inputmode="decimal" placeholder="なし" step="0.5">
             </div>
           </div>
           <div class="form-btns" style="margin-top:10px;">
@@ -753,6 +779,8 @@
         <button type="button" class="cta ghost" id="sim-reset" style="padding:10px 4px;">⏮ 最初へ</button>
       </div>
       <div id="sim-status" class="preview-hint" style="margin-top:6px;"></div>
+      <div id="cycle-time" style="margin-top:8px; background:var(--app-surface-muted); border-radius:10px; padding:9px 12px; font-size:12.5px; line-height:1.7;"></div>
+      <button type="button" class="cta ghost" id="btn-3dsim" style="margin-top:10px; font-size:13.5px;">🧊 3D旋削シミュレータで動かす（火花・切り子つき）</button>
     </div>
     <div class="pane" style="padding:10px 14px;">
       <div class="pane-title" style="margin-bottom:4px;">STEP 5 / 5 — できあがったプログラム</div>
@@ -762,7 +790,16 @@
     <div class="gcode-box" id="gcode-box"></div>
     <div class="btn-row">
       <button class="cta sub-cta" id="btn-copy">コピー</button>
-      <button class="cta" id="btn-dl">ダウンロード (.nc)</button>
+      <button class="cta" id="btn-dl">ダウンロード (.NC)</button>
+      <button class="cta" id="btn-share" style="display:none;">📤 共有（USBメモリへ）</button>
+    </div>
+    <div class="note-box" style="background:var(--app-surface-muted); border-color:var(--app-border); color:var(--ink-soft);">
+      <b style="color:var(--ink);">📥 機械への入れ方（USBメモリ経由）</b><br>
+      ① USBメモリをタブレットのUSB-Cに挿す（変換アダプタ可）<br>
+      ② 「共有」→保存先にUSBメモリを選ぶ（または「ダウンロード」後、ファイルアプリでUSBメモリへコピー）<br>
+      ③ USBメモリを機械の操作盤に挿す → 編集モード → プログラム入出力（READ／ファイル読込）で取り込み<br>
+      ※ ファイルは機械がそのまま読める形式（O番号始まり・%で開始終了・改行CRLF）で保存されます。入出力画面の名称は機種で異なります。<br>
+      <b style="color:var(--ink);">📡 RS232Cの機械へは</b>：機械のそばのPC（Chrome/Edge）で <a href="nc-sender.html" style="color:var(--accent); font-weight:700;">NC送信ツール（実験版）</a> を開くと、USB-RS232C変換ケーブルで直接送れます。
     </div>
     <div class="note-box">⚠ このプログラムはモックの自動生成です。実機で使う前に、必ず工具・座標系・干渉を確認し、シングルブロックで試運転してください。</div>
   </section>
@@ -968,6 +1005,10 @@
   function zDisp(z) { return 'Z' + (Math.round(z * 100) / 100); }
   function moveDims(mv, index) {
     var p = movePoint(index);
+    if (mv.pend) {
+      var pendWhat = mv.kind === 'arc' ? 'R' + mv.r + ' の円弧' : (mv.angle ? 'A' + mv.angle + '° のテーパー' : 'まっすぐ');
+      return '🔶 交点待ち（' + pendWhat + '）— 次の要素を入れると接点を自動計算';
+    }
     var endZ = -(p.z + Number(mv.len || 0));
     if (mv.dir === 'left') return 'X' + p.dia + ' のまま ' + zDisp(endZ) + ' まで';
     if (mv.dir === 'up') return 'X' + p.dia + ' → X' + mv.dia + '（段差）';
@@ -1545,6 +1586,17 @@
     $('segform-center-field').style.display = isArc ? '' : 'none';
     $('segform-r-field').style.display = isArc ? '' : 'none';
     $('segform-dir-field').style.display = 'none';    // 凸/凹は ↺↻ ボタンで決まる
+    // 交点おまかせ（MAPPSの空白入力）
+    var lastMv = program.moves[program.moves.length - 1];
+    var resolvingPend = !editingSegId && lastMv && lastMv.pend;
+    if (resolvingPend && lastMv.kind === 'arc' && dir === 'left') {
+      // 交点待ちの円弧を解決する←直線には X（直径）が必要
+      $('segform-dia-field').style.display = '';
+      $('segform-dia-label').textContent = 'X（この直線の直径）';
+    }
+    var pendable = !editingSegId && !resolvingPend &&
+      (isArc || ((dir === 'left' || dir === 'upleft' || dir === 'downleft') && addingKind === 'line'));
+    $('segform-pend-wrap').style.display = pendable ? 'flex' : 'none';
   }
 
   /* ---- テーパーの X・Z・角度A 自動計算（2つ入れると残りが決まる） ---- */
@@ -1724,7 +1776,12 @@
     var endNote = (!isEdit && program.moves.length && (dir === 'up' || dir === 'left'))
       ? '　※値を入れずに「追加する」＝終端のワーク方向を ' + (dir === 'up' ? '↑' : '←') + ' に指定（MAPPSと同じ）'
       : '';
+    var lastForNote = program.moves[program.moves.length - 1];
+    if (!isEdit && lastForNote && lastForNote.pend) {
+      endNote = '　※前の要素が交点おまかせ中：この要素の寸法から接点を自動計算します';
+    }
     $('segform-previnfo').textContent = 'いまの位置: X' + p.dia + '・' + zDisp(-p.z) + endNote;
+    $('seg-pend').checked = false;
     $('segform-dia-label').textContent = dir === 'up' ? 'X（新しい直径）' : (dir === 'downleft' ? 'X（終わりの直径・細くなる）' : 'X（終わりの直径・奥側）');
     formP = { dia: Number(p.dia) || 0, z: Number(p.z) || 0 };
     tprRecent = mv ? ['dia', 'z'] : [];
@@ -1755,8 +1812,94 @@
   }
   $('btn-seg-cancel').addEventListener('click', closeMoveForm);
 
+  /* ---- 交点おまかせ（MAPPSの空白入力）: 接点の自動計算 ---- */
+  function pendSolveArcToLine(P0, R, arcDir, xlr) {
+    // 終点未定の円弧（始点P0・半径R・向きarcDir）が、←直線（半径xlr）に接する点を求める
+    // 反時計回り(G03)は直線の下から接する（中心x = xlr - R）、時計回り(G02)は上から（+R）
+    var cx = arcDir === 'concave' ? xlr + R : xlr - R;
+    var dx = cx - P0.x;
+    var d2 = R * R - dx * dx;
+    if (d2 <= 1e-9) return null;
+    var cz = P0.z - Math.sqrt(d2);
+    return { C: { z: cz, x: cx }, J: { z: cz, x: xlr } };
+  }
+  function pendSolveLineToArc(P0, t, sideN, Ex, Ez, R) {
+    // 長さ未定の直線（P0から方向t）に接し、終点E・半径Rの円弧の接点を求める
+    // 接点J = P0 + u·t、中心C = J + sideN·R·n̂、|C−E| = R をuについて解く
+    var n = { z: t.x, x: -t.z };
+    var bz = P0.z + sideN * R * n.z - Ez;
+    var bx = P0.x + sideN * R * n.x - Ex;
+    var B = 2 * (bz * t.z + bx * t.x);
+    var Cc = bz * bz + bx * bx - R * R;
+    var disc = B * B - 4 * Cc;
+    if (disc < 0) return null;
+    var cands = [(-B - Math.sqrt(disc)) / 2, (-B + Math.sqrt(disc)) / 2];
+    var u = null;
+    cands.forEach(function (cand) { if (cand > 1e-6 && (u === null || cand < u)) u = cand; });
+    if (u === null) return null;
+    var J = { z: P0.z + u * t.z, x: P0.x + u * t.x };
+    var C = { z: J.z + sideN * R * n.z, x: J.x + sideN * R * n.x };
+    return { u: u, J: J, C: C };
+  }
+  function newMoveId() { return 'mv-' + (segIdCounter++) + '-' + Math.floor(Math.random() * 10000); }
+
   $('btn-seg-ok').addEventListener('click', function () {
     var dir = addingType;
+    // ---- 交点おまかせの解決: 前の要素が交点待ちなら、この要素の寸法から接点を計算 ----
+    var lastMv = program.moves[program.moves.length - 1];
+    if (!editingSegId && lastMv && lastMv.pend) {
+      var err0 = $('err-segform');
+      var p0i = movePoint(program.moves.length - 1);
+      var P0 = { z: -Number(p0i.z), x: Number(p0i.dia) / 2 };
+      var diaR = parseFloat(normNum($('seg-dia').value));
+      var zInR = parseFloat(normNum($('seg-len').value));
+      var msgsR = [];
+      if (lastMv.kind === 'arc') {
+        if (dir !== 'left') { err0.innerHTML = '交点おまかせの円弧のあとは「← まっすぐ」を、X（直線の直径）とZ（終点）付きで入れてください。'; err0.classList.add('show'); return; }
+        if (!(diaR > 0)) msgsR.push('X（この直線の直径）を入れてください。');
+        if (msgsR.length) { err0.innerHTML = msgsR.join('<br>'); err0.classList.add('show'); return; }
+        var sol = pendSolveArcToLine(P0, Number(lastMv.r), lastMv.arcDir, diaR / 2);
+        if (!sol) { err0.innerHTML = '接する解が見つかりません。R' + lastMv.r + ' と X' + diaR + ' の組み合わせでは届きません（Rを大きくするか、Xを見直してください）。'; err0.classList.add('show'); return; }
+        var lineIsPend = !Number.isFinite(zInR) || zInR === 0 || $('seg-pend').checked;
+        var zEndR = lineIsPend ? null : -Math.abs(zInR);
+        if (!lineIsPend && zEndR >= sol.J.z - 1e-6) { err0.innerHTML = '直線の終点 ' + zDisp(zEndR) + ' が、計算した接点（' + zDisp(Math.round(sol.J.z * 1000) / 1000) + '）より手前です。もっと奥にしてください。'; err0.classList.add('show'); return; }
+        err0.classList.remove('show');
+        lastMv.dia = diaR;
+        lastMv.len = Math.round((-sol.J.z - p0i.z) * 1000) / 1000;
+        delete lastMv.pend;
+        if (lineIsPend) {
+          // Zが空欄 → この直線も交点待ち（曲線→直線→曲線の連鎖に対応）
+          program.moves.push({ dir: 'left', pend: true, id: newMoveId() });
+        } else {
+          program.moves.push({ dir: 'left', len: Math.round((sol.J.z - zEndR) * 1000) / 1000, id: newMoveId() });
+        }
+        saveState(); closeMoveForm(); renderShape();
+        return;
+      } else {
+        if (!(dir === 'upleft' && addingKind === 'arc')) { err0.innerHTML = '交点おまかせの直線のあとは「↺ / ↻ 円弧」を、X・Z（終点）とR付きで入れてください。'; err0.classList.add('show'); return; }
+        var rR = parseFloat(normNum($('seg-r').value));
+        if (!(diaR > 0)) msgsR.push('X（円弧の終点の直径）を入れてください。');
+        if (!Number.isFinite(zInR) || zInR === 0) msgsR.push('Z（円弧の終点）を入れてください。');
+        if (!(rR > 0)) msgsR.push('R（円弧の半径）を入れてください。');
+        if (msgsR.length) { err0.innerHTML = msgsR.join('<br>'); err0.classList.add('show'); return; }
+        var th = (Number(lastMv.angle) || 0) * Math.PI / 180;
+        var sgn = lastMv.dir === 'downleft' ? -1 : 1;
+        var t = lastMv.dir === 'left' ? { z: -1, x: 0 } : { z: -Math.cos(th), x: sgn * Math.sin(th) };
+        var sideN = addingArcDir === 'concave' ? 1 : -1;
+        var Ex = diaR / 2, Ez = -Math.abs(zInR);
+        var sol2 = pendSolveLineToArc(P0, t, sideN, Ex, Ez, rR);
+        if (!sol2) { err0.innerHTML = '接する解が見つかりません。R' + rR + ' と終点 X' + diaR + '・' + zDisp(Ez) + ' の組み合わせを確認してください。'; err0.classList.add('show'); return; }
+        if (Ez >= sol2.J.z - 1e-6) { err0.innerHTML = '円弧の終点 ' + zDisp(Ez) + ' が、計算した接点（' + zDisp(Math.round(sol2.J.z * 1000) / 1000) + '）より手前です。'; err0.classList.add('show'); return; }
+        err0.classList.remove('show');
+        if (lastMv.dir !== 'left') lastMv.dia = Math.round(sol2.J.x * 2 * 1000) / 1000;
+        lastMv.len = Math.round((-sol2.J.z - p0i.z) * 1000) / 1000;
+        delete lastMv.pend;
+        delete lastMv.angle;
+        program.moves.push({ dir: 'upleft', kind: 'arc', arcDir: addingArcDir, dia: diaR, r: rR, len: Math.round((sol2.J.z - Ez) * 1000) / 1000, id: newMoveId() });
+        saveState(); closeMoveForm(); renderShape();
+        return;
+      }
+    }
     // MAPPS流: 値を入れずに ↑/← を確定すると「終端のワーク方向」指定になる
     if ((dir === 'up' || dir === 'left') && !editingSegId && program.moves.length &&
         String($('seg-dia').value).trim() === '' && String($('seg-len').value).trim() === '') {
@@ -1764,6 +1907,31 @@
       saveState();
       closeMoveForm();
       renderShape();
+      return;
+    }
+    // ---- 交点おまかせの登録: 終点空欄のまま保存し、次の要素で接点を確定させる ----
+    if ($('seg-pend').checked && !editingSegId) {
+      var errP = $('err-segform');
+      var pm = { dir: dir, pend: true };
+      if (dir === 'upleft' && addingKind === 'arc') {
+        var rP = parseFloat(normNum($('seg-r').value));
+        if (!(rP > 0)) { errP.innerHTML = '交点おまかせの円弧は、半径Rだけは入れてください（X・Zは空欄でOK）。'; errP.classList.add('show'); return; }
+        var nrP = activeNoseR();
+        if (addingArcDir === 'concave' && nrP > 0 && rP <= nrP) { errP.innerHTML = '時計回り（↻）の円弧R' + rP + ' はノーズR（' + nrP + '）より大きくしてください。'; errP.classList.add('show'); return; }
+        pm.kind = 'arc'; pm.arcDir = addingArcDir; pm.r = rP;
+      } else if (dir === 'left') {
+        // いまのXのまま・長さ未定の直線
+      } else if ((dir === 'upleft' || dir === 'downleft') && addingKind === 'line') {
+        var aP = parseFloat(normNum($('seg-angle').value));
+        if (!(aP > 0 && aP < 90)) { errP.innerHTML = '交点おまかせのテーパーは、角度Aだけは入れてください（X・Zは空欄でOK）。'; errP.classList.add('show'); return; }
+        pm.kind = 'line'; pm.angle = aP;
+      } else {
+        errP.innerHTML = '交点おまかせは ←まっすぐ・↖↙テーパー・円弧 で使えます。'; errP.classList.add('show'); return;
+      }
+      errP.classList.remove('show');
+      pm.id = newMoveId();
+      program.moves.push(pm);
+      saveState(); closeMoveForm(); renderShape();
       return;
     }
     var dia = parseFloat(normNum($('seg-dia').value));
@@ -1840,10 +2008,12 @@
     $('blk-cutoff').style.display = ex.cutoff.on ? '' : 'none';
     $('ex-hole-dia').value = ex.hole.dia || '';
     $('ex-hole-depth').value = ex.hole.depth || '';
+    $('ex-hole-peck').value = ex.hole.peck || '';
     setToggle('ex-hole-center', ex.hole.useCenter === false ? 0 : 1);
     $('ex-thread-m').value = ex.thread.m || '';
     $('ex-thread-p').value = ex.thread.pitch || '';
     $('ex-thread-len').value = ex.thread.len || '';
+    $('ex-thread-passes').value = ex.thread.passes || '';
     $('ex-cutoff-width').value = ex.cutoff.toolWidth != null ? ex.cutoff.toolWidth : 3;
   }
 
@@ -1857,9 +2027,11 @@
   }
   bindExtraInput('ex-hole-dia', function () { return program.extras.hole; }, 'dia');
   bindExtraInput('ex-hole-depth', function () { return program.extras.hole; }, 'depth');
+  bindExtraInput('ex-hole-peck', function () { return program.extras.hole; }, 'peck');
   bindExtraInput('ex-thread-m', function () { return program.extras.thread; }, 'm');
   bindExtraInput('ex-thread-p', function () { return program.extras.thread; }, 'pitch');
   bindExtraInput('ex-thread-len', function () { return program.extras.thread; }, 'len');
+  bindExtraInput('ex-thread-passes', function () { return program.extras.thread; }, 'passes');
   bindExtraInput('ex-cutoff-width', function () { return program.extras.cutoff; }, 'toolWidth');
   document.querySelectorAll('#ex-hole-center button').forEach(function (b) {
     b.addEventListener('click', function () {
@@ -1896,6 +2068,7 @@
       width: parseFloat($('gr-width').value),
       dia: parseFloat($('gr-dia').value),
       toolWidth: parseFloat($('gr-toolwidth').value) || 3,
+      peck: parseFloat($('gr-peck').value) || '',
     };
     var msgs = [];
     if (!(g.posZ > 0)) msgs.push('溝のZ位置を入れてください（例: 50）。');
@@ -1944,6 +2117,10 @@
     if (!sdSet) msgs.push('スタートの X（先端の直径）を入れてください。丸先（球面）なら 0 です。');
     else if (sd > Number(c.stockDia)) msgs.push('スタートの X（' + sd + '）は素材（φ' + c.stockDia + '）以下にしてください。');
     if (!program.moves.length) msgs.push('形がまだありません。矢印パッドで形をつくってください。');
+    program.moves.forEach(function (mv, i) {
+      if (mv.pend) msgs.push('要素' + (i + 1) + ' が交点待ち（交点おまかせ）のままです。' +
+        (mv.kind === 'arc' ? '次に「← まっすぐ」をX・Z付きで入れると接点が確定します。' : '次に「↺/↻ 円弧」をX・Z・R付きで入れると接点が確定します。'));
+    });
     var total = totalShapeLen();
     if (total > Number(c.stockLen)) msgs.push('形状の長さ（' + total + '）が素材の長さ（' + c.stockLen + '）を超えています。');
     var d = sd;
@@ -2514,6 +2691,7 @@
     var base = 0;
     var zCum = sz0; // 端面からの累積距離（始点Zから始まる）
     program.moves.forEach(function (mv, i) {
+      if (mv.pend) return; // 交点待ち（未確定）は幾何に含めない（常に最後の要素なので番号ずれなし）
       var lbl = '要素' + (i + 1);
       var p1;
       if (mv.dir === 'up') {
@@ -2961,7 +3139,7 @@
     var holeDia = Number(h.dia);
     var tipAdd = Math.round(0.3 * holeDia * 100) / 100;
     var totalDepth = Number(h.depth) + tipAdd;
-    var peck = Math.min(holeDia, 8);
+    var peck = Number(h.peck) > 0 ? Number(h.peck) : Math.min(holeDia, 8);
     var L = [];
     if (h.useCenter !== false) {
       var centerDepth = Math.min(3, holeDia * 0.3 + 1);
@@ -3015,11 +3193,24 @@
       L.push({ line: 'G75 ' + fx(gDia) + ' Z-' + fmt(posZ + gw - tw) + ' Q' + Math.round(step * 1000) + ' ' + ff(cond.feed), note: '底 φ' + fmt(gDia) + ' まで突っ込み、Zに ' + fmt(step, 2) + 'mm（Q・ミクロン単位）ずつずらしながら幅 ' + fmt(gw, 1) + 'mm の溝を削ります。' });
     } else {
       var first = true;
+      var localTopDia = diaAtZ(posZ + gw / 2) || stockDia;
+      var peckG = Number(g.peck) > 0 ? Number(g.peck) : 0;
       for (var i = 0; i < k; i++) {
         var off = Math.min(i * step, travel);
         if (i === k - 1) off = travel;
         var z = -(posZ + off);
         L.push({ line: 'G00 ' + fx(clearX) + ' ' + fz(z) + (first ? ' M08' : ''), note: (i + 1) + '回目の突っ込み位置へ移動します。' + (first ? 'クーラントON。' : '') });
+        if (peckG > 0) {
+          // 深溝の段階切込み: peckずつ突いて0.5mm戻し、切りくずを分断してから次へ
+          var xd2 = localTopDia - 2 * peckG;
+          var kk = 1;
+          while (xd2 > gDia + 1e-9) {
+            L.push({ line: 'G01 ' + fx(xd2) + ' ' + ff(cond.feed), note: '段階切込み' + kk + '回目：φ' + fmt(xd2) + ' まで突きます。' });
+            L.push({ line: 'G00 ' + fx(Math.min(xd2 + 1.0, clearX)), note: '0.5mm戻して切りくずを切ります。' });
+            xd2 -= 2 * peckG;
+            kk++;
+          }
+        }
         L.push({ line: 'G01 ' + fx(gDia) + ' ' + ff(cond.feed), note: '溝の底 φ' + fmt(gDia) + ' まで切り込みます。' });
         L.push({ line: 'G04 U0.1', note: '底で 0.1 秒だけ止めて、真円に仕上げます。' });
         L.push({ line: 'G00 ' + fx(clearX), note: '外まで逃げます。' });
@@ -3042,13 +3233,19 @@
     L.push({ line: TOOLS.thread, note: 'ねじ切りバイトに工具交換します（5番工具）。' });
     L.push({ line: 'G97 S' + Math.round(cond.n) + ' M03', note: 'ねじ切りは回転数一定（G97）が必須。' + Math.round(cond.n) + ' min-1 で回します。' });
     L.push({ line: 'G00 ' + fx(M + 2) + ' ' + fz(startZ) + ' M08', note: 'ねじの少し外・端面+' + fmt(startZ, 2) + 'mm から助走を取ります（ピッチが安定するため）。' });
-    var q1mm = Math.min(0.35, Math.max(0.08, h * 0.25));
     var tDepths = [];
-    var ip = 1;
-    while (q1mm * Math.sqrt(ip) < h - 1e-9) { tDepths.push(q1mm * Math.sqrt(ip)); ip++; }
-    tDepths.push(h);
+    var nSpec = parseInt(t.passes, 10);
+    if (nSpec >= 2) {
+      // 回数指定（切込み量一定方式・断面積一定でN回に割り付け）
+      for (var ipn = 1; ipn <= nSpec; ipn++) tDepths.push(h * Math.sqrt(ipn / nSpec));
+    } else {
+      var q1mm = Math.min(0.35, Math.max(0.08, h * 0.25));
+      var ip = 1;
+      while (q1mm * Math.sqrt(ip) < h - 1e-9) { tDepths.push(q1mm * Math.sqrt(ip)); ip++; }
+      tDepths.push(h);
+    }
     tDepths.push(h); // さらい（同じ深さでもう1回）
-    L.push({ line: '(NEJI ' + tDepths.length + 'PASS G92)', note: 'ねじ切りはG92（ねじ切りサイクル）で ' + tDepths.length + ' パス。切る→逃げる→戻るを1行でやってくれるサイクルで、2パス目からはXだけ書けば繰り返します。切込みは断面積一定でだんだん浅く、最後は同じ深さで「さらい」。谷径 φ' + fmt(xMin) + '。' });
+    L.push({ line: '(NEJI ' + tDepths.length + 'PASS G92)', note: 'ねじ切りはG92（ねじ切りサイクル）で ' + tDepths.length + ' パス' + (nSpec >= 2 ? '（回数指定 ' + nSpec + ' 回＋さらい）' : '') + '。切る→逃げる→戻るを1行でやってくれるサイクルで、2パス目からはXだけ書けば繰り返します。切込みは断面積一定でだんだん浅く、最後は同じ深さで「さらい」。谷径 φ' + fmt(xMin) + '。' });
     tDepths.forEach(function (dep, k) {
       var xd = Math.max(xMin, M - 2 * dep);
       if (k === 0) {
@@ -3171,6 +3368,18 @@
         expect: ['G00 X27.531'],
       },
       {
+        name: '交点おまかせで作った形（円弧→直線→円弧の接点自動計算）',
+        prog: prog({
+          common: { stockDia: 42 }, startDia: 20,
+          moves: [
+            { dir: 'upleft', kind: 'arc', arcDir: 'convex', dia: 30, len: 5, r: 5 },
+            { dir: 'left', len: 20 },
+            { dir: 'upleft', kind: 'arc', arcDir: 'concave', dia: 40, len: 5, r: 5 },
+          ],
+        }),
+        expect: ['G00 X19.2', 'G03 X30.0 Z-5.4 R5.4', 'G01 Z-25.4', 'G02 X39.2 Z-30.0 R4.6'],
+      },
+      {
         name: 'なめらか継ぎ目のブレンドR0.5（四分球＋直線）',
         prog: prog({
           common: { stockDia: 22 }, startDia: 0,
@@ -3180,6 +3389,24 @@
           ],
         }),
         expect: ['G02 X20.0', 'R0.1'],
+      },
+      {
+        name: 'AI図面読み取りの下書き→プログラム変換（写真読み取りの適用経路）',
+        prog: sanitizeAiDraft({
+          stockDia: 50, stockLen: 80, material: 'S45C', startDia: 28,
+          moves: [
+            { dir: 'upleft', kind: 'line', dia: 30, len: 1 },
+            { dir: 'left', len: 24 },
+            { dir: 'upleft', kind: 'line', dia: 40, len: 10, corner: { kind: 'r', val: 2 } },
+            { dir: 'left', len: 20 },
+          ],
+          hole: { on: true, dia: 10, depth: 20 },
+          thread: { on: true, m: 30, pitch: 1.5, len: 15 },
+          grooves: [{ posZ: 50, width: 4, dia: 35 }],
+          cutoff: true,
+          notes: [],
+        }).prog,
+        expect: ['G00 X27.531', 'G01 Z-25.306', 'G03 X40.0 Z-35.872 R2.4', 'G92 '],
       },
     ];
   }
@@ -3224,6 +3451,219 @@
       }).join('<br>');
   });
 
+  /* ==================== AI図面読み取り（試験版） ==================== */
+  var AI_READ_URL = (location.hostname.indexOf('surge.sh') >= 0)
+    ? 'https://creating-visual-explainers-cyan.vercel.app/api/nc-drawing-read'
+    : '/api/nc-drawing-read';
+  var aiDraftResult = null;
+
+  function aiCompressImage(file) {
+    return new Promise(function (resolve, reject) {
+      var fr = new FileReader();
+      fr.onerror = function () { reject(new Error('画像を読み込めませんでした')); };
+      fr.onload = function () {
+        var img = new Image();
+        img.onerror = function () { reject(new Error('画像を開けませんでした（対応していない形式かもしれません）')); };
+        img.onload = function () {
+          var MAX = 2000;
+          var w = img.naturalWidth, h = img.naturalHeight;
+          if (!w || !h) { reject(new Error('画像サイズが取得できませんでした')); return; }
+          var sc = Math.min(1, MAX / Math.max(w, h));
+          var cv = document.createElement('canvas');
+          cv.width = Math.round(w * sc);
+          cv.height = Math.round(h * sc);
+          var ctx = cv.getContext('2d');
+          ctx.fillStyle = '#fff';
+          ctx.fillRect(0, 0, cv.width, cv.height);
+          ctx.drawImage(img, 0, 0, cv.width, cv.height);
+          var dataUrl = cv.toDataURL('image/jpeg', 0.85);
+          resolve(dataUrl.slice(dataUrl.indexOf(',') + 1));
+        };
+        img.src = fr.result;
+      };
+      fr.readAsDataURL(file);
+    });
+  }
+
+  /* AIの下書きJSON → プログラム（下書きは提案のみ。数値の検証はここ＋既存の validateShape/自己検査が行う） */
+  function sanitizeAiDraft(raw) {
+    raw = raw && typeof raw === 'object' ? raw : {};
+    var warnings = [];
+    function num(v) { var n = Number(v); return isFinite(n) ? n : null; }
+    var p = newProgram();
+    p.common.progNo = program.common.progNo || 1000;
+    p.common.comment = program.common.comment || '';
+    var sd = num(raw.stockDia);
+    if (sd != null && sd > 0 && sd <= 500) p.common.stockDia = sd;
+    else warnings.push('素材の太さが読み取れませんでした。STEP1で手入力してください。');
+    var sl = num(raw.stockLen);
+    if (sl != null && sl > 0 && sl <= 2000) p.common.stockLen = sl;
+    if (typeof raw.material === 'string' && materialMaster[raw.material.trim().toUpperCase()]) {
+      p.common.material = raw.material.trim().toUpperCase();
+    }
+    var st = num(raw.startDia);
+    if (st != null && st >= 0 && st <= 500) p.startDia = st;
+    else warnings.push('始点X（先端の直径）が読み取れませんでした。手入力してください。');
+    if (raw.tip && (raw.tip.kind === 'c' || raw.tip.kind === 'r') && num(raw.tip.val) > 0) {
+      p.tip = { kind: raw.tip.kind, val: num(raw.tip.val) };
+    }
+    var srcMoves = Array.isArray(raw.moves) ? raw.moves.slice(0, 40) : [];
+    srcMoves.forEach(function (m, i) {
+      m = m && typeof m === 'object' ? m : {};
+      var dia = num(m.dia), len = num(m.len), r = num(m.r);
+      var mv = null;
+      if (m.dir === 'left' && len != null && len > 0) {
+        mv = { dir: 'left', len: len };
+      } else if (m.dir === 'up' && dia != null && dia > 0) {
+        mv = { dir: 'up', dia: dia };
+      } else if ((m.dir === 'upleft' || m.dir === 'downleft') && m.kind !== 'arc' &&
+                 dia != null && dia >= 0 && len != null && len > 0) {
+        mv = { dir: m.dir, kind: 'line', dia: dia, len: len };
+      } else if (m.dir === 'upleft' && m.kind === 'arc' &&
+                 dia != null && dia >= 0 && len != null && len > 0 && r != null && r > 0) {
+        mv = { dir: 'upleft', kind: 'arc', arcDir: m.arcDir === 'concave' ? 'concave' : 'convex', dia: dia, len: len, r: r };
+      }
+      if (!mv) {
+        warnings.push('要素' + (i + 1) + ' は値が不完全なため取り込みませんでした。');
+        return;
+      }
+      if (m.corner && (m.corner.kind === 'c' || m.corner.kind === 'r') && num(m.corner.val) > 0) {
+        mv.corner = { kind: m.corner.kind, val: num(m.corner.val) };
+      }
+      mv.id = 'ai' + i;
+      p.moves.push(mv);
+    });
+    if (raw.hole && raw.hole.on && num(raw.hole.dia) > 0 && num(raw.hole.depth) > 0) {
+      p.extras.hole = { on: true, dia: num(raw.hole.dia), depth: num(raw.hole.depth), useCenter: true };
+    }
+    if (raw.thread && raw.thread.on && num(raw.thread.m) > 0 && num(raw.thread.pitch) > 0 && num(raw.thread.len) > 0) {
+      p.extras.thread = { on: true, m: num(raw.thread.m), pitch: num(raw.thread.pitch), len: num(raw.thread.len) };
+    }
+    if (Array.isArray(raw.grooves)) {
+      raw.grooves.slice(0, 10).forEach(function (g, i) {
+        g = g && typeof g === 'object' ? g : {};
+        if (num(g.posZ) != null && num(g.posZ) >= 0 && num(g.width) > 0 && num(g.dia) > 0) {
+          p.extras.grooves.push({ posZ: num(g.posZ), width: num(g.width), dia: num(g.dia), toolWidth: 3 });
+        } else {
+          warnings.push('溝' + (i + 1) + ' は値が不完全なため取り込みませんでした。');
+        }
+      });
+      p.extras.grooveOn = p.extras.grooves.length > 0;
+    }
+    if (raw.cutoff === true) p.extras.cutoff = { on: true, toolWidth: 3 };
+    var notes = Array.isArray(raw.notes)
+      ? raw.notes.filter(function (n) { return typeof n === 'string' && n; }).slice(0, 12)
+      : [];
+    return { prog: p, warnings: warnings, notes: notes };
+  }
+
+  function aiMoveLabel(mv) {
+    var s;
+    if (mv.dir === 'left') s = '← まっすぐ（区間 ' + mv.len + 'mm）';
+    else if (mv.dir === 'up') s = '↑ 段差 → X' + mv.dia;
+    else if (mv.dir === 'downleft') s = '↙ 食い込み → X' + mv.dia + '（区間 ' + mv.len + 'mm）';
+    else if (mv.kind === 'arc') s = (mv.arcDir === 'concave' ? '↻ 凹円弧' : '↺ 凸円弧') + ' R' + mv.r + ' → X' + mv.dia + '（区間 ' + mv.len + 'mm）';
+    else s = '↖ テーパー → X' + mv.dia + '（区間 ' + mv.len + 'mm）';
+    if (mv.corner) s += '　＋角' + (mv.corner.kind === 'c' ? 'C' : 'R') + mv.corner.val;
+    return s;
+  }
+  function escHtml(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  function showAiDraftPanel(result) {
+    aiDraftResult = result;
+    var p = result.prog;
+    var h = '<div style="border:1.5px solid #b9a06a; border-radius:10px; padding:10px 12px; background:#fff;">';
+    h += '<div style="font-size:13px; font-weight:bold; margin-bottom:6px;">AIが読み取った下書き</div>';
+    h += '<div style="font-size:12px; line-height:1.7;">';
+    h += '素材: φ' + (p.common.stockDia || '—') + ' × ' + (p.common.stockLen || '—') + 'mm（' + p.common.material + '）<br>';
+    h += '始点: X' + (p.startDia === '' ? '—' : p.startDia);
+    if (p.tip.kind !== 'none') h += '　先端の角: ' + (p.tip.kind === 'c' ? 'C' : 'R') + p.tip.val;
+    h += '</div>';
+    if (p.moves.length) {
+      h += '<ol style="margin:6px 0 0; padding-left:20px; font-size:12px; line-height:1.7;">';
+      p.moves.forEach(function (mv) { h += '<li>' + escHtml(aiMoveLabel(mv)) + '</li>'; });
+      h += '</ol>';
+    } else {
+      h += '<div style="font-size:12px; color:#8c1f1f; margin-top:6px;">形状要素は読み取れませんでした。</div>';
+    }
+    var extras = [];
+    if (p.extras.hole.on) extras.push('穴 φ' + p.extras.hole.dia + '×' + p.extras.hole.depth);
+    if (p.extras.thread.on) extras.push('ねじ M' + p.extras.thread.m + '×' + p.extras.thread.pitch + '（長さ' + p.extras.thread.len + '）');
+    p.extras.grooves.forEach(function (g) { extras.push('溝 Z' + g.posZ + '・幅' + g.width + '・φ' + g.dia); });
+    if (p.extras.cutoff.on) extras.push('突切り');
+    if (extras.length) h += '<div style="font-size:12px; margin-top:6px;">追加加工: ' + escHtml(extras.join(' ／ ')) + '</div>';
+    var warnAll = result.notes.map(function (n) { return 'AIの注記: ' + n; }).concat(result.warnings);
+    if (warnAll.length) {
+      h += '<div style="font-size:11.5px; color:#8c5a1f; background:#fdf3e0; border-radius:8px; padding:7px 9px; margin-top:8px; line-height:1.6;">' +
+        warnAll.map(function (w) { return '⚠ ' + escHtml(w); }).join('<br>') + '</div>';
+    }
+    h += '<div style="font-size:11.5px; color:var(--ink-soft); margin-top:8px;">「この形を使う」を押すと今の形状を置き換えます。取り込み後は絵と寸法を確認し、間違いはその場で直せます。</div>';
+    h += '<div class="form-btns" style="margin-top:10px;">';
+    h += '<button type="button" class="cancel-btn" id="btn-ai-cancel">やめる</button>';
+    h += '<button type="button" class="ok-btn" id="btn-ai-apply">この形を使う</button>';
+    h += '</div></div>';
+    var panel = $('ai-read-panel');
+    panel.innerHTML = h;
+    panel.style.display = 'block';
+    $('btn-ai-cancel').addEventListener('click', function () {
+      aiDraftResult = null;
+      panel.style.display = 'none';
+      panel.innerHTML = '';
+    });
+    $('btn-ai-apply').addEventListener('click', function () {
+      if (!aiDraftResult) return;
+      if (program.moves.length && !confirm('今の形状を、AIの下書きで置き換えます。よろしいですか？')) return;
+      program = aiDraftResult.prog;
+      ensureProgDefaults();
+      saveState();
+      aiDraftResult = null;
+      panel.style.display = 'none';
+      panel.innerHTML = '';
+      fillCommonForm();
+      fillShapeForms();
+      renderShape();
+      window.scrollTo(0, 0);
+    });
+  }
+
+  $('btn-ai-read').addEventListener('click', function () { $('ai-read-file').click(); });
+  $('ai-read-file').addEventListener('change', function () {
+    var file = this.files && this.files[0];
+    this.value = '';
+    if (!file) return;
+    var err = $('err-ai-read'), status = $('ai-read-status'), btn = $('btn-ai-read');
+    err.classList.remove('show');
+    $('ai-read-panel').style.display = 'none';
+    status.style.display = 'block';
+    status.textContent = '画像を準備中…';
+    btn.disabled = true;
+    aiCompressImage(file).then(function (base64) {
+      status.textContent = 'AIが図面を読み取り中…（30秒ほどかかります）';
+      return fetch(AI_READ_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: base64, mediaType: 'image/jpeg' }),
+      });
+    }).then(function (res) {
+      return res.json().catch(function () { throw new Error('サーバー応答が読めませんでした（HTTP ' + res.status + '）'); })
+        .then(function (data) {
+          if (!res.ok || !data.ok) throw new Error(data.error || ('読み取りに失敗しました（HTTP ' + res.status + '）'));
+          return data;
+        });
+    }).then(function (data) {
+      status.style.display = 'none';
+      btn.disabled = false;
+      showAiDraftPanel(sanitizeAiDraft(data.draft));
+    }).catch(function (e) {
+      status.style.display = 'none';
+      btn.disabled = false;
+      err.innerHTML = '⚠ ' + escHtml(e.message || '読み取りに失敗しました');
+      err.classList.add('show');
+    });
+  });
+
   /* ==================== S4 プレビュー ==================== */
   var lastGcodeText = '';
   function renderGcodePreview() {
@@ -3262,8 +3702,32 @@
       box.appendChild(note);
     });
     simSetup(lines);
+    // RS232C送信ツール（nc-sender.html）用に最新プログラムを保存
+    try {
+      localStorage.setItem('nc-last-program', JSON.stringify({
+        gcode: lastGcodeText, progNo: program.common.progNo, at: new Date().toISOString(),
+      }));
+    } catch (eLast) {}
+    // 加工時間の概算（NAZCA5 SIM Lathe参考・見積の参考用）
+    var ct = estimateCycleTime(simSegs);
+    $('cycle-time').innerHTML = '⏱ <b>加工時間の目安：約 ' + fmtMinSec(ct.total) + '</b>／1個' +
+      '<span style="color:var(--ink-soft);">（切削 ' + fmtMinSec(ct.cut) + '・早送り等 ' + fmtMinSec(ct.rapid) +
+      '・工具交換 ' + ct.changes + '回 約' + Math.round(ct.tool) + '秒）加工プレビューは工程ごとに色分け表示。見積の参考にどうぞ。</span>';
   }
 
+  $('btn-3dsim').addEventListener('click', function () {
+    // 生成済みGコード＋素材情報を3Dシミュレータ（turning-lab.html）へ受け渡す
+    try {
+      localStorage.setItem('nc-sim-handoff', JSON.stringify({
+        gcode: lastGcodeText,
+        progNo: program.common.progNo,
+        material: program.common.material,
+        stockDia: Number(program.common.stockDia),
+        stockLen: Number(program.common.stockLen),
+      }));
+    } catch (e) {}
+    window.location.href = 'turning-lab.html';
+  });
   $('btn-copy').addEventListener('click', function () {
     var btn = this;
     function done(ok) {
@@ -3283,37 +3747,80 @@
       done(ok);
     }
   });
+  function ncFileForMachine() {
+    // 機械読み込み用: 改行はCRLF・末尾改行あり・ファイル名はO番号.NC
+    var text = lastGcodeText.replace(/\r?\n/g, '\r\n') + '\r\n';
+    var name = 'O' + (program.common.progNo || '0001') + '.NC';
+    return { blob: new Blob([text], { type: 'text/plain' }), name: name, text: text };
+  }
   $('btn-dl').addEventListener('click', function () {
-    var blob = new Blob([lastGcodeText + '\n'], { type: 'text/plain' });
+    var f = ncFileForMachine();
     var a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'O' + (program.common.progNo || '0001') + '.nc';
+    a.href = URL.createObjectURL(f.blob);
+    a.download = f.name;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+  });
+  // タブレットの共有シート経由でUSBメモリ等へ直接保存（対応端末のみ表示）
+  if (navigator.share && navigator.canShare) {
+    try {
+      var probe = new File(['x'], 'probe.txt', { type: 'text/plain' });
+      if (navigator.canShare({ files: [probe] })) $('btn-share').style.display = '';
+    } catch (eShare) {}
+  }
+  $('btn-share').addEventListener('click', function () {
+    var f = ncFileForMachine();
+    var file = new File([f.blob], f.name, { type: 'text/plain' });
+    navigator.share({ files: [file], title: f.name }).catch(function () {});
   });
 
   /* ==================== 加工プレビュー（Gコード再生・バックプロット） ==================== */
   var simLines = [];
   var simSegs = [];
   var simPos = 0, simFrac = 0, simPlaying = false, simRaf = 0, simLastHl = -1, simLastT = 0;
+  var TOOLCOLS = ['#8b7cf6', '#8b7cf6', '#58b6ff', '#f0a35e', '#7bd88f', '#ff8a8a', '#ffd166', '#c792ea', '#7cc7d8'];
+
+  function estimateCycleTime(segs) {
+    // NAZCA5 SIM Lathe参考：加工時間の概算（見積の参考用）
+    var tCut = 0, tRapid = 0, tDwell = 0, maxTool = 0;
+    segs.forEach(function (sg) {
+      maxTool = Math.max(maxTool, sg.toolIdx || 0);
+      if (sg.type === 'dwell') { tDwell += 0.3; return; }
+      var len = Math.hypot((sg.x2 - sg.x1) / 2, sg.z2 - sg.z1);
+      if (sg.type === 'rapid') { tRapid += len / 400 + 0.04; return; }  // 早送り約24m/min＋加減速
+      var dia = Math.max(Math.abs(sg.x2), Math.abs(sg.x1), 2);
+      var n = sg.mode === 'G96' ? Math.min(1000 * (sg.S || 0) / (Math.PI * dia), sg.g50) : (sg.S || 0);
+      tCut += len / Math.max(n * (sg.f || 0.1) / 60, 0.02);
+    });
+    var tTool = maxTool * 4;  // 刃物台旋回 約4秒/回
+    return { cut: tCut, rapid: tRapid + tDwell, tool: tTool, changes: maxTool, total: tCut + tRapid + tDwell + tTool };
+  }
+  function fmtMinSec(sec) {
+    var m = Math.floor(sec / 60), s = Math.round(sec % 60);
+    if (s === 60) { m++; s = 0; }
+    return m > 0 ? m + '分' + (s > 0 ? s + '秒' : '') : s + '秒';
+  }
   var SIM_SPEEDS = [1, 3, 10];
   var simSpeedIdx = 1;
   var simView = null;
 
   function simParse(lines) {
     // 生成したGコードをそのまま動き（直線セグメント列）に変換する
+    // モーダル状態（送り・主軸・工具番号）も持たせ、工程色分け・加工時間計算に使う
     var segs = [];
     var cur = { x: Number(SAFE.homeX), z: Number(SAFE.homeZ) }; // X=直径, Z=符号付き
     var g92 = null;
+    var st = { f: 0.1, S: 0, mode: 'G97', g50: 99999, toolIdx: 0, toolN: 0 };
     function wordOf(s, w) {
       var m = s.match(new RegExp('(?:^|\\s)' + w + '(-?[0-9.]+)'));
       return m ? parseFloat(m[1]) : null;
     }
     function lin(x2, z2, type, li) {
       if (Math.abs(x2 - cur.x) < 1e-9 && Math.abs(z2 - cur.z) < 1e-9) { cur = { x: x2, z: z2 }; return; }
-      segs.push({ x1: cur.x, z1: cur.z, x2: x2, z2: z2, type: type, lineIdx: li });
+      segs.push({ x1: cur.x, z1: cur.z, x2: x2, z2: z2, type: type, lineIdx: li,
+        f: st.f, S: st.S, mode: st.mode, g50: st.g50, toolIdx: st.toolIdx });
       cur = { x: x2, z: z2 };
     }
     function g92cycle(xd, g, li) {
@@ -3325,9 +3832,13 @@
     lines.forEach(function (l, li) {
       var s = l.line.replace(/^N\d+\s+/, ''); // 輪郭のN番号は外して解釈
       if (/^[%(]/.test(s) || /^O\d/.test(s)) return;
-      if (/^T\d/.test(s)) { g92 = null; return; }
+      var fw2 = wordOf(s, 'F'); if (fw2 != null) st.f = fw2;
+      if (/^T\d/.test(s)) { g92 = null; st.toolIdx++; st.toolN++; return; }
+      if (/^G50\b/.test(s)) { var g50v = wordOf(s, 'S'); if (g50v != null) st.g50 = g50v; return; }
+      if (/^G96\b/.test(s)) { st.mode = 'G96'; var s96 = wordOf(s, 'S'); if (s96 != null) st.S = s96; return; }
+      if (/^G97\b/.test(s)) { st.mode = 'G97'; var s97 = wordOf(s, 'S'); if (s97 != null) st.S = s97; return; }
       if (/^G28\b/.test(s)) { lin(Number(SAFE.homeX), Number(SAFE.homeZ), 'rapid', li); g92 = null; return; }
-      if (/^G04\b/.test(s)) { segs.push({ x1: cur.x, z1: cur.z, x2: cur.x, z2: cur.z, type: 'dwell', frames: 20, lineIdx: li }); return; }
+      if (/^G04\b/.test(s)) { segs.push({ x1: cur.x, z1: cur.z, x2: cur.x, z2: cur.z, type: 'dwell', frames: 20, lineIdx: li, f: st.f, S: st.S, mode: st.mode, g50: st.g50, toolIdx: st.toolIdx }); return; }
       if (/^G74\b/.test(s)) {
         // ペックサイクル: 深さまで掘って戻る（簡易表示）
         var z74 = wordOf(s, 'Z');
@@ -3420,7 +3931,9 @@
       s += '<path d="' + dP + '" fill="none" stroke="#fde047" stroke-width="1" stroke-dasharray="4 3" opacity="0.65"/>';
     }
     s += '<path id="sim-trace-rapid" d="" fill="none" stroke="#9a8c74" stroke-width="1" stroke-dasharray="3 3" opacity="0.8"/>';
-    s += '<path id="sim-trace-cut" d="" fill="none" stroke="#8b7cf6" stroke-width="1.6"/>';
+    for (var tci = 0; tci < TOOLCOLS.length; tci++) {
+      s += '<path id="sim-trace-cut-' + tci + '" d="" fill="none" stroke="' + TOOLCOLS[tci] + '" stroke-width="1.6"/>';
+    }
     s += '<g id="sim-tool"><polygon points="0,0 10,-5 10,5" fill="#fde047"/><line x1="10" y1="0" x2="22" y2="-13" stroke="#fde047" stroke-width="3"/></g>';
     s += '<text x="' + (W - 6) + '" y="' + (H - 6) + '" font-size="9" fill="#9a8c74" text-anchor="end">チャック側 ←　→ 端面</text>';
     s += '</svg>';
@@ -3433,21 +3946,25 @@
   }
   function drawSimFrame() {
     if (!simView) return;
-    var dR = '', dC = '';
+    var dR = '', dCs = {};
     function seg2d(sg, t) {
       var pe = simPoint(sg, t);
       return 'M' + simView.sx(sg.z1) + ' ' + simView.sy(sg.x1) + 'L' + simView.sx(pe.z) + ' ' + simView.sy(pe.x);
     }
+    function addCut(sg, t) {
+      var k = (sg.toolIdx || 0) % TOOLCOLS.length;
+      dCs[k] = (dCs[k] || '') + seg2d(sg, t);
+    }
     for (var i = 0; i < Math.min(simPos, simSegs.length); i++) {
       var sg = simSegs[i];
       if (sg.type === 'dwell') continue;
-      if (sg.type === 'rapid') dR += seg2d(sg, 1); else dC += seg2d(sg, 1);
+      if (sg.type === 'rapid') dR += seg2d(sg, 1); else addCut(sg, 1);
     }
     var curP = { x: Number(SAFE.homeX), z: Number(SAFE.homeZ) };
     if (simPos < simSegs.length) {
       var sgc = simSegs[simPos];
       if (sgc.type !== 'dwell' && simFrac > 0) {
-        if (sgc.type === 'rapid') dR += seg2d(sgc, simFrac); else dC += seg2d(sgc, simFrac);
+        if (sgc.type === 'rapid') dR += seg2d(sgc, simFrac); else addCut(sgc, simFrac);
       }
       curP = simPoint(sgc, sgc.type === 'dwell' ? 0 : simFrac);
       simHighlight(sgc.lineIdx);
@@ -3456,10 +3973,12 @@
       curP = { x: lastSg.x2, z: lastSg.z2 };
     }
     var tr = document.getElementById('sim-trace-rapid');
-    var tc = document.getElementById('sim-trace-cut');
     var tl = document.getElementById('sim-tool');
     if (tr) tr.setAttribute('d', dR);
-    if (tc) tc.setAttribute('d', dC);
+    for (var ki = 0; ki < TOOLCOLS.length; ki++) {
+      var tp = document.getElementById('sim-trace-cut-' + ki);
+      if (tp) tp.setAttribute('d', dCs[ki] || '');
+    }
     if (tl) tl.setAttribute('transform', 'translate(' + simView.sx(curP.z) + ',' + simView.sy(curP.x) + ')');
     updateSimStatus();
   }
