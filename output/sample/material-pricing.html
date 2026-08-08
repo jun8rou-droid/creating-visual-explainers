@@ -342,6 +342,23 @@
     .dropzone.drag { border-color: var(--cyan); background: rgba(56,189,248,0.1); color: var(--text); }
     .dropzone strong { color: var(--cyan); display: block; margin-bottom: 8px; font-size: 15px; }
     #ocrProgress { font-size: 13px; color: var(--cyan); margin-top: 12px; min-height: 1.4em; }
+    /* 発注／見積依頼のモード切替（画面の色をガラッと変えて取り違え防止） */
+    .kind-toggle { display: flex; gap: 10px; margin-bottom: 14px; }
+    .kind-toggle button {
+      flex: 1;
+      padding: 14px 10px;
+      font-size: 16px;
+      font-weight: 800;
+      border-radius: 12px;
+      border: 2px solid var(--border);
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+    }
+    .kind-toggle button.on-order { background: rgba(56,189,248,0.16); border-color: var(--cyan); color: var(--cyan); }
+    .kind-toggle button.on-quote { background: rgba(251,191,36,0.16); border-color: var(--amber); color: var(--amber); }
+    #ordFormCard.mode-order { border: 2px solid rgba(56,189,248,0.55); }
+    #ordFormCard.mode-quote { border: 2px solid rgba(251,191,36,0.6); background: rgba(251,191,36,0.05); }
     /* AI読み取りの自信度（項目単位）。編集すると解除される */
     .draft-table input.conf-mid, .draft-table select.conf-mid {
       background: rgba(251, 191, 36, 0.16);
@@ -679,26 +696,19 @@
 
     <!-- 発注・見積依頼 -->
     <div id="p-order" class="panel active">
-      <div class="card">
-        <h2>新しい発注・見積依頼</h2>
-        <p class="stat">
-          送信すると取引先へ<strong>メールで自動通知</strong>されます（専用URL付き）。取引先はURLを開いて
-          <strong>単価（発注は＋納入予定日）</strong>を入力するだけ。回答された単価は蓄積データへ自動登録されます。
-        </p>
-        <div class="grid2">
-          <div class="row">
-            <label>取引先</label>
-            <div style="display:flex;gap:8px">
-              <select id="ordSupplier" style="flex:1"></select>
-              <button type="button" class="btn btn-secondary" id="btnOrdNewSup" style="margin:0;white-space:nowrap;padding:10px 12px">＋登録</button>
-            </div>
-          </div>
-          <div class="row">
-            <label>種別</label>
-            <select id="ordKind">
-              <option value="order">発注（単価＋納入予定日を回答してもらう）</option>
-              <option value="quote">見積依頼（単価だけ回答してもらう）</option>
-            </select>
+      <div class="card" id="ordFormCard">
+        <div class="kind-toggle">
+          <button type="button" id="kindOrderBtn">📦 発注</button>
+          <button type="button" id="kindQuoteBtn">💰 見積依頼</button>
+        </div>
+        <input type="hidden" id="ordKind" value="order">
+        <h2 id="ordModeTitle">📦 発注をつくる</h2>
+        <p class="stat" id="ordModeDesc"></p>
+        <div class="row" style="max-width:520px">
+          <label>取引先</label>
+          <div style="display:flex;gap:8px">
+            <select id="ordSupplier" style="flex:1"></select>
+            <button type="button" class="btn btn-secondary" id="btnOrdNewSup" style="margin:0;white-space:nowrap;padding:10px 12px">＋登録</button>
           </div>
         </div>
         <div id="ordNewSupForm" style="display:none;border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:12px">
@@ -3402,6 +3412,30 @@
       el.style.color = isErr ? '#f87171' : '#34d399';
     }
 
+    /* v44: 発注／見積依頼をモード切替にして見た目をガラッと変える（取り違え防止） */
+    function setOrdKind(kind) {
+      document.getElementById('ordKind').value = kind;
+      var isOrder = kind === 'order';
+      var card = document.getElementById('ordFormCard');
+      card.classList.toggle('mode-order', isOrder);
+      card.classList.toggle('mode-quote', !isOrder);
+      document.getElementById('kindOrderBtn').classList.toggle('on-order', isOrder);
+      document.getElementById('kindQuoteBtn').classList.toggle('on-quote', !isOrder);
+      var t = document.getElementById('ordModeTitle');
+      t.textContent = isOrder ? '📦 発注をつくる' : '💰 見積依頼をつくる';
+      t.style.color = isOrder ? 'var(--cyan)' : 'var(--amber)';
+      document.getElementById('ordModeDesc').textContent = isOrder
+        ? '送信すると取引先へ注文メールが届きます（専用URL付き）。取引先は単価と納入予定日を入れるだけ。単価は蓄積データへ自動登録されます。'
+        : '送信すると取引先へ見積依頼メールが届きます（専用URL付き）。取引先は単価を入れるだけ。回答された単価は蓄積データへ自動登録されます。';
+      var send = document.getElementById('btnOrdSend');
+      send.textContent = isOrder ? '発注内容を確認' : '見積依頼の内容を確認';
+      send.style.background = isOrder ? '' : '#d97706';
+      send.style.color = isOrder ? '' : '#fff';
+    }
+    document.getElementById('kindOrderBtn').addEventListener('click', function () { setOrdKind('order'); });
+    document.getElementById('kindQuoteBtn').addEventListener('click', function () { setOrdKind('quote'); });
+    setOrdKind('order');
+
     /* 全角数字・桁区切りカンマ・空白を半角に寄せる（テンキー以外の入力ミス対策） */
     function ordToHalf(s) {
       return String(s || '')
@@ -3662,6 +3696,10 @@
           ? '取引先には「単価と納入予定日」の入力をお願いするメールが届きます。'
           : '取引先には「単価」の入力をお願いするメールが届きます。') + '</p>';
       var card = document.getElementById('ordConfirmCard');
+      card.style.borderColor = p.kind === 'order' ? 'var(--cyan)' : 'var(--amber)';
+      var csend = document.getElementById('btnOrdConfirmSend');
+      csend.style.background = p.kind === 'order' ? '' : '#d97706';
+      csend.style.color = p.kind === 'order' ? '' : '#fff';
       card.style.display = 'block';
       card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
