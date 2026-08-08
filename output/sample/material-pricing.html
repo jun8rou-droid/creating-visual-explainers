@@ -478,8 +478,9 @@
       </div>
 
       <div class="supplier-est-card" id="supplierEstCard">
-        <div class="supplier-est-title">仕入先別 予想金額（税別・類似判定の許容内データ）</div>
+        <div class="supplier-est-title">仕入先別 予想金額と最安予想（税別）</div>
         <p class="supplier-est-note" id="supplierEstNote"></p>
+        <div id="cheapestBox" style="display:none;margin:10px 0;padding:12px 14px;border:1px solid rgba(52,211,153,0.45);background:rgba(52,211,153,0.08);border-radius:10px;font-size:15px;line-height:1.6"></div>
         <div style="overflow-x:auto;">
           <table class="sup-est-table">
             <thead>
@@ -1899,16 +1900,44 @@
   }
 
   /** 許容内データを仕入先でまとめ、各仕入先の円/kg中央値と予想金額（kg×中央値） */
-  function supplierBreakdownEstimates(tight, kg) {
+  /**
+   * 仕入先別の予想金額（安い順）。
+   * 許容内データがある仕入先は中央値、無い仕入先も同材質の近いサイズ上位5件から
+   * 推定して比較に加える（approx=true・「近いサイズから推定」表示）
+   */
+  function supplierBreakdownEstimates(tight, kg, allRecords, matKey, d0, l0) {
     var map = {};
     tight.forEach(function (r) {
       var raw = r.supplier != null ? String(r.supplier).trim() : '';
       var key = raw ? raw : '\u0000';
       if (!map[key]) {
-        map[key] = { displayName: raw || '（仕入先名なし）', prices: [] };
+        map[key] = { displayName: raw || '（仕入先名なし）', prices: [], approx: false };
       }
       map[key].prices.push(r.yenPerKg);
     });
+    if (Array.isArray(allRecords) && !isNaN(d0) && !isNaN(l0)) {
+      var bySup = {};
+      allRecords.forEach(function (r) {
+        if (!r || r.materialKey !== matKey) return;
+        var raw = r.supplier != null ? String(r.supplier).trim() : '';
+        var key = raw ? raw : '\u0000';
+        if (map[key]) return; /* 許容内データがある仕入先はそちらを優先 */
+        (bySup[key] = bySup[key] || []).push(r);
+      });
+      Object.keys(bySup).forEach(function (k) {
+        var prices = bySup[k]
+          .map(function (r) { return { r: r, score: similarityScore(d0, l0, r) }; })
+          .sort(function (a, b) { return a.score - b.score; })
+          .slice(0, 5)
+          .map(function (x) { return x.r.yenPerKg; });
+        if (!prices.length) return;
+        map[k] = {
+          displayName: k === '\u0000' ? '（仕入先名なし）' : k,
+          prices: prices,
+          approx: true
+        };
+      });
+    }
     var rows = Object.keys(map).map(function (k) {
       var g = map[k];
       var yk = median(g.prices);
@@ -1918,11 +1947,14 @@
         name: g.displayName,
         yenKg: yk,
         count: g.prices.length,
-        totalYen: totalYen
+        totalYen: totalYen,
+        approx: g.approx
       };
     });
     rows.sort(function (a, b) {
-      return a.name.localeCompare(b.name, 'ja');
+      var at = isNaN(a.totalYen) ? Infinity : a.totalYen;
+      var bt = isNaN(b.totalYen) ? Infinity : b.totalYen;
+      return at - bt;
     });
     return rows;
   }
@@ -2067,16 +2099,50 @@
       !isNaN(kg) &&
       kg > 0
     ) {
-      var br = supplierBreakdownEstimates(tight, kg);
+      var br = supplierBreakdownEstimates(tight, kg, records, matKey, d0, l0);
       estNote.textContent =
-        '入力の径・長さ・本数・材質から算出した重量 ' +
-        kg.toFixed(3) +
-        ' kg に、仕入先ごとに「許容内の過去明細」の円/kg中央値を掛けた税別目安です。※過去請求ベースの参考値です。';
-      br.forEach(function (row) {
+        '重量 ' + kg.toFixed(3) +
+        ' kg × 仕入先ごとの円/kg（許容内データの中央値。無い仕入先は同材質の近いサイズから推定）の税別目安。安い順に並んでいます。※過去請求ベースの参考値です。';
+      var cheapBox = document.getElementById('cheapestBox');
+      var best = br.length && !isNaN(br[0].totalYen) ? br[0] : null;
+      if (cheapBox) {
+        if (best) {
+          var second = br.length > 1 && !isNaN(br[1].totalYen) ? br[1] : null;
+          cheapBox.style.display = 'block';
+          cheapBox.innerHTML =
+            '💡 <strong>最安予想: ' + escapeHtml(best.name) + '</strong>　約 <strong style="color:var(--green);font-size:18px">' +
+            best.totalYen.toLocaleString('ja-JP') + ' 円</strong>（' +
+            Math.round(best.yenKg).toLocaleString('ja-JP') + ' 円/kg' +
+            (best.approx ? '・近いサイズから推定' : '・過去 ' + best.count + ' 件') + '）' +
+            (second
+              ? '<br><span style="font-size:12px;color:var(--muted)">2位 ' + escapeHtml(second.name) + ' 約' +
+                second.totalYen.toLocaleString('ja-JP') + ' 円 — 差額 約' +
+                (second.totalYen - best.totalYen).toLocaleString('ja-JP') + ' 円</span>'
+              : '');
+          if (best.approx) {
+            var exact = null;
+            for (var bi = 0; bi < br.length; bi++) {
+              if (!br[bi].approx && !isNaN(br[bi].totalYen)) { exact = br[bi]; break; }
+            }
+            if (exact) {
+              cheapBox.innerHTML +=
+                '<br><span style="font-size:12px;color:var(--amber)">※' + escapeHtml(best.name) +
+                ' は離れたサイズの実績からの推定です。同サイズ実績での最安は ' + escapeHtml(exact.name) +
+                ' 約' + exact.totalYen.toLocaleString('ja-JP') + ' 円。</span>';
+            }
+          }
+        } else {
+          cheapBox.style.display = 'none';
+        }
+      }
+      br.forEach(function (row, idx) {
         var tr = document.createElement('tr');
+        var isBest = best && idx === 0;
         tr.innerHTML =
           '<td>' +
+          (isBest ? '👑 ' : '') +
           escapeHtml(row.name) +
+          (row.approx ? ' <span class="badge">近いサイズから推定</span>' : '') +
           '</td>' +
           '<td class="num">' +
           row.yenKg.toLocaleString('ja-JP') +
@@ -2087,6 +2153,7 @@
           '<td class="num">' +
           row.count +
           '</td>';
+        if (isBest) tr.style.background = 'rgba(52,211,153,0.10)';
         tr.style.cursor = 'pointer';
         tr.title = 'クリックでこの仕入先の円/kgを採用欄にコピー';
         tr.addEventListener('click', function () {
@@ -2097,6 +2164,8 @@
         estBody.appendChild(tr);
       });
     } else {
+      var cheapBoxHide = document.getElementById('cheapestBox');
+      if (cheapBoxHide) cheapBoxHide.style.display = 'none';
       estNote.textContent =
         records.length === 0
           ? 'データを蓄積し、径・長さを入力すると仕入先別の予想が表示されます。'
