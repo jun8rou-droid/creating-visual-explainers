@@ -150,7 +150,7 @@
       <div class="card hidden" id="ordersCard">
         <div style="font-weight:700;margin-bottom:4px">📋 発注・見積のご依頼</div>
         <div class="sub" style="margin-bottom:10px">
-          <span class="kind-badge order" style="font-size:11px">発注</span>単価と納入予定日を入れて「入力完了」
+          <span class="kind-badge order" style="font-size:11px">発注</span>ご注文の内容
           ／ <span class="kind-badge quote" style="font-size:11px">見積依頼</span>単価を入れて「見積を送信」
         </div>
         <div id="ordersList"></div>
@@ -377,12 +377,10 @@
       ? ' — 手配済み' + (o.deliveryDate ? '・納入予定 ' + o.deliveryDate : '')
       : ' — 見積済み';
     head.appendChild(document.createTextNode('（' + o.created + '）' + (isOpen ? '' : doneText)));
-    if (isOpen) {
+    if (isOpen && !isOrder) {
       var ask = document.createElement('span');
       ask.style.cssText = 'display:block;color:var(--red);font-size:14px;margin:4px 0 0;font-weight:600';
-      ask.textContent = isOrder
-        ? '単価と納入予定日のご入力をお願いします'
-        : '単価のご記入をお願いします';
+      ask.textContent = '単価のご記入をお願いします';
       head.appendChild(ask);
     }
     box.appendChild(head);
